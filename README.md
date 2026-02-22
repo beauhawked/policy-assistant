@@ -4,7 +4,7 @@ This Next.js app now supports two workflows:
 
 1. `Policy Assistant` (primary flow)
 - Upload a district policy `.csv` file
-- Store policies in a local SQLite database
+- Store policies in a Postgres database
 - Ask scenario-based questions and receive policy-grounded guidance using OpenAI
 
 2. `Policy Scraper` (existing flow)
@@ -28,11 +28,14 @@ cp .env.example .env.local
 Set at least:
 
 - `OPENAI_API_KEY=<your-openai-api-key>`
+- `POLICY_ASSISTANT_DATABASE_URL=<postgres-connection-string>`
 
 Optional:
 
-- `POLICY_ASSISTANT_DB_PATH=./data/policy-assistant.sqlite`
 - `POLICY_ASSISTANT_MODEL=gpt-4.1-mini`
+
+On Vercel with Vercel Postgres, `POSTGRES_URL` is provided automatically, so
+`POLICY_ASSISTANT_DATABASE_URL` can be omitted.
 
 3. Start development server:
 

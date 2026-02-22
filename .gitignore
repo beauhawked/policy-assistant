@@ -6,6 +6,7 @@ out
 .env.*.local
 .DS_Store
 data/cache
+data/policy-assistant.sqlite*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -13,5 +14,3 @@ coverage
 *.tsbuildinfo
 
 .cache
-
-data/policy-assistant.sqlite*

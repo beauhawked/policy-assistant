@@ -1,8 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
-import path from "node:path";
 
-import BetterSqlite3, { type Database } from "better-sqlite3";
+import { Pool, type PoolClient } from "pg";
 
 import type { NormalizedPolicyRow, PolicyDataset, StoredPolicy } from "@/lib/policy-assistant/types";
 
@@ -17,12 +15,12 @@ interface RawPolicyDataset {
   id: string;
   district_name: string;
   filename: string;
-  uploaded_at: string;
-  policy_count: number;
+  uploaded_at: Date | string;
+  policy_count: number | string;
 }
 
 interface RawStoredPolicy {
-  id: number;
+  id: number | string;
   dataset_id: string;
   policy_section: string;
   policy_code: string;
@@ -31,75 +29,84 @@ interface RawStoredPolicy {
   policy_status: string;
   policy_title: string;
   policy_wording: string;
-  source_row_index: number;
+  source_row_index: number | string;
 }
 
-let database: Database | null = null;
+let pool: Pool | null = null;
+let schemaReadyPromise: Promise<void> | null = null;
 
-export function createPolicyDataset(input: CreatePolicyDatasetInput): PolicyDataset {
-  const db = getDatabase();
+export async function createPolicyDataset(input: CreatePolicyDatasetInput): Promise<PolicyDataset> {
+  const client = await getClient();
+  await ensureSchema();
 
   const datasetId = randomUUID();
   const uploadedAt = new Date().toISOString();
   const normalizedDistrictName = input.districtName.trim() || "Unnamed District";
 
-  const insertDataset = db.prepare(`
-    INSERT INTO policy_datasets (
-      id,
-      district_name,
-      filename,
-      uploaded_at,
-      policy_count,
-      source_headers
-    )
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
+  try {
+    await client.query("BEGIN");
 
-  const insertPolicy = db.prepare(`
-    INSERT INTO policies (
-      dataset_id,
-      policy_section,
-      policy_code,
-      adopted_date,
-      revised_date,
-      policy_status,
-      policy_title,
-      policy_wording,
-      search_text,
-      source_row_index
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const transaction = db.transaction(() => {
-    insertDataset.run(
-      datasetId,
-      normalizedDistrictName,
-      input.filename,
-      uploadedAt,
-      input.rows.length,
-      JSON.stringify(input.headers),
+    await client.query(
+      `
+      INSERT INTO policy_datasets (
+        id,
+        district_name,
+        filename,
+        uploaded_at,
+        policy_count,
+        source_headers
+      )
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+      `,
+      [
+        datasetId,
+        normalizedDistrictName,
+        input.filename,
+        uploadedAt,
+        input.rows.length,
+        JSON.stringify(input.headers),
+      ],
     );
 
     for (const row of input.rows) {
-      const searchText = buildSearchText(row);
-
-      insertPolicy.run(
-        datasetId,
-        row.policySection,
-        row.policyCode,
-        row.adoptedDate,
-        row.revisedDate,
-        row.policyStatus,
-        row.policyTitle,
-        row.policyWording,
-        searchText,
-        row.sourceRowIndex,
+      await client.query(
+        `
+        INSERT INTO policies (
+          dataset_id,
+          policy_section,
+          policy_code,
+          adopted_date,
+          revised_date,
+          policy_status,
+          policy_title,
+          policy_wording,
+          search_text,
+          source_row_index
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `,
+        [
+          datasetId,
+          row.policySection,
+          row.policyCode,
+          row.adoptedDate,
+          row.revisedDate,
+          row.policyStatus,
+          row.policyTitle,
+          row.policyWording,
+          buildSearchText(row),
+          row.sourceRowIndex,
+        ],
       );
     }
-  });
 
-  transaction();
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 
   return {
     id: datasetId,
@@ -110,43 +117,53 @@ export function createPolicyDataset(input: CreatePolicyDatasetInput): PolicyData
   };
 }
 
-export function getPolicyDataset(datasetId: string): PolicyDataset | null {
-  const db = getDatabase();
-  const statement = db.prepare(`
+export async function getPolicyDataset(datasetId: string): Promise<PolicyDataset | null> {
+  await ensureSchema();
+
+  const queryResult = await getPool().query<RawPolicyDataset>(
+    `
     SELECT id, district_name, filename, uploaded_at, policy_count
     FROM policy_datasets
-    WHERE id = ?
+    WHERE id = $1
     LIMIT 1
-  `);
-  const row = statement.get(datasetId) as RawPolicyDataset | undefined;
+    `,
+    [datasetId],
+  );
+
+  const row = queryResult.rows[0];
   return row ? mapDataset(row) : null;
 }
 
-export function listPolicyDatasets(limit = 20): PolicyDataset[] {
-  const db = getDatabase();
+export async function listPolicyDatasets(limit = 20): Promise<PolicyDataset[]> {
+  await ensureSchema();
+
   const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
-  const statement = db.prepare(`
+  const queryResult = await getPool().query<RawPolicyDataset>(
+    `
     SELECT id, district_name, filename, uploaded_at, policy_count
     FROM policy_datasets
     ORDER BY uploaded_at DESC
-    LIMIT ?
-  `);
-  const rows = statement.all(safeLimit) as RawPolicyDataset[];
-  return rows.map(mapDataset);
+    LIMIT $1
+    `,
+    [safeLimit],
+  );
+
+  return queryResult.rows.map(mapDataset);
 }
 
-export function searchDatasetPolicies(
+export async function searchDatasetPolicies(
   datasetId: string,
   terms: string[],
   options?: { limit?: number },
-): StoredPolicy[] {
-  const db = getDatabase();
-  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 500) : 300;
+): Promise<StoredPolicy[]> {
+  await ensureSchema();
 
-  let rows: RawStoredPolicy[] = [];
+  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 500) : 300;
+  const poolInstance = getPool();
 
   if (terms.length === 0) {
-    const statement = db.prepare(`
+    const result = await poolInstance.query<RawStoredPolicy>(
+      `
       SELECT
         id,
         dataset_id,
@@ -159,109 +176,148 @@ export function searchDatasetPolicies(
         policy_wording,
         source_row_index
       FROM policies
-      WHERE dataset_id = ?
+      WHERE dataset_id = $1
       ORDER BY id ASC
-      LIMIT ?
-    `);
-    rows = statement.all(datasetId, limit) as RawStoredPolicy[];
-  } else {
-    const conditions = terms.map(() => "search_text LIKE ?").join(" OR ");
-    const statement = db.prepare(`
-      SELECT
-        id,
-        dataset_id,
-        policy_section,
-        policy_code,
-        adopted_date,
-        revised_date,
-        policy_status,
-        policy_title,
-        policy_wording,
-        source_row_index
-      FROM policies
-      WHERE dataset_id = ?
-      AND (${conditions})
-      ORDER BY id ASC
-      LIMIT ?
-    `);
-    const patterns = terms.map((term) => `%${escapeLike(term.toLowerCase())}%`);
-    rows = statement.all(datasetId, ...patterns, limit) as RawStoredPolicy[];
+      LIMIT $2
+      `,
+      [datasetId, limit],
+    );
+    return result.rows.map(mapStoredPolicy);
+  }
 
-    if (rows.length === 0) {
-      const fallbackStatement = db.prepare(`
-        SELECT
-          id,
-          dataset_id,
-          policy_section,
-          policy_code,
-          adopted_date,
-          revised_date,
-          policy_status,
-          policy_title,
-          policy_wording,
-          source_row_index
-        FROM policies
-        WHERE dataset_id = ?
-        ORDER BY id ASC
-        LIMIT ?
+  const patterns = terms.map((term) => `%${escapeLike(term.toLowerCase())}%`);
+  const whereClauses = patterns.map(
+    (_value, index) => `search_text ILIKE $${index + 2} ESCAPE '\\'`,
+  );
+  const params = [datasetId, ...patterns, limit];
+  const limitPlaceholder = `$${params.length}`;
+
+  const filteredResult = await poolInstance.query<RawStoredPolicy>(
+    `
+    SELECT
+      id,
+      dataset_id,
+      policy_section,
+      policy_code,
+      adopted_date,
+      revised_date,
+      policy_status,
+      policy_title,
+      policy_wording,
+      source_row_index
+    FROM policies
+    WHERE dataset_id = $1
+    AND (${whereClauses.join(" OR ")})
+    ORDER BY id ASC
+    LIMIT ${limitPlaceholder}
+    `,
+    params,
+  );
+
+  if (filteredResult.rows.length > 0) {
+    return filteredResult.rows.map(mapStoredPolicy);
+  }
+
+  const fallbackResult = await poolInstance.query<RawStoredPolicy>(
+    `
+    SELECT
+      id,
+      dataset_id,
+      policy_section,
+      policy_code,
+      adopted_date,
+      revised_date,
+      policy_status,
+      policy_title,
+      policy_wording,
+      source_row_index
+    FROM policies
+    WHERE dataset_id = $1
+    ORDER BY id ASC
+    LIMIT $2
+    `,
+    [datasetId, limit],
+  );
+
+  return fallbackResult.rows.map(mapStoredPolicy);
+}
+
+async function ensureSchema(): Promise<void> {
+  if (schemaReadyPromise) {
+    return schemaReadyPromise;
+  }
+
+  schemaReadyPromise = (async () => {
+    const client = await getClient();
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS policy_datasets (
+          id TEXT PRIMARY KEY,
+          district_name TEXT NOT NULL,
+          filename TEXT NOT NULL,
+          uploaded_at TIMESTAMPTZ NOT NULL,
+          policy_count INTEGER NOT NULL DEFAULT 0,
+          source_headers JSONB NOT NULL DEFAULT '[]'::jsonb
+        );
       `);
-      rows = fallbackStatement.all(datasetId, limit) as RawStoredPolicy[];
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS policies (
+          id SERIAL PRIMARY KEY,
+          dataset_id TEXT NOT NULL REFERENCES policy_datasets(id) ON DELETE CASCADE,
+          policy_section TEXT NOT NULL DEFAULT '',
+          policy_code TEXT NOT NULL DEFAULT '',
+          adopted_date TEXT NOT NULL DEFAULT '',
+          revised_date TEXT NOT NULL DEFAULT '',
+          policy_status TEXT NOT NULL DEFAULT '',
+          policy_title TEXT NOT NULL DEFAULT '',
+          policy_wording TEXT NOT NULL DEFAULT '',
+          search_text TEXT NOT NULL DEFAULT '',
+          source_row_index INTEGER NOT NULL DEFAULT 0
+        );
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_policies_dataset_id ON policies(dataset_id);
+      `);
+    } finally {
+      client.release();
     }
-  }
+  })();
 
-  return rows.map(mapStoredPolicy);
+  return schemaReadyPromise;
 }
 
-function getDatabase(): Database {
-  if (database) {
-    return database;
+function getPool(): Pool {
+  if (pool) {
+    return pool;
   }
 
-  const dbPath = getPolicyDatabasePath();
-  mkdirSync(path.dirname(dbPath), { recursive: true });
+  const connectionString = resolveDatabaseUrl();
+  pool = new Pool({
+    connectionString,
+  });
 
-  const db = new BetterSqlite3(dbPath);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS policy_datasets (
-      id TEXT PRIMARY KEY,
-      district_name TEXT NOT NULL,
-      filename TEXT NOT NULL,
-      uploaded_at TEXT NOT NULL,
-      policy_count INTEGER NOT NULL DEFAULT 0,
-      source_headers TEXT NOT NULL DEFAULT '[]'
-    );
-
-    CREATE TABLE IF NOT EXISTS policies (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      dataset_id TEXT NOT NULL,
-      policy_section TEXT NOT NULL DEFAULT '',
-      policy_code TEXT NOT NULL DEFAULT '',
-      adopted_date TEXT NOT NULL DEFAULT '',
-      revised_date TEXT NOT NULL DEFAULT '',
-      policy_status TEXT NOT NULL DEFAULT '',
-      policy_title TEXT NOT NULL DEFAULT '',
-      policy_wording TEXT NOT NULL DEFAULT '',
-      search_text TEXT NOT NULL DEFAULT '',
-      source_row_index INTEGER NOT NULL DEFAULT 0,
-      FOREIGN KEY(dataset_id) REFERENCES policy_datasets(id) ON DELETE CASCADE
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_policies_dataset_id ON policies(dataset_id);
-  `);
-
-  database = db;
-  return db;
+  return pool;
 }
 
-function getPolicyDatabasePath(): string {
-  const configured = process.env.POLICY_ASSISTANT_DB_PATH?.trim();
-  if (configured) {
-    return path.isAbsolute(configured) ? configured : path.resolve(process.cwd(), configured);
+async function getClient(): Promise<PoolClient> {
+  return getPool().connect();
+}
+
+function resolveDatabaseUrl(): string {
+  const url =
+    process.env.POLICY_ASSISTANT_DATABASE_URL?.trim() ||
+    process.env.POSTGRES_URL?.trim() ||
+    process.env.DATABASE_URL?.trim();
+
+  if (!url) {
+    throw new Error(
+      "Postgres database URL is missing. Set POLICY_ASSISTANT_DATABASE_URL (or POSTGRES_URL in Vercel).",
+    );
   }
-  return path.join(process.cwd(), "data", "policy-assistant.sqlite");
+
+  return url;
 }
 
 function buildSearchText(row: NormalizedPolicyRow): string {
@@ -279,7 +335,7 @@ function buildSearchText(row: NormalizedPolicyRow): string {
 }
 
 function escapeLike(value: string): string {
-  return value.replaceAll("%", "\\%").replaceAll("_", "\\_");
+  return value.replace(/[\\%_]/g, "\\$&");
 }
 
 function mapDataset(row: RawPolicyDataset): PolicyDataset {
@@ -287,14 +343,14 @@ function mapDataset(row: RawPolicyDataset): PolicyDataset {
     id: row.id,
     districtName: row.district_name,
     filename: row.filename,
-    uploadedAt: row.uploaded_at,
-    policyCount: row.policy_count,
+    uploadedAt: formatTimestamp(row.uploaded_at),
+    policyCount: Number(row.policy_count),
   };
 }
 
 function mapStoredPolicy(row: RawStoredPolicy): StoredPolicy {
   return {
-    id: row.id,
+    id: Number(row.id),
     datasetId: row.dataset_id,
     policySection: row.policy_section,
     policyCode: row.policy_code,
@@ -303,6 +359,18 @@ function mapStoredPolicy(row: RawStoredPolicy): StoredPolicy {
     policyStatus: row.policy_status,
     policyTitle: row.policy_title,
     policyWording: row.policy_wording,
-    sourceRowIndex: row.source_row_index,
+    sourceRowIndex: Number(row.source_row_index),
   };
+}
+
+function formatTimestamp(value: Date | string): string {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return date.toISOString();
 }
