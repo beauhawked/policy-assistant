@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getAuthenticatedUserFromRequest } from "@/lib/policy-assistant/auth";
+import { getAuthenticatedUserFromRequest, isUserEmailVerified } from "@/lib/policy-assistant/auth";
 import { listPolicyConversations } from "@/lib/policy-assistant/db";
+import { rateLimitExceededResponse } from "@/lib/policy-assistant/http";
+import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +13,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const user = await getAuthenticatedUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+    }
+    if (!isUserEmailVerified(user)) {
+      return NextResponse.json(
+        { error: "Please verify your email before accessing conversation history." },
+        { status: 403 },
+      );
+    }
+
+    const rateLimit = await checkRateLimit({
+      scope: "policy_conversations_list",
+      identifier: buildRateLimitIdentifier(request, { userId: user.id, email: user.email }),
+      maxRequests: 60,
+      windowSeconds: 60,
+    });
+
+    if (!rateLimit.allowed) {
+      return rateLimitExceededResponse(
+        rateLimit.retryAfterSeconds,
+        "Too many conversation history requests. Please wait and try again.",
+      );
     }
 
     const url = new URL(request.url);

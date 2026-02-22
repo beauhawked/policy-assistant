@@ -21,6 +21,7 @@ export interface AuthUser {
   id: string;
   email: string;
   createdAt: string;
+  emailVerifiedAt: string | null;
 }
 
 export type ConversationRole = "user" | "assistant";

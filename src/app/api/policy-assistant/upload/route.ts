@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getAuthenticatedUserFromRequest } from "@/lib/policy-assistant/auth";
+import { getAuthenticatedUserFromRequest, isUserEmailVerified } from "@/lib/policy-assistant/auth";
 import { parsePolicyCsvBuffer } from "@/lib/policy-assistant/csv";
 import { createPolicyDataset, listPolicyDatasets } from "@/lib/policy-assistant/db";
+import { rateLimitExceededResponse } from "@/lib/policy-assistant/http";
+import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +16,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
   }
+  if (!isUserEmailVerified(user)) {
+    return NextResponse.json(
+      { error: "Please verify your email before accessing datasets." },
+      { status: 403 },
+    );
+  }
 
   const datasets = await listPolicyDatasets(user.id, 30);
   return NextResponse.json({ datasets }, { status: 200 });
@@ -24,6 +32,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const user = await getAuthenticatedUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+    }
+    if (!isUserEmailVerified(user)) {
+      return NextResponse.json(
+        { error: "Please verify your email before uploading policies." },
+        { status: 403 },
+      );
+    }
+
+    const rateLimit = await checkRateLimit({
+      scope: "policy_upload",
+      identifier: buildRateLimitIdentifier(request, { userId: user.id, email: user.email }),
+      maxRequests: 12,
+      windowSeconds: 10 * 60,
+    });
+
+    if (!rateLimit.allowed) {
+      return rateLimitExceededResponse(
+        rateLimit.retryAfterSeconds,
+        "Too many upload attempts. Please wait and try again.",
+      );
     }
 
     const form = await request.formData();

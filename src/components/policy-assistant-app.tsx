@@ -20,6 +20,7 @@ interface AuthUser {
   id: string;
   email: string;
   createdAt: string;
+  emailVerifiedAt: string | null;
 }
 
 interface ConversationSummary {
@@ -39,16 +40,19 @@ interface ConversationMessage {
   createdAt: string;
 }
 
-type AuthMode = "login" | "signup";
+type AuthMode = "login" | "signup" | "forgot" | "reset";
 
 export function PolicyAssistantApp() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
+  const [authInfo, setAuthInfo] = useState("");
+  const [resetToken, setResetToken] = useState("");
 
   const [districtName, setDistrictName] = useState("West Lafayette Community School Corporation");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -77,7 +81,7 @@ export function PolicyAssistantApp() {
   );
 
   useEffect(() => {
-    void loadSession();
+    void bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -88,7 +92,7 @@ export function PolicyAssistantApp() {
   }, [datasets, selectedDatasetId]);
 
   useEffect(() => {
-    if (!authUser || !selectedDatasetId) {
+    if (!authUser?.emailVerifiedAt || !selectedDatasetId) {
       setConversations([]);
       setSelectedConversationId("");
       setMessages([]);
@@ -99,20 +103,91 @@ export function PolicyAssistantApp() {
     setSelectedConversationId("");
     void loadConversations(selectedDatasetId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser, selectedDatasetId]);
+  }, [authUser?.emailVerifiedAt, selectedDatasetId]);
 
   useEffect(() => {
-    if (!authUser || !selectedConversationId) {
+    if (!authUser?.emailVerifiedAt || !selectedConversationId) {
       return;
     }
 
     void loadConversation(selectedConversationId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser, selectedConversationId]);
+  }, [authUser?.emailVerifiedAt, selectedConversationId]);
+
+  async function bootstrap(): Promise<void> {
+    setIsAuthLoading(true);
+    setAuthError("");
+    setAuthInfo("");
+
+    const params = new URLSearchParams(window.location.search);
+    const verifyToken = params.get("verifyToken")?.trim() ?? "";
+    const resetTokenFromUrl = params.get("resetToken")?.trim() ?? "";
+
+    if (verifyToken) {
+      try {
+        await handleEmailVerificationToken(verifyToken);
+      } catch (error) {
+        setAuthError(error instanceof Error ? error.message : "Email verification failed.");
+      }
+    }
+
+    if (resetTokenFromUrl) {
+      setResetToken(resetTokenFromUrl);
+      setAuthMode("reset");
+      setAuthInfo("Enter a new password to complete your password reset.");
+    }
+
+    if (verifyToken || resetTokenFromUrl) {
+      clearAuthQueryParams();
+    }
+
+    try {
+      await loadSession();
+    } finally {
+      setIsAuthLoading(false);
+    }
+  }
+
+  async function handleEmailVerificationToken(token: string): Promise<void> {
+    const response = await fetch("/api/policy-assistant/auth/verify-email", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      user?: AuthUser;
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(payload.error ?? "Email verification failed.");
+    }
+
+    if (payload.user) {
+      setAuthUser(payload.user);
+      setAuthInfo(payload.message ?? "Email verified successfully.");
+      if (payload.user.emailVerifiedAt) {
+        await loadDatasets();
+      }
+    }
+  }
 
   const handleAuthSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     setAuthError("");
+    setAuthInfo("");
+
+    if (authMode === "forgot") {
+      await handlePasswordResetRequest();
+      return;
+    }
+
+    if (authMode === "reset") {
+      await handlePasswordResetConfirm();
+      return;
+    }
 
     const endpoint =
       authMode === "signup"
@@ -141,6 +216,8 @@ export function PolicyAssistantApp() {
       const payload = (await response.json().catch(() => ({}))) as {
         user?: AuthUser;
         error?: string;
+        message?: string;
+        requiresEmailVerification?: boolean;
       };
 
       if (!response.ok) {
@@ -154,6 +231,7 @@ export function PolicyAssistantApp() {
       setAuthUser(payload.user);
       setAuthEmail("");
       setAuthPassword("");
+      setAuthInfo(payload.message ?? "");
       setDatasets([]);
       setSelectedDatasetId("");
       setConversations([]);
@@ -162,11 +240,171 @@ export function PolicyAssistantApp() {
       setUploadError("");
       setChatError("");
       setConversationError("");
-      await loadDatasets();
+
+      if (payload.user.emailVerifiedAt) {
+        await loadDatasets();
+      } else {
+        setAuthInfo("Check your inbox to verify your email before using datasets and chat.");
+      }
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Authentication failed.");
     } finally {
       setIsAuthenticating(false);
+    }
+  };
+
+  async function handlePasswordResetRequest(): Promise<void> {
+    const email = authEmail.trim().toLowerCase();
+    if (!email) {
+      setAuthError("Enter your email address.");
+      return;
+    }
+
+    setIsAuthenticating(true);
+    try {
+      const response = await fetch("/api/policy-assistant/auth/password-reset/request", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Could not request password reset.");
+      }
+
+      setAuthInfo(
+        payload.message ??
+          "If an account exists for this email, a password reset link has been sent.",
+      );
+      setAuthMode("login");
+      setAuthPassword("");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Could not request password reset.");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  }
+
+  async function handlePasswordResetConfirm(): Promise<void> {
+    const password = authPassword.trim();
+    if (!password) {
+      setAuthError("Enter your new password.");
+      return;
+    }
+
+    if (!resetToken) {
+      setAuthError("Missing password reset token. Request a new password reset link.");
+      return;
+    }
+
+    setIsAuthenticating(true);
+    try {
+      const response = await fetch("/api/policy-assistant/auth/password-reset/confirm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: resetToken, password }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        user?: AuthUser;
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Could not reset password.");
+      }
+
+      if (!payload.user) {
+        throw new Error("Password was reset, but no user session was returned.");
+      }
+
+      setResetToken("");
+      setAuthMode("login");
+      setAuthPassword("");
+      setAuthUser(payload.user);
+      setAuthInfo(payload.message ?? "Password updated successfully.");
+
+      if (payload.user.emailVerifiedAt) {
+        await loadDatasets();
+      }
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Could not reset password.");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  }
+
+  const handleResendVerification = async (): Promise<void> => {
+    if (!authUser) {
+      return;
+    }
+
+    setIsResendingVerification(true);
+    setAuthError("");
+    setAuthInfo("");
+
+    try {
+      const response = await fetch("/api/policy-assistant/auth/resend-verification", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: authUser.email }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Could not resend verification email.");
+      }
+
+      setAuthInfo(payload.message ?? "Verification email sent.");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Could not resend verification email.");
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
+
+  const handleResendVerificationForEnteredEmail = async (): Promise<void> => {
+    const email = authEmail.trim().toLowerCase();
+    if (!email) {
+      setAuthError("Enter your email address first.");
+      return;
+    }
+
+    setIsResendingVerification(true);
+    setAuthError("");
+    setAuthInfo("");
+
+    try {
+      const response = await fetch("/api/policy-assistant/auth/resend-verification", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Could not resend verification email.");
+      }
+
+      setAuthInfo(payload.message ?? "If the account is pending verification, a link has been sent.");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Could not resend verification email.");
+    } finally {
+      setIsResendingVerification(false);
     }
   };
 
@@ -191,6 +429,11 @@ export function PolicyAssistantApp() {
 
     if (!authUser) {
       setUploadError("Sign in to upload and manage your district policy dataset.");
+      return;
+    }
+
+    if (!authUser.emailVerifiedAt) {
+      setUploadError("Verify your email before uploading policies.");
       return;
     }
 
@@ -252,6 +495,11 @@ export function PolicyAssistantApp() {
 
     if (!authUser) {
       setChatError("Sign in to access your policy guidance workspace.");
+      return;
+    }
+
+    if (!authUser.emailVerifiedAt) {
+      setChatError("Verify your email before using the assistant.");
       return;
     }
 
@@ -354,55 +602,138 @@ export function PolicyAssistantApp() {
   if (!authUser) {
     return (
       <section className="panel assistant-auth-panel">
-        <h2 className="section-title">{authMode === "signup" ? "Create Account" : "Sign In"}</h2>
+        <h2 className="section-title">{authTitleForMode(authMode)}</h2>
         <p className="small-muted">
-          Each account has isolated policy datasets. Sign in once and continue asking policy questions without
-          re-uploading each time.
+          Each account has isolated policy datasets and private conversation history.
         </p>
 
         <form className="assistant-auth-form" onSubmit={handleAuthSubmit}>
-          <label htmlFor="auth-email" className="policy-label">
-            Email
-          </label>
-          <input
-            id="auth-email"
-            type="email"
-            autoComplete="email"
-            value={authEmail}
-            onChange={(event) => setAuthEmail(event.target.value)}
-            required
-          />
+          {authMode !== "reset" ? (
+            <>
+              <label htmlFor="auth-email" className="policy-label">
+                Email
+              </label>
+              <input
+                id="auth-email"
+                type="email"
+                autoComplete="email"
+                value={authEmail}
+                onChange={(event) => setAuthEmail(event.target.value)}
+                required
+              />
+            </>
+          ) : (
+            <p className="small-muted">Reset token detected. Enter a new password below.</p>
+          )}
 
-          <label htmlFor="auth-password" className="policy-label">
-            Password
-          </label>
-          <input
-            id="auth-password"
-            type="password"
-            autoComplete={authMode === "signup" ? "new-password" : "current-password"}
-            value={authPassword}
-            onChange={(event) => setAuthPassword(event.target.value)}
-            required
-          />
+          {authMode !== "forgot" ? (
+            <>
+              <label htmlFor="auth-password" className="policy-label">
+                Password
+              </label>
+              <input
+                id="auth-password"
+                type="password"
+                autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                value={authPassword}
+                onChange={(event) => setAuthPassword(event.target.value)}
+                required
+                placeholder={
+                  authMode === "reset" ? "Enter your new password" : "Enter your password"
+                }
+              />
+            </>
+          ) : null}
 
           <button className="action-button policy-button" type="submit" disabled={isAuthenticating}>
-            {isAuthenticating ? "Please wait..." : authMode === "signup" ? "Create Account" : "Sign In"}
+            {isAuthenticating ? "Please wait..." : authButtonLabel(authMode)}
           </button>
         </form>
 
+        <div className="assistant-auth-links">
+          {authMode !== "signup" ? (
+            <button
+              type="button"
+              className="assistant-auth-toggle"
+              onClick={() => {
+                setAuthMode("signup");
+                setAuthError("");
+                setAuthInfo("");
+              }}
+            >
+              Need an account? Create one
+            </button>
+          ) : null}
+
+          {authMode !== "login" ? (
+            <button
+              type="button"
+              className="assistant-auth-toggle"
+              onClick={() => {
+                setAuthMode("login");
+                setAuthError("");
+                setAuthInfo("");
+              }}
+            >
+              Back to Sign In
+            </button>
+          ) : null}
+
+          {authMode === "login" ? (
+            <button
+              type="button"
+              className="assistant-auth-toggle"
+              onClick={() => {
+                setAuthMode("forgot");
+                setAuthPassword("");
+                setAuthError("");
+                setAuthInfo("");
+              }}
+            >
+              Forgot your password?
+            </button>
+          ) : null}
+
+          {authMode === "login" ? (
+            <button
+              type="button"
+              className="assistant-auth-toggle"
+              onClick={handleResendVerificationForEnteredEmail}
+              disabled={isResendingVerification}
+            >
+              {isResendingVerification ? "Sending..." : "Resend Verification"}
+            </button>
+          ) : null}
+        </div>
+
+        {authInfo ? <p className="policy-status">{authInfo}</p> : null}
+        {authError ? <p className="policy-error">{authError}</p> : null}
+      </section>
+    );
+  }
+
+  if (!authUser.emailVerifiedAt) {
+    return (
+      <section className="panel assistant-auth-panel">
+        <div className="assistant-account-row">
+          <h2 className="section-title">Verify Your Email</h2>
+          <button type="button" className="assistant-logout-button" onClick={handleLogout}>
+            Sign Out
+          </button>
+        </div>
+        <p className="small-muted">Signed in as {authUser.email}</p>
+        <p className="small-muted">
+          Please verify your email address to unlock dataset upload and policy guidance.
+        </p>
         <button
           type="button"
-          className="assistant-auth-toggle"
-          onClick={() => {
-            setAuthMode((mode) => (mode === "login" ? "signup" : "login"));
-            setAuthError("");
-          }}
+          className="action-button policy-button"
+          onClick={handleResendVerification}
+          disabled={isResendingVerification}
         >
-          {authMode === "login"
-            ? "Need an account? Create one"
-            : "Already have an account? Sign in"}
+          {isResendingVerification ? "Sending..." : "Resend Verification Email"}
         </button>
-
+        {authInfo ? <p className="policy-status">{authInfo}</p> : null}
         {authError ? <p className="policy-error">{authError}</p> : null}
       </section>
     );
@@ -573,7 +904,6 @@ export function PolicyAssistantApp() {
   );
 
   async function loadSession(): Promise<void> {
-    setIsAuthLoading(true);
     setAuthError("");
 
     try {
@@ -592,15 +922,26 @@ export function PolicyAssistantApp() {
 
       if (payload.user) {
         setAuthUser(payload.user);
-        await loadDatasets();
+        if (payload.user.emailVerifiedAt) {
+          await loadDatasets();
+        }
       } else {
-        clearSessionState();
+        setAuthUser(null);
+        setDatasets([]);
+        setSelectedDatasetId("");
+        setConversations([]);
+        setSelectedConversationId("");
+        setMessages([]);
+        setScenario("");
+        setUploadFile(null);
+        setUploadStatus("");
+        setUploadError("");
+        setChatError("");
+        setConversationError("");
       }
     } catch (error) {
-      clearSessionState();
+      setAuthUser(null);
       setAuthError(error instanceof Error ? error.message : "Could not verify your session.");
-    } finally {
-      setIsAuthLoading(false);
     }
   }
 
@@ -617,6 +958,11 @@ export function PolicyAssistantApp() {
 
       if (response.status === 401) {
         clearSessionState();
+        return;
+      }
+
+      if (response.status === 403) {
+        setUploadError(payload.error ?? "Please verify your email before loading datasets.");
         return;
       }
 
@@ -652,6 +998,14 @@ export function PolicyAssistantApp() {
 
       if (response.status === 401) {
         clearSessionState();
+        return;
+      }
+
+      if (response.status === 403) {
+        setConversationError(payload.error ?? "Verify your email before viewing conversations.");
+        setConversations([]);
+        setSelectedConversationId("");
+        setMessages([]);
         return;
       }
 
@@ -705,6 +1059,14 @@ export function PolicyAssistantApp() {
         return;
       }
 
+      if (response.status === 403) {
+        setConversationError(payload.error ?? "Verify your email before viewing conversations.");
+        setConversations([]);
+        setSelectedConversationId("");
+        setMessages([]);
+        return;
+      }
+
       if (response.status === 404) {
         setConversations((previous) =>
           previous.filter((conversation) => conversation.id !== conversationId),
@@ -718,7 +1080,9 @@ export function PolicyAssistantApp() {
         throw new Error(payload.error ?? "Could not load conversation messages.");
       }
 
-      setConversations((previous) => upsertConversation(previous, payload.conversation as ConversationSummary));
+      setConversations((previous) =>
+        upsertConversation(previous, payload.conversation as ConversationSummary),
+      );
 
       setMessages(
         payload.messages.map((message) => ({
@@ -747,6 +1111,11 @@ export function PolicyAssistantApp() {
     setUploadError("");
     setChatError("");
     setConversationError("");
+    setAuthInfo("");
+    setAuthMode("login");
+    setAuthEmail("");
+    setAuthPassword("");
+    setResetToken("");
   }
 }
 
@@ -781,4 +1150,43 @@ function upsertConversation(
       new Date(right.lastMessageAt || right.updatedAt).getTime() -
       new Date(left.lastMessageAt || left.updatedAt).getTime(),
   );
+}
+
+function authTitleForMode(mode: AuthMode): string {
+  if (mode === "signup") {
+    return "Create Account";
+  }
+
+  if (mode === "forgot") {
+    return "Reset Password";
+  }
+
+  if (mode === "reset") {
+    return "Set New Password";
+  }
+
+  return "Sign In";
+}
+
+function authButtonLabel(mode: AuthMode): string {
+  if (mode === "signup") {
+    return "Create Account";
+  }
+
+  if (mode === "forgot") {
+    return "Send Reset Link";
+  }
+
+  if (mode === "reset") {
+    return "Update Password";
+  }
+
+  return "Sign In";
+}
+
+function clearAuthQueryParams(): void {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("verifyToken");
+  url.searchParams.delete("resetToken");
+  window.history.replaceState({}, "", url.toString());
 }
