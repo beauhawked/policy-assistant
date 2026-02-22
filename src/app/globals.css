@@ -301,6 +301,13 @@ a {
   gap: 0.7rem;
 }
 
+.assistant-auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
 .assistant-upload-form input[type="text"],
 .assistant-upload-form input[type="file"],
 .assistant-upload-form select,

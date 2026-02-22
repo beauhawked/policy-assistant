@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getAuthenticatedUserFromRequest } from "@/lib/policy-assistant/auth";
+import { getAuthenticatedUserFromRequest, isUserEmailVerified } from "@/lib/policy-assistant/auth";
 import {
   appendPolicyConversationMessage,
   createPolicyConversation,
@@ -8,7 +8,9 @@ import {
   getPolicyDataset,
   listPolicyConversationMessages,
 } from "@/lib/policy-assistant/db";
+import { rateLimitExceededResponse } from "@/lib/policy-assistant/http";
 import { generatePolicyGuidance } from "@/lib/policy-assistant/openai";
+import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 import { retrieveRelevantPolicies } from "@/lib/policy-assistant/retrieval";
 
 export const runtime = "nodejs";
@@ -25,6 +27,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const user = await getAuthenticatedUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+    }
+    if (!isUserEmailVerified(user)) {
+      return NextResponse.json(
+        { error: "Please verify your email before using the assistant." },
+        { status: 403 },
+      );
+    }
+
+    const rateLimit = await checkRateLimit({
+      scope: "policy_chat",
+      identifier: buildRateLimitIdentifier(request, { userId: user.id, email: user.email }),
+      maxRequests: 30,
+      windowSeconds: 60,
+    });
+
+    if (!rateLimit.allowed) {
+      return rateLimitExceededResponse(
+        rateLimit.retryAfterSeconds,
+        "Rate limit reached. Please wait a moment before sending another request.",
+      );
     }
 
     const payload = (await request.json().catch(() => ({}))) as PolicyAssistantChatPayload;

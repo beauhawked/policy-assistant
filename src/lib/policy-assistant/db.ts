@@ -46,6 +46,7 @@ interface RawAuthUser {
   id: string;
   email: string;
   created_at: Date | string;
+  email_verified_at: Date | string | null;
 }
 
 interface RawAuthUserWithPassword extends RawAuthUser {
@@ -55,6 +56,16 @@ interface RawAuthUserWithPassword extends RawAuthUser {
 interface CreateSessionResult {
   id: string;
   expiresAt: string;
+}
+
+interface RawOneTimeTokenRecord {
+  id: number | string;
+  user_id: string;
+  expires_at: Date | string;
+}
+
+interface RawRateLimitCounter {
+  count: number | string;
 }
 
 interface RawPolicyConversation {
@@ -304,9 +315,9 @@ export async function createUserAccount(email: string, passwordHash: string): Pr
 
   const result = await getPool().query<RawAuthUser>(
     `
-    INSERT INTO users (id, email, password_hash)
-    VALUES ($1, $2, $3)
-    RETURNING id, email, created_at
+    INSERT INTO users (id, email, password_hash, email_verified_at)
+    VALUES ($1, $2, $3, NULL)
+    RETURNING id, email, created_at, email_verified_at
     `,
     [userId, normalizedEmail, passwordHash],
   );
@@ -322,7 +333,7 @@ export async function findUserByEmail(
   const normalizedEmail = normalizeEmail(email);
   const result = await getPool().query<RawAuthUserWithPassword>(
     `
-    SELECT id, email, password_hash, created_at
+    SELECT id, email, password_hash, created_at, email_verified_at
     FROM users
     WHERE email = $1
     LIMIT 1
@@ -339,6 +350,53 @@ export async function findUserByEmail(
     user: mapAuthUser(row),
     passwordHash: row.password_hash,
   };
+}
+
+export async function findUserById(userId: string): Promise<AuthUser | null> {
+  await ensureSchema();
+
+  const result = await getPool().query<RawAuthUser>(
+    `
+    SELECT id, email, created_at, email_verified_at
+    FROM users
+    WHERE id = $1
+    LIMIT 1
+    `,
+    [userId],
+  );
+
+  const row = result.rows[0];
+  return row ? mapAuthUser(row) : null;
+}
+
+export async function setUserEmailVerified(userId: string): Promise<AuthUser | null> {
+  await ensureSchema();
+
+  const result = await getPool().query<RawAuthUser>(
+    `
+    UPDATE users
+    SET email_verified_at = COALESCE(email_verified_at, NOW())
+    WHERE id = $1
+    RETURNING id, email, created_at, email_verified_at
+    `,
+    [userId],
+  );
+
+  const row = result.rows[0];
+  return row ? mapAuthUser(row) : null;
+}
+
+export async function updateUserPasswordHash(userId: string, passwordHash: string): Promise<void> {
+  await ensureSchema();
+
+  await getPool().query(
+    `
+    UPDATE users
+    SET password_hash = $2
+    WHERE id = $1
+    `,
+    [userId, passwordHash],
+  );
 }
 
 export async function createAuthSession(userId: string, ttlDays = 30): Promise<CreateSessionResult> {
@@ -366,7 +424,7 @@ export async function getUserBySessionId(sessionId: string): Promise<AuthUser | 
 
   const result = await getPool().query<RawAuthUser>(
     `
-    SELECT u.id, u.email, u.created_at
+    SELECT u.id, u.email, u.created_at, u.email_verified_at
     FROM auth_sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.id = $1
@@ -383,6 +441,220 @@ export async function getUserBySessionId(sessionId: string): Promise<AuthUser | 
 export async function deleteAuthSession(sessionId: string): Promise<void> {
   await ensureSchema();
   await getPool().query(`DELETE FROM auth_sessions WHERE id = $1`, [sessionId]);
+}
+
+export async function deleteAuthSessionsForUser(userId: string): Promise<void> {
+  await ensureSchema();
+  await getPool().query(`DELETE FROM auth_sessions WHERE user_id = $1`, [userId]);
+}
+
+export async function createEmailVerificationTokenRecord(
+  userId: string,
+  tokenHash: string,
+  ttlHours = 24,
+): Promise<{ expiresAt: string }> {
+  await ensureSchema();
+
+  const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString();
+
+  await getPool().query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [userId]);
+
+  await getPool().query(
+    `
+    INSERT INTO email_verification_tokens (user_id, token_hash, expires_at)
+    VALUES ($1, $2, $3)
+    `,
+    [userId, tokenHash, expiresAt],
+  );
+
+  return { expiresAt };
+}
+
+export async function consumeEmailVerificationTokenByHash(tokenHash: string): Promise<string | null> {
+  await ensureSchema();
+  const client = await getClient();
+
+  try {
+    await client.query("BEGIN");
+
+    const tokenResult = await client.query<RawOneTimeTokenRecord>(
+      `
+      SELECT id, user_id, expires_at
+      FROM email_verification_tokens
+      WHERE token_hash = $1
+      AND used_at IS NULL
+      FOR UPDATE
+      `,
+      [tokenHash],
+    );
+
+    const tokenRow = tokenResult.rows[0];
+    if (!tokenRow) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    const expiresAt = new Date(tokenRow.expires_at);
+    if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+      await client.query(
+        `
+        UPDATE email_verification_tokens
+        SET used_at = NOW()
+        WHERE id = $1
+        `,
+        [tokenRow.id],
+      );
+      await client.query("COMMIT");
+      return null;
+    }
+
+    await client.query(
+      `
+      UPDATE email_verification_tokens
+      SET used_at = NOW()
+      WHERE id = $1
+      `,
+      [tokenRow.id],
+    );
+
+    await client.query(
+      `
+      DELETE FROM email_verification_tokens
+      WHERE user_id = $1
+      AND id <> $2
+      `,
+      [tokenRow.user_id, tokenRow.id],
+    );
+
+    await client.query("COMMIT");
+    return tokenRow.user_id;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function createPasswordResetTokenRecord(
+  userId: string,
+  tokenHash: string,
+  ttlMinutes = 60,
+): Promise<{ expiresAt: string }> {
+  await ensureSchema();
+
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
+
+  await getPool().query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [userId]);
+
+  await getPool().query(
+    `
+    INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+    VALUES ($1, $2, $3)
+    `,
+    [userId, tokenHash, expiresAt],
+  );
+
+  return { expiresAt };
+}
+
+export async function consumePasswordResetTokenByHash(tokenHash: string): Promise<string | null> {
+  await ensureSchema();
+  const client = await getClient();
+
+  try {
+    await client.query("BEGIN");
+
+    const tokenResult = await client.query<RawOneTimeTokenRecord>(
+      `
+      SELECT id, user_id, expires_at
+      FROM password_reset_tokens
+      WHERE token_hash = $1
+      AND used_at IS NULL
+      FOR UPDATE
+      `,
+      [tokenHash],
+    );
+
+    const tokenRow = tokenResult.rows[0];
+    if (!tokenRow) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    const expiresAt = new Date(tokenRow.expires_at);
+    if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+      await client.query(
+        `
+        UPDATE password_reset_tokens
+        SET used_at = NOW()
+        WHERE id = $1
+        `,
+        [tokenRow.id],
+      );
+      await client.query("COMMIT");
+      return null;
+    }
+
+    await client.query(
+      `
+      UPDATE password_reset_tokens
+      SET used_at = NOW()
+      WHERE id = $1
+      `,
+      [tokenRow.id],
+    );
+
+    await client.query(
+      `
+      DELETE FROM password_reset_tokens
+      WHERE user_id = $1
+      AND id <> $2
+      `,
+      [tokenRow.user_id, tokenRow.id],
+    );
+
+    await client.query("COMMIT");
+    return tokenRow.user_id;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function incrementRateLimitBucket(
+  scope: string,
+  identifier: string,
+  windowStartedAt: string,
+): Promise<number> {
+  await ensureSchema();
+
+  const key = `${scope}:${identifier}:${windowStartedAt}`;
+  const result = await getPool().query<RawRateLimitCounter>(
+    `
+    INSERT INTO policy_rate_limits (key, scope, identifier, window_started_at, count)
+    VALUES ($1, $2, $3, $4, 1)
+    ON CONFLICT (key)
+    DO UPDATE SET count = policy_rate_limits.count + 1
+    RETURNING count
+    `,
+    [key, scope, identifier, windowStartedAt],
+  );
+
+  return Number(result.rows[0]?.count ?? 1);
+}
+
+export async function cleanupExpiredRateLimitBuckets(): Promise<void> {
+  await ensureSchema();
+
+  await getPool().query(
+    `
+    DELETE FROM policy_rate_limits
+    WHERE window_started_at < NOW() - INTERVAL '2 days'
+    `,
+  );
 }
 
 export async function createPolicyConversation(
@@ -593,8 +865,14 @@ async function ensureSchema(): Promise<void> {
           id TEXT PRIMARY KEY,
           email TEXT NOT NULL UNIQUE,
           password_hash TEXT NOT NULL,
+          email_verified_at TIMESTAMPTZ,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+      `);
+
+      await client.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
       `);
 
       await client.query(`
@@ -612,6 +890,63 @@ async function ensureSchema(): Promise<void> {
 
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at);
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS email_verification_tokens (
+          id BIGSERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token_hash TEXT NOT NULL UNIQUE,
+          expires_at TIMESTAMPTZ NOT NULL,
+          used_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id
+        ON email_verification_tokens(user_id);
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_expires_at
+        ON email_verification_tokens(expires_at);
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id BIGSERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token_hash TEXT NOT NULL UNIQUE,
+          expires_at TIMESTAMPTZ NOT NULL,
+          used_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id
+        ON password_reset_tokens(user_id);
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at
+        ON password_reset_tokens(expires_at);
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS policy_rate_limits (
+          key TEXT PRIMARY KEY,
+          scope TEXT NOT NULL,
+          identifier TEXT NOT NULL,
+          window_started_at TIMESTAMPTZ NOT NULL,
+          count INTEGER NOT NULL DEFAULT 0
+        );
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_policy_rate_limits_scope_identifier
+        ON policy_rate_limits(scope, identifier, window_started_at);
       `);
 
       await client.query(`
@@ -782,6 +1117,7 @@ function mapAuthUser(row: RawAuthUser): AuthUser {
     id: row.id,
     email: row.email,
     createdAt: formatTimestamp(row.created_at),
+    emailVerifiedAt: row.email_verified_at ? formatTimestamp(row.email_verified_at) : null,
   };
 }
 

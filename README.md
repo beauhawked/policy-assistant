@@ -6,6 +6,8 @@ This Next.js app now supports two workflows:
 - Upload a district policy `.csv` file
 - Store policies in a Postgres database
 - Sign in with an account (email/password) to keep each district dataset private
+- Verify email before activating the workspace
+- Reset password securely via email
 - Ask scenario-based questions and receive policy-grounded guidance using OpenAI
 
 2. `Policy Scraper` (existing flow)
@@ -34,6 +36,8 @@ Set at least:
 Optional:
 
 - `POLICY_ASSISTANT_MODEL=gpt-4.1-mini`
+- `RESEND_API_KEY=<resend-api-key>` (required in production for verification/reset emails)
+- `POLICY_ASSISTANT_FROM_EMAIL="Policy Assistant <noreply@yourdomain.com>"`
 
 On Vercel with Vercel Postgres, `POSTGRES_URL` is provided automatically, so
 `POLICY_ASSISTANT_DATABASE_URL` can be omitted.
@@ -49,10 +53,18 @@ Open [http://localhost:3000](http://localhost:3000). The home route redirects to
 ## Account access
 
 - Users create an account and sign in at `/policy-assistant`.
+- New accounts must verify email before uploading datasets or chatting.
 - Policy datasets are scoped to the signed-in account.
 - Upload once, then sign in later to keep asking questions without re-uploading.
 - Conversation history is saved per user and per dataset.
 - Users can reopen prior conversations after signing back in.
+- Password reset links are one-time and time-limited.
+
+## Security controls
+
+- Email verification tokens are single-use and expire after 24 hours.
+- Password reset tokens are single-use and expire after 60 minutes.
+- Basic rate limiting is enabled for auth endpoints, uploads, and chat calls.
 
 ## Policy Assistant CSV mapping
 
