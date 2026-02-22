@@ -268,12 +268,110 @@ a {
   font-size: 0.95rem;
 }
 
-.policy-scrape-form input[type="url"] {
+.policy-scrape-form input[type="url"],
+.policy-scrape-form select {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 0.68rem 0.75rem;
   font: inherit;
   background: #fff;
+}
+
+.assistant-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 420px) 1fr;
+  gap: 1rem;
+}
+
+.assistant-upload-panel,
+.assistant-chat-panel {
+  padding: 1.2rem;
+  min-width: 0;
+}
+
+.assistant-upload-form,
+.assistant-chat-form {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.assistant-upload-form input[type="text"],
+.assistant-upload-form input[type="file"],
+.assistant-upload-form select,
+.assistant-chat-form textarea,
+.assistant-dataset-picker select {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.68rem 0.75rem;
+  font: inherit;
+  background: #fff;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.assistant-dataset-picker {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.assistant-dataset-picker select {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.assistant-chat-panel {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.assistant-message-list {
+  display: grid;
+  gap: 0.7rem;
+  max-height: 620px;
+  overflow: auto;
+  padding-right: 0.3rem;
+}
+
+.assistant-message {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.assistant-message-assistant {
+  background: #f6fbff;
+}
+
+.assistant-message-user {
+  background: #fff4ef;
+  border-color: #f6d3c6;
+}
+
+.assistant-message-role {
+  margin: 0;
+  font-family: var(--font-display), "Avenir Next", sans-serif;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.assistant-message pre {
+  margin: 0.45rem 0 0;
+  white-space: pre-wrap;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.assistant-chat-form textarea {
+  min-height: 140px;
+  resize: vertical;
 }
 
 .policy-checkbox {
@@ -328,6 +426,10 @@ a {
   }
 
   .compare-text {
+    grid-template-columns: 1fr;
+  }
+
+  .assistant-layout {
     grid-template-columns: 1fr;
   }
 }

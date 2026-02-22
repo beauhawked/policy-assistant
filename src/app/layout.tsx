@@ -17,9 +17,9 @@ const serif = Spectral({
 });
 
 export const metadata: Metadata = {
-  title: "BoardDocs Policy Scraper",
+  title: "School District Policy Assistant",
   description:
-    "Scrape school district board policies from BoardDocs and export them to CSV with consistent columns.",
+    "Upload school district policies from CSV into a database and get AI-guided, policy-grounded decision support.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
