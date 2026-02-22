@@ -43,21 +43,23 @@ export interface RetrievalBundle {
 }
 
 export function retrieveRelevantPolicies(
+  userId: string,
   datasetId: string,
   scenario: string,
   options?: { limit?: number },
 ): Promise<RetrievalBundle> {
   const terms = extractSearchTerms(scenario);
-  return buildRetrievalBundle(datasetId, scenario, terms, options);
+  return buildRetrievalBundle(userId, datasetId, scenario, terms, options);
 }
 
 async function buildRetrievalBundle(
+  userId: string,
   datasetId: string,
   scenario: string,
   terms: string[],
   options?: { limit?: number },
 ): Promise<RetrievalBundle> {
-  const candidates = await searchDatasetPolicies(datasetId, terms, { limit: 350 });
+  const candidates = await searchDatasetPolicies(userId, datasetId, terms, { limit: 350 });
   const scored = scorePolicies(candidates, scenario, terms);
   const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 12) : 6;
 

@@ -16,7 +16,23 @@ interface ChatMessage {
   content: string;
 }
 
+interface AuthUser {
+  id: string;
+  email: string;
+  createdAt: string;
+}
+
+type AuthMode = "login" | "signup";
+
 export function PolicyAssistantApp() {
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+
   const [districtName, setDistrictName] = useState("West Lafayette Community School Corporation");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [datasets, setDatasets] = useState<PolicyDataset[]>([]);
@@ -35,7 +51,8 @@ export function PolicyAssistantApp() {
   );
 
   useEffect(() => {
-    void loadDatasets();
+    void loadSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -44,10 +61,86 @@ export function PolicyAssistantApp() {
     }
   }, [datasets, selectedDatasetId]);
 
+  const handleAuthSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    setAuthError("");
+
+    const endpoint =
+      authMode === "signup"
+        ? "/api/policy-assistant/auth/signup"
+        : "/api/policy-assistant/auth/login";
+
+    const email = authEmail.trim().toLowerCase();
+    const password = authPassword.trim();
+
+    if (!email || !password) {
+      setAuthError("Email and password are required.");
+      return;
+    }
+
+    setIsAuthenticating(true);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        user?: AuthUser;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? `Authentication failed with status ${response.status}.`);
+      }
+
+      if (!payload.user) {
+        throw new Error("Authentication completed, but no user was returned.");
+      }
+
+      setAuthUser(payload.user);
+      setAuthEmail("");
+      setAuthPassword("");
+      setDatasets([]);
+      setSelectedDatasetId("");
+      setMessages([]);
+      setUploadError("");
+      setChatError("");
+      await loadDatasets();
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Authentication failed.");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleLogout = async (): Promise<void> => {
+    setAuthError("");
+
+    try {
+      await fetch("/api/policy-assistant/auth/logout", {
+        method: "POST",
+      });
+    } catch {
+      // Ignore logout network failures and clear local state anyway.
+    }
+
+    clearSessionState();
+  };
+
   const handleUpload = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     setUploadError("");
     setUploadStatus("");
+
+    if (!authUser) {
+      setUploadError("Sign in to upload and manage your district policy dataset.");
+      return;
+    }
 
     if (!uploadFile) {
       setUploadError("Choose a CSV file before uploading.");
@@ -73,6 +166,10 @@ export function PolicyAssistantApp() {
       };
 
       if (!response.ok) {
+        if (response.status === 401) {
+          clearSessionState();
+          throw new Error("Your session expired. Please sign in again.");
+        }
         throw new Error(payload.error ?? `Upload failed with status ${response.status}.`);
       }
 
@@ -98,6 +195,11 @@ export function PolicyAssistantApp() {
   const handleScenarioSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     setChatError("");
+
+    if (!authUser) {
+      setChatError("Sign in to access your policy guidance workspace.");
+      return;
+    }
 
     if (!selectedDatasetId) {
       setChatError("Upload a CSV and select a dataset first.");
@@ -138,6 +240,10 @@ export function PolicyAssistantApp() {
       };
 
       if (!response.ok) {
+        if (response.status === 401) {
+          clearSessionState();
+          throw new Error("Your session expired. Please sign in again.");
+        }
         throw new Error(payload.error ?? `Assistant request failed with status ${response.status}.`);
       }
 
@@ -159,10 +265,83 @@ export function PolicyAssistantApp() {
     }
   };
 
+  if (isAuthLoading) {
+    return (
+      <section className="panel assistant-auth-panel">
+        <h2 className="section-title">Loading Workspace</h2>
+        <p className="small-muted">Checking account session...</p>
+      </section>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <section className="panel assistant-auth-panel">
+        <h2 className="section-title">{authMode === "signup" ? "Create Account" : "Sign In"}</h2>
+        <p className="small-muted">
+          Each account has isolated policy datasets. Sign in once and continue asking policy questions without
+          re-uploading each time.
+        </p>
+
+        <form className="assistant-auth-form" onSubmit={handleAuthSubmit}>
+          <label htmlFor="auth-email" className="policy-label">
+            Email
+          </label>
+          <input
+            id="auth-email"
+            type="email"
+            autoComplete="email"
+            value={authEmail}
+            onChange={(event) => setAuthEmail(event.target.value)}
+            required
+          />
+
+          <label htmlFor="auth-password" className="policy-label">
+            Password
+          </label>
+          <input
+            id="auth-password"
+            type="password"
+            autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+            value={authPassword}
+            onChange={(event) => setAuthPassword(event.target.value)}
+            required
+          />
+
+          <button className="action-button policy-button" type="submit" disabled={isAuthenticating}>
+            {isAuthenticating ? "Please wait..." : authMode === "signup" ? "Create Account" : "Sign In"}
+          </button>
+        </form>
+
+        <button
+          type="button"
+          className="assistant-auth-toggle"
+          onClick={() => {
+            setAuthMode((mode) => (mode === "login" ? "signup" : "login"));
+            setAuthError("");
+          }}
+        >
+          {authMode === "login"
+            ? "Need an account? Create one"
+            : "Already have an account? Sign in"}
+        </button>
+
+        {authError ? <p className="policy-error">{authError}</p> : null}
+      </section>
+    );
+  }
+
   return (
     <section className="assistant-layout">
       <section className="panel assistant-upload-panel">
-        <h2 className="section-title">Policy Dataset</h2>
+        <div className="assistant-account-row">
+          <h2 className="section-title">Policy Dataset</h2>
+          <button type="button" className="assistant-logout-button" onClick={handleLogout}>
+            Sign Out
+          </button>
+        </div>
+        <p className="small-muted">Signed in as {authUser.email}</p>
+
         <form
           className="assistant-upload-form"
           method="post"
@@ -272,21 +451,77 @@ export function PolicyAssistantApp() {
     </section>
   );
 
+  async function loadSession(): Promise<void> {
+    setIsAuthLoading(true);
+    setAuthError("");
+
+    try {
+      const response = await fetch("/api/policy-assistant/auth/me", {
+        cache: "no-store",
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        user?: AuthUser | null;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? `Session check failed with status ${response.status}.`);
+      }
+
+      if (payload.user) {
+        setAuthUser(payload.user);
+        await loadDatasets();
+      } else {
+        clearSessionState();
+      }
+    } catch (error) {
+      clearSessionState();
+      setAuthError(error instanceof Error ? error.message : "Could not verify your session.");
+    } finally {
+      setIsAuthLoading(false);
+    }
+  }
+
   async function loadDatasets(): Promise<void> {
     try {
       const response = await fetch("/api/policy-assistant/upload", {
         cache: "no-store",
       });
 
-      const payload = (await response.json().catch(() => ({}))) as { datasets?: PolicyDataset[] };
-      if (!response.ok || !Array.isArray(payload.datasets)) {
+      const payload = (await response.json().catch(() => ({}))) as {
+        datasets?: PolicyDataset[];
+        error?: string;
+      };
+
+      if (response.status === 401) {
+        clearSessionState();
         return;
       }
 
+      if (!response.ok || !Array.isArray(payload.datasets)) {
+        throw new Error(payload.error ?? "Could not load datasets.");
+      }
+
       setDatasets(payload.datasets);
-    } catch {
-      setUploadError("Could not load existing datasets. You can still upload a new CSV.");
+      if (payload.datasets.length === 0) {
+        setSelectedDatasetId("");
+      }
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Could not load existing datasets.");
     }
+  }
+
+  function clearSessionState(): void {
+    setAuthUser(null);
+    setDatasets([]);
+    setSelectedDatasetId("");
+    setMessages([]);
+    setScenario("");
+    setUploadFile(null);
+    setUploadStatus("");
+    setUploadError("");
+    setChatError("");
   }
 }
 

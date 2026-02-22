@@ -289,8 +289,14 @@ a {
   min-width: 0;
 }
 
+.assistant-auth-panel {
+  padding: 1.2rem;
+  max-width: 560px;
+}
+
 .assistant-upload-form,
-.assistant-chat-form {
+.assistant-chat-form,
+.assistant-auth-form {
   display: grid;
   gap: 0.7rem;
 }
@@ -298,6 +304,8 @@ a {
 .assistant-upload-form input[type="text"],
 .assistant-upload-form input[type="file"],
 .assistant-upload-form select,
+.assistant-auth-form input[type="email"],
+.assistant-auth-form input[type="password"],
 .assistant-chat-form textarea,
 .assistant-dataset-picker select {
   border: 1px solid var(--line);
@@ -326,6 +334,32 @@ a {
 .assistant-chat-panel {
   display: grid;
   gap: 0.9rem;
+}
+
+.assistant-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.assistant-account-row .section-title {
+  margin: 0;
+}
+
+.assistant-logout-button,
+.assistant-auth-toggle {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.52rem 0.75rem;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+}
+
+.assistant-auth-toggle {
+  justify-self: start;
 }
 
 .assistant-message-list {

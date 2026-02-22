@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getAuthenticatedUserFromRequest } from "@/lib/policy-assistant/auth";
 import { getPolicyDataset } from "@/lib/policy-assistant/db";
 import { generatePolicyGuidance } from "@/lib/policy-assistant/openai";
 import { retrieveRelevantPolicies } from "@/lib/policy-assistant/retrieval";
@@ -14,6 +15,11 @@ interface PolicyAssistantChatPayload {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const user = await getAuthenticatedUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+    }
+
     const payload = (await request.json().catch(() => ({}))) as PolicyAssistantChatPayload;
     const datasetId = payload.datasetId?.trim() ?? "";
     const scenario = payload.scenario?.trim() ?? "";
@@ -26,12 +32,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Please describe the scenario to evaluate." }, { status: 400 });
     }
 
-    const dataset = await getPolicyDataset(datasetId);
+    const dataset = await getPolicyDataset(user.id, datasetId);
     if (!dataset) {
       return NextResponse.json({ error: "The selected dataset was not found." }, { status: 404 });
     }
 
-    const retrieval = await retrieveRelevantPolicies(dataset.id, scenario, { limit: 6 });
+    const retrieval = await retrieveRelevantPolicies(user.id, dataset.id, scenario, { limit: 6 });
     if (retrieval.policies.length === 0) {
       return NextResponse.json(
         { error: "No policies were found for this dataset. Upload a CSV with policy rows first." },
