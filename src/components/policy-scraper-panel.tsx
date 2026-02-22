@@ -2,10 +2,15 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
+type PolicyPlatform = "auto" | "boarddocs" | "table-link";
+type ResolvedPolicyPlatform = Exclude<PolicyPlatform, "auto">;
+
 interface ExportSummary {
   policyCount: number;
-  bookCount: number;
+  sourceCount: number;
+  sourceLabel: string;
   failedCount: number;
+  platform: ResolvedPolicyPlatform;
   filename: string;
 }
 
@@ -13,6 +18,7 @@ const DEFAULT_DISTRICT_URL = "https://go.boarddocs.com/in/blm/Board.nsf/Public";
 
 export function PolicyScraperPanel() {
   const [districtUrl, setDistrictUrl] = useState(DEFAULT_DISTRICT_URL);
+  const [platform, setPlatform] = useState<PolicyPlatform>("auto");
   const [includeAllBooks, setIncludeAllBooks] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -28,7 +34,7 @@ export function PolicyScraperPanel() {
     event.preventDefault();
 
     if (!districtUrl.trim()) {
-      setErrorMessage("Please enter a district BoardDocs URL.");
+      setErrorMessage("Please enter a district policy URL.");
       return;
     }
 
@@ -45,6 +51,7 @@ export function PolicyScraperPanel() {
         },
         body: JSON.stringify({
           url: districtUrl,
+          platform,
           includeAllBooks,
         }),
       });
@@ -64,14 +71,22 @@ export function PolicyScraperPanel() {
       const filename = parseFilenameFromDisposition(response.headers.get("content-disposition"));
       triggerDownload(csvBlob, filename);
 
+      const platformFromHeader = parseResolvedPlatform(response.headers.get("x-platform"));
       const policyCount = Number(response.headers.get("x-policy-count") ?? "0");
-      const bookCount = Number(response.headers.get("x-book-count") ?? "0");
+      const sourceCount = Number(
+        response.headers.get("x-source-count") ?? response.headers.get("x-book-count") ?? "0",
+      );
       const failedCount = Number(response.headers.get("x-failed-count") ?? "0");
+      const sourceLabel =
+        (response.headers.get("x-source-label") ?? "").trim() ||
+        (platformFromHeader === "table-link" ? "policy link(s)" : "book(s)");
 
       setSummary({
         policyCount: Number.isFinite(policyCount) ? policyCount : 0,
-        bookCount: Number.isFinite(bookCount) ? bookCount : 0,
+        sourceCount: Number.isFinite(sourceCount) ? sourceCount : 0,
+        sourceLabel,
         failedCount: Number.isFinite(failedCount) ? failedCount : 0,
+        platform: platformFromHeader,
         filename,
       });
       setStatusMessage("Scrape complete. Your CSV download has been generated.");
@@ -83,29 +98,53 @@ export function PolicyScraperPanel() {
     }
   };
 
+  const urlLabel =
+    platform === "table-link" ? "District Policy Listing URL" : "District Policy URL";
+  const urlPlaceholder =
+    platform === "boarddocs"
+      ? "https://go.boarddocs.com/in/blm/Board.nsf/Public"
+      : platform === "table-link"
+        ? "https://www.sarasotacountyschools.net/page/school-board-policies"
+        : "https://go.boarddocs.com/... or https://district-site.org/page/policies";
+
   return (
     <section className="panel policy-scraper-panel">
       <form className="policy-scrape-form" onSubmit={handleSubmit}>
+        <label htmlFor="policy-platform" className="policy-label">
+          Policy Platform
+        </label>
+        <select
+          id="policy-platform"
+          value={platform}
+          onChange={(event) => setPlatform(event.target.value as PolicyPlatform)}
+        >
+          <option value="auto">Auto-detect</option>
+          <option value="boarddocs">BoardDocs</option>
+          <option value="table-link">Table-based (Sarasota-style)</option>
+        </select>
+
         <label htmlFor="district-url" className="policy-label">
-          District BoardDocs URL
+          {urlLabel}
         </label>
         <input
           id="district-url"
           type="url"
           value={districtUrl}
           onChange={(event) => setDistrictUrl(event.target.value)}
-          placeholder="https://go.boarddocs.com/in/blm/Board.nsf/Public"
+          placeholder={urlPlaceholder}
           required
         />
 
-        <label className="policy-checkbox">
-          <input
-            type="checkbox"
-            checked={includeAllBooks}
-            onChange={(event) => setIncludeAllBooks(event.target.checked)}
-          />
-          Include all books (not only policy/bylaw books)
-        </label>
+        {platform !== "table-link" ? (
+          <label className="policy-checkbox">
+            <input
+              type="checkbox"
+              checked={includeAllBooks}
+              onChange={(event) => setIncludeAllBooks(event.target.checked)}
+            />
+            Include all books (not only policy/bylaw books)
+          </label>
+        ) : null}
 
         <button className="action-button policy-button" type="submit" disabled={isScraping}>
           {buttonLabel}
@@ -118,8 +157,10 @@ export function PolicyScraperPanel() {
       {summary ? (
         <div className="policy-success">
           <p>
-            Exported <strong>{summary.policyCount}</strong> policies from <strong>{summary.bookCount}</strong> book(s).
+            Exported <strong>{summary.policyCount}</strong> policies from{" "}
+            <strong>{summary.sourceCount}</strong> {summary.sourceLabel}.
           </p>
+          <p className="small-muted">Platform: {formatPlatform(summary.platform)}</p>
           <p className="small-muted">File: {summary.filename}</p>
           {summary.failedCount > 0 ? (
             <p className="small-muted">
@@ -134,7 +175,7 @@ export function PolicyScraperPanel() {
 
 function parseFilenameFromDisposition(contentDisposition: string | null): string {
   if (!contentDisposition) {
-    return "boarddocs-policies.csv";
+    return "district-policies.csv";
   }
 
   const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
@@ -147,7 +188,15 @@ function parseFilenameFromDisposition(contentDisposition: string | null): string
     return basicMatch[1];
   }
 
-  return "boarddocs-policies.csv";
+  return "district-policies.csv";
+}
+
+function parseResolvedPlatform(value: string | null): ResolvedPolicyPlatform {
+  return value === "table-link" ? "table-link" : "boarddocs";
+}
+
+function formatPlatform(platform: ResolvedPolicyPlatform): string {
+  return platform === "table-link" ? "Table-based (Sarasota-style)" : "BoardDocs";
 }
 
 function triggerDownload(blob: Blob, filename: string): void {

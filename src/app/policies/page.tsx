@@ -8,8 +8,15 @@ export default function PolicyScraperPage() {
       <section className="hero">
         <h1>School Board Policy Scraper</h1>
         <p>
-          Paste any district BoardDocs URL and generate a CSV with these columns:
+          Paste a district policy URL, choose a platform (or auto-detect), and generate a CSV export.
+          BoardDocs exports:
           <strong> Section, Code, Adopted Date, Revised Date, Status, Policy Title, Policy Wording.</strong>
+          Table-based exports:
+          <strong>
+            {" "}
+            Policy Chapter, Policy Number, Policy Title, Policy Wording, Statutory Authority, Law(s) Implemented,
+            History, Notes.
+          </strong>
         </p>
       </section>
       <PolicyScraperPanel />
