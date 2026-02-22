@@ -5,6 +5,7 @@ This Next.js app now supports two workflows:
 1. `Policy Assistant` (primary flow)
 - Upload a district policy `.csv` file
 - Store policies in a Postgres database
+- Sign in with an account (email/password) to keep each district dataset private
 - Ask scenario-based questions and receive policy-grounded guidance using OpenAI
 
 2. `Policy Scraper` (existing flow)
@@ -44,6 +45,12 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The home route redirects to `/policy-assistant`.
+
+## Account access
+
+- Users create an account and sign in at `/policy-assistant`.
+- Policy datasets are scoped to the signed-in account.
+- Upload once, then sign in later to keep asking questions without re-uploading.
 
 ## Policy Assistant CSV mapping
 

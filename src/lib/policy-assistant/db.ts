@@ -2,9 +2,15 @@ import { randomUUID } from "node:crypto";
 
 import { Pool, type PoolClient } from "pg";
 
-import type { NormalizedPolicyRow, PolicyDataset, StoredPolicy } from "@/lib/policy-assistant/types";
+import type {
+  AuthUser,
+  NormalizedPolicyRow,
+  PolicyDataset,
+  StoredPolicy,
+} from "@/lib/policy-assistant/types";
 
 interface CreatePolicyDatasetInput {
+  userId: string;
   districtName: string;
   filename: string;
   headers: string[];
@@ -13,6 +19,7 @@ interface CreatePolicyDatasetInput {
 
 interface RawPolicyDataset {
   id: string;
+  user_id: string;
   district_name: string;
   filename: string;
   uploaded_at: Date | string;
@@ -32,12 +39,27 @@ interface RawStoredPolicy {
   source_row_index: number | string;
 }
 
+interface RawAuthUser {
+  id: string;
+  email: string;
+  created_at: Date | string;
+}
+
+interface RawAuthUserWithPassword extends RawAuthUser {
+  password_hash: string;
+}
+
+interface CreateSessionResult {
+  id: string;
+  expiresAt: string;
+}
+
 let pool: Pool | null = null;
 let schemaReadyPromise: Promise<void> | null = null;
 
 export async function createPolicyDataset(input: CreatePolicyDatasetInput): Promise<PolicyDataset> {
-  const client = await getClient();
   await ensureSchema();
+  const client = await getClient();
 
   const datasetId = randomUUID();
   const uploadedAt = new Date().toISOString();
@@ -50,16 +72,18 @@ export async function createPolicyDataset(input: CreatePolicyDatasetInput): Prom
       `
       INSERT INTO policy_datasets (
         id,
+        user_id,
         district_name,
         filename,
         uploaded_at,
         policy_count,
         source_headers
       )
-      VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
       `,
       [
         datasetId,
+        input.userId,
         normalizedDistrictName,
         input.filename,
         uploadedAt,
@@ -117,41 +141,43 @@ export async function createPolicyDataset(input: CreatePolicyDatasetInput): Prom
   };
 }
 
-export async function getPolicyDataset(datasetId: string): Promise<PolicyDataset | null> {
+export async function getPolicyDataset(userId: string, datasetId: string): Promise<PolicyDataset | null> {
   await ensureSchema();
 
   const queryResult = await getPool().query<RawPolicyDataset>(
     `
-    SELECT id, district_name, filename, uploaded_at, policy_count
+    SELECT id, user_id, district_name, filename, uploaded_at, policy_count
     FROM policy_datasets
-    WHERE id = $1
+    WHERE id = $1 AND user_id = $2
     LIMIT 1
     `,
-    [datasetId],
+    [datasetId, userId],
   );
 
   const row = queryResult.rows[0];
   return row ? mapDataset(row) : null;
 }
 
-export async function listPolicyDatasets(limit = 20): Promise<PolicyDataset[]> {
+export async function listPolicyDatasets(userId: string, limit = 20): Promise<PolicyDataset[]> {
   await ensureSchema();
 
   const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
   const queryResult = await getPool().query<RawPolicyDataset>(
     `
-    SELECT id, district_name, filename, uploaded_at, policy_count
+    SELECT id, user_id, district_name, filename, uploaded_at, policy_count
     FROM policy_datasets
+    WHERE user_id = $1
     ORDER BY uploaded_at DESC
-    LIMIT $1
+    LIMIT $2
     `,
-    [safeLimit],
+    [userId, safeLimit],
   );
 
   return queryResult.rows.map(mapDataset);
 }
 
 export async function searchDatasetPolicies(
+  userId: string,
   datasetId: string,
   terms: string[],
   options?: { limit?: number },
@@ -165,50 +191,54 @@ export async function searchDatasetPolicies(
     const result = await poolInstance.query<RawStoredPolicy>(
       `
       SELECT
-        id,
-        dataset_id,
-        policy_section,
-        policy_code,
-        adopted_date,
-        revised_date,
-        policy_status,
-        policy_title,
-        policy_wording,
-        source_row_index
-      FROM policies
-      WHERE dataset_id = $1
-      ORDER BY id ASC
-      LIMIT $2
+        p.id,
+        p.dataset_id,
+        p.policy_section,
+        p.policy_code,
+        p.adopted_date,
+        p.revised_date,
+        p.policy_status,
+        p.policy_title,
+        p.policy_wording,
+        p.source_row_index
+      FROM policies p
+      JOIN policy_datasets d ON d.id = p.dataset_id
+      WHERE p.dataset_id = $1
+      AND d.user_id = $2
+      ORDER BY p.id ASC
+      LIMIT $3
       `,
-      [datasetId, limit],
+      [datasetId, userId, limit],
     );
     return result.rows.map(mapStoredPolicy);
   }
 
   const patterns = terms.map((term) => `%${escapeLike(term.toLowerCase())}%`);
   const whereClauses = patterns.map(
-    (_value, index) => `search_text ILIKE $${index + 2} ESCAPE '\\'`,
+    (_value, index) => `p.search_text ILIKE $${index + 3} ESCAPE '\\'`,
   );
-  const params = [datasetId, ...patterns, limit];
+  const params = [datasetId, userId, ...patterns, limit];
   const limitPlaceholder = `$${params.length}`;
 
   const filteredResult = await poolInstance.query<RawStoredPolicy>(
     `
     SELECT
-      id,
-      dataset_id,
-      policy_section,
-      policy_code,
-      adopted_date,
-      revised_date,
-      policy_status,
-      policy_title,
-      policy_wording,
-      source_row_index
-    FROM policies
-    WHERE dataset_id = $1
+      p.id,
+      p.dataset_id,
+      p.policy_section,
+      p.policy_code,
+      p.adopted_date,
+      p.revised_date,
+      p.policy_status,
+      p.policy_title,
+      p.policy_wording,
+      p.source_row_index
+    FROM policies p
+    JOIN policy_datasets d ON d.id = p.dataset_id
+    WHERE p.dataset_id = $1
+    AND d.user_id = $2
     AND (${whereClauses.join(" OR ")})
-    ORDER BY id ASC
+    ORDER BY p.id ASC
     LIMIT ${limitPlaceholder}
     `,
     params,
@@ -221,25 +251,116 @@ export async function searchDatasetPolicies(
   const fallbackResult = await poolInstance.query<RawStoredPolicy>(
     `
     SELECT
-      id,
-      dataset_id,
-      policy_section,
-      policy_code,
-      adopted_date,
-      revised_date,
-      policy_status,
-      policy_title,
-      policy_wording,
-      source_row_index
-    FROM policies
-    WHERE dataset_id = $1
-    ORDER BY id ASC
-    LIMIT $2
+      p.id,
+      p.dataset_id,
+      p.policy_section,
+      p.policy_code,
+      p.adopted_date,
+      p.revised_date,
+      p.policy_status,
+      p.policy_title,
+      p.policy_wording,
+      p.source_row_index
+    FROM policies p
+    JOIN policy_datasets d ON d.id = p.dataset_id
+    WHERE p.dataset_id = $1
+    AND d.user_id = $2
+    ORDER BY p.id ASC
+    LIMIT $3
     `,
-    [datasetId, limit],
+    [datasetId, userId, limit],
   );
 
   return fallbackResult.rows.map(mapStoredPolicy);
+}
+
+export async function createUserAccount(email: string, passwordHash: string): Promise<AuthUser> {
+  await ensureSchema();
+
+  const userId = randomUUID();
+  const normalizedEmail = normalizeEmail(email);
+
+  const result = await getPool().query<RawAuthUser>(
+    `
+    INSERT INTO users (id, email, password_hash)
+    VALUES ($1, $2, $3)
+    RETURNING id, email, created_at
+    `,
+    [userId, normalizedEmail, passwordHash],
+  );
+
+  return mapAuthUser(result.rows[0]);
+}
+
+export async function findUserByEmail(
+  email: string,
+): Promise<{ user: AuthUser; passwordHash: string } | null> {
+  await ensureSchema();
+
+  const normalizedEmail = normalizeEmail(email);
+  const result = await getPool().query<RawAuthUserWithPassword>(
+    `
+    SELECT id, email, password_hash, created_at
+    FROM users
+    WHERE email = $1
+    LIMIT 1
+    `,
+    [normalizedEmail],
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    user: mapAuthUser(row),
+    passwordHash: row.password_hash,
+  };
+}
+
+export async function createAuthSession(userId: string, ttlDays = 30): Promise<CreateSessionResult> {
+  await ensureSchema();
+
+  const sessionId = randomUUID();
+  const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000).toISOString();
+
+  await getPool().query(
+    `
+    INSERT INTO auth_sessions (id, user_id, expires_at)
+    VALUES ($1, $2, $3)
+    `,
+    [sessionId, userId, expiresAt],
+  );
+
+  return {
+    id: sessionId,
+    expiresAt,
+  };
+}
+
+export async function getUserBySessionId(sessionId: string): Promise<AuthUser | null> {
+  await ensureSchema();
+
+  const result = await getPool().query<RawAuthUser>(
+    `
+    SELECT u.id, u.email, u.created_at
+    FROM auth_sessions s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.id = $1
+    AND s.expires_at > NOW()
+    LIMIT 1
+    `,
+    [sessionId],
+  );
+
+  const row = result.rows[0];
+  return row ? mapAuthUser(row) : null;
+}
+
+export async function deleteAuthSession(sessionId: string): Promise<void> {
+  await ensureSchema();
+  await getPool().query(`DELETE FROM auth_sessions WHERE id = $1`, [sessionId]);
 }
 
 async function ensureSchema(): Promise<void> {
@@ -251,14 +372,50 @@ async function ensureSchema(): Promise<void> {
     const client = await getClient();
     try {
       await client.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          email TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS auth_sessions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id);
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at);
+      `);
+
+      await client.query(`
         CREATE TABLE IF NOT EXISTS policy_datasets (
           id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           district_name TEXT NOT NULL,
           filename TEXT NOT NULL,
           uploaded_at TIMESTAMPTZ NOT NULL,
           policy_count INTEGER NOT NULL DEFAULT 0,
           source_headers JSONB NOT NULL DEFAULT '[]'::jsonb
         );
+      `);
+
+      await client.query(`
+        ALTER TABLE policy_datasets
+        ADD COLUMN IF NOT EXISTS user_id TEXT;
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_policy_datasets_user_id ON policy_datasets(user_id);
       `);
 
       await client.query(`
@@ -294,10 +451,7 @@ function getPool(): Pool {
   }
 
   const connectionString = resolveDatabaseUrl();
-  pool = new Pool({
-    connectionString,
-  });
-
+  pool = new Pool({ connectionString });
   return pool;
 }
 
@@ -361,6 +515,18 @@ function mapStoredPolicy(row: RawStoredPolicy): StoredPolicy {
     policyWording: row.policy_wording,
     sourceRowIndex: Number(row.source_row_index),
   };
+}
+
+function mapAuthUser(row: RawAuthUser): AuthUser {
+  return {
+    id: row.id,
+    email: row.email,
+    createdAt: formatTimestamp(row.created_at),
+  };
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
 function formatTimestamp(value: Date | string): string {
