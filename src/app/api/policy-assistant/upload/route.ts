@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 
 export async function GET(): Promise<NextResponse> {
-  const datasets = listPolicyDatasets(30);
+  const datasets = await listPolicyDatasets(30);
   return NextResponse.json({ datasets }, { status: 200 });
 }
 
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const parsed = parsePolicyCsvBuffer(Buffer.from(arrayBuffer));
-    const dataset = createPolicyDataset({
+    const dataset = await createPolicyDataset({
       districtName,
       filename,
       headers: parsed.headers,

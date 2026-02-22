@@ -26,12 +26,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Please describe the scenario to evaluate." }, { status: 400 });
     }
 
-    const dataset = getPolicyDataset(datasetId);
+    const dataset = await getPolicyDataset(datasetId);
     if (!dataset) {
       return NextResponse.json({ error: "The selected dataset was not found." }, { status: 404 });
     }
 
-    const retrieval = retrieveRelevantPolicies(dataset.id, scenario, { limit: 6 });
+    const retrieval = await retrieveRelevantPolicies(dataset.id, scenario, { limit: 6 });
     if (retrieval.policies.length === 0) {
       return NextResponse.json(
         { error: "No policies were found for this dataset. Upload a CSV with policy rows first." },

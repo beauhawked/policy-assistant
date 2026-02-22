@@ -46,9 +46,18 @@ export function retrieveRelevantPolicies(
   datasetId: string,
   scenario: string,
   options?: { limit?: number },
-): RetrievalBundle {
+): Promise<RetrievalBundle> {
   const terms = extractSearchTerms(scenario);
-  const candidates = searchDatasetPolicies(datasetId, terms, { limit: 350 });
+  return buildRetrievalBundle(datasetId, scenario, terms, options);
+}
+
+async function buildRetrievalBundle(
+  datasetId: string,
+  scenario: string,
+  terms: string[],
+  options?: { limit?: number },
+): Promise<RetrievalBundle> {
+  const candidates = await searchDatasetPolicies(datasetId, terms, { limit: 350 });
   const scored = scorePolicies(candidates, scenario, terms);
   const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 12) : 6;
 
