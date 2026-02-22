@@ -9,12 +9,17 @@ interface GeneratePolicyGuidanceInput {
   districtName: string;
   scenario: string;
   policies: RetrievalResult[];
+  conversationHistory?: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }>;
 }
 
 let openaiClient: OpenAI | null = null;
 
 export async function generatePolicyGuidance(input: GeneratePolicyGuidanceInput): Promise<string> {
   const client = getOpenAiClient();
+  const historyContext = buildConversationHistoryContext(input.conversationHistory ?? []);
 
   const policyContext = input.policies.map((policy, index) => {
     const revisedDate = policy.revisedDate || "No Policy Revisions";
@@ -54,6 +59,7 @@ export async function generatePolicyGuidance(input: GeneratePolicyGuidanceInput)
             text: [
               `District: ${input.districtName}`,
               "",
+              ...(historyContext ? [historyContext, ""] : []),
               `Scenario: ${input.scenario}`,
               "",
               "Relevant policies from the uploaded district CSV:",
@@ -162,4 +168,20 @@ function truncate(value: string, maxLength: number): string {
     return value;
   }
   return `${value.slice(0, maxLength - 3)}...`;
+}
+
+function buildConversationHistoryContext(
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
+): string {
+  if (messages.length === 0) {
+    return "";
+  }
+
+  const lastMessages = messages.slice(-8);
+  const lines = lastMessages.map((message, index) => {
+    const role = message.role === "assistant" ? "Assistant" : "User";
+    return `${index + 1}. ${role}: ${truncate(message.content, 1200)}`;
+  });
+
+  return ["Prior conversation context (oldest to newest):", ...lines].join("\n");
 }

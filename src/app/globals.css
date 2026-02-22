@@ -336,6 +336,18 @@ a {
   gap: 0.9rem;
 }
 
+.assistant-conversation-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.65rem;
+  align-items: end;
+}
+
+.assistant-conversation-picker {
+  display: grid;
+  gap: 0.45rem;
+}
+
 .assistant-account-row {
   display: flex;
   align-items: center;
@@ -464,6 +476,10 @@ a {
   }
 
   .assistant-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .assistant-conversation-row {
     grid-template-columns: 1fr;
   }
 }

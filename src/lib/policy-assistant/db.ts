@@ -4,7 +4,10 @@ import { Pool, type PoolClient } from "pg";
 
 import type {
   AuthUser,
+  ConversationRole,
   NormalizedPolicyRow,
+  PolicyConversation,
+  PolicyConversationMessage,
   PolicyDataset,
   StoredPolicy,
 } from "@/lib/policy-assistant/types";
@@ -52,6 +55,25 @@ interface RawAuthUserWithPassword extends RawAuthUser {
 interface CreateSessionResult {
   id: string;
   expiresAt: string;
+}
+
+interface RawPolicyConversation {
+  id: string;
+  user_id: string;
+  dataset_id: string;
+  title: string;
+  created_at: Date | string;
+  updated_at: Date | string;
+  last_message_at?: Date | string;
+  message_count?: number | string;
+}
+
+interface RawPolicyConversationMessage {
+  id: number | string;
+  conversation_id: string;
+  role: ConversationRole;
+  content: string;
+  created_at: Date | string;
 }
 
 let pool: Pool | null = null;
@@ -363,6 +385,201 @@ export async function deleteAuthSession(sessionId: string): Promise<void> {
   await getPool().query(`DELETE FROM auth_sessions WHERE id = $1`, [sessionId]);
 }
 
+export async function createPolicyConversation(
+  userId: string,
+  datasetId: string,
+  title: string,
+): Promise<PolicyConversation> {
+  await ensureSchema();
+
+  const normalizedTitle = title.trim() || "Untitled conversation";
+  const conversationId = randomUUID();
+
+  const result = await getPool().query<RawPolicyConversation>(
+    `
+    INSERT INTO policy_conversations (id, user_id, dataset_id, title, updated_at)
+    VALUES ($1, $2, $3, $4, NOW())
+    RETURNING
+      id,
+      user_id,
+      dataset_id,
+      title,
+      created_at,
+      updated_at,
+      updated_at AS last_message_at,
+      0::integer AS message_count
+    `,
+    [conversationId, userId, datasetId, normalizedTitle],
+  );
+
+  return mapPolicyConversation(result.rows[0]);
+}
+
+export async function getPolicyConversation(
+  userId: string,
+  conversationId: string,
+): Promise<PolicyConversation | null> {
+  await ensureSchema();
+
+  const result = await getPool().query<RawPolicyConversation>(
+    `
+    SELECT
+      c.id,
+      c.user_id,
+      c.dataset_id,
+      c.title,
+      c.created_at,
+      c.updated_at,
+      COALESCE(MAX(m.created_at), c.updated_at) AS last_message_at,
+      COUNT(m.id)::integer AS message_count
+    FROM policy_conversations c
+    LEFT JOIN policy_conversation_messages m ON m.conversation_id = c.id
+    WHERE c.id = $1
+    AND c.user_id = $2
+    GROUP BY c.id
+    LIMIT 1
+    `,
+    [conversationId, userId],
+  );
+
+  const row = result.rows[0];
+  return row ? mapPolicyConversation(row) : null;
+}
+
+export async function listPolicyConversations(
+  userId: string,
+  options?: { datasetId?: string; limit?: number },
+): Promise<PolicyConversation[]> {
+  await ensureSchema();
+
+  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 100) : 30;
+  const datasetId = options?.datasetId?.trim();
+
+  if (datasetId) {
+    const result = await getPool().query<RawPolicyConversation>(
+      `
+      SELECT
+        c.id,
+        c.user_id,
+        c.dataset_id,
+        c.title,
+        c.created_at,
+        c.updated_at,
+        COALESCE(MAX(m.created_at), c.updated_at) AS last_message_at,
+        COUNT(m.id)::integer AS message_count
+      FROM policy_conversations c
+      LEFT JOIN policy_conversation_messages m ON m.conversation_id = c.id
+      WHERE c.user_id = $1
+      AND c.dataset_id = $2
+      GROUP BY c.id
+      ORDER BY COALESCE(MAX(m.created_at), c.updated_at) DESC
+      LIMIT $3
+      `,
+      [userId, datasetId, limit],
+    );
+
+    return result.rows.map(mapPolicyConversation);
+  }
+
+  const result = await getPool().query<RawPolicyConversation>(
+    `
+    SELECT
+      c.id,
+      c.user_id,
+      c.dataset_id,
+      c.title,
+      c.created_at,
+      c.updated_at,
+      COALESCE(MAX(m.created_at), c.updated_at) AS last_message_at,
+      COUNT(m.id)::integer AS message_count
+    FROM policy_conversations c
+    LEFT JOIN policy_conversation_messages m ON m.conversation_id = c.id
+    WHERE c.user_id = $1
+    GROUP BY c.id
+    ORDER BY COALESCE(MAX(m.created_at), c.updated_at) DESC
+    LIMIT $2
+    `,
+    [userId, limit],
+  );
+
+  return result.rows.map(mapPolicyConversation);
+}
+
+export async function listPolicyConversationMessages(
+  userId: string,
+  conversationId: string,
+  options?: { limit?: number },
+): Promise<PolicyConversationMessage[]> {
+  await ensureSchema();
+
+  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 400) : 240;
+
+  const result = await getPool().query<RawPolicyConversationMessage>(
+    `
+    SELECT
+      m.id,
+      m.conversation_id,
+      m.role,
+      m.content,
+      m.created_at
+    FROM policy_conversation_messages m
+    JOIN policy_conversations c ON c.id = m.conversation_id
+    WHERE m.conversation_id = $1
+    AND c.user_id = $2
+    ORDER BY m.created_at ASC, m.id ASC
+    LIMIT $3
+    `,
+    [conversationId, userId, limit],
+  );
+
+  return result.rows.map(mapPolicyConversationMessage);
+}
+
+export async function appendPolicyConversationMessage(
+  conversationId: string,
+  role: ConversationRole,
+  content: string,
+): Promise<PolicyConversationMessage> {
+  await ensureSchema();
+
+  const normalizedContent = content.trim();
+  if (!normalizedContent) {
+    throw new Error("Conversation message content cannot be empty.");
+  }
+
+  const client = await getClient();
+
+  try {
+    await client.query("BEGIN");
+
+    const messageResult = await client.query<RawPolicyConversationMessage>(
+      `
+      INSERT INTO policy_conversation_messages (conversation_id, role, content)
+      VALUES ($1, $2, $3)
+      RETURNING id, conversation_id, role, content, created_at
+      `,
+      [conversationId, role, normalizedContent],
+    );
+
+    await client.query(
+      `
+      UPDATE policy_conversations
+      SET updated_at = NOW()
+      WHERE id = $1
+      `,
+      [conversationId],
+    );
+
+    await client.query("COMMIT");
+    return mapPolicyConversationMessage(messageResult.rows[0]);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function ensureSchema(): Promise<void> {
   if (schemaReadyPromise) {
     return schemaReadyPromise;
@@ -436,6 +653,49 @@ async function ensureSchema(): Promise<void> {
 
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_policies_dataset_id ON policies(dataset_id);
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS policy_conversations (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          dataset_id TEXT NOT NULL REFERENCES policy_datasets(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_policy_conversations_user_id ON policy_conversations(user_id);
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_policy_conversations_dataset_id ON policy_conversations(dataset_id);
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_policy_conversations_updated_at ON policy_conversations(updated_at DESC);
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS policy_conversation_messages (
+          id BIGSERIAL PRIMARY KEY,
+          conversation_id TEXT NOT NULL REFERENCES policy_conversations(id) ON DELETE CASCADE,
+          role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+          content TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_policy_conversation_messages_conversation_id
+        ON policy_conversation_messages(conversation_id);
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_policy_conversation_messages_created_at
+        ON policy_conversation_messages(created_at);
       `);
     } finally {
       client.release();
@@ -521,6 +781,33 @@ function mapAuthUser(row: RawAuthUser): AuthUser {
   return {
     id: row.id,
     email: row.email,
+    createdAt: formatTimestamp(row.created_at),
+  };
+}
+
+function mapPolicyConversation(row: RawPolicyConversation): PolicyConversation {
+  const lastMessageAt = row.last_message_at ?? row.updated_at;
+  const messageCount = row.message_count ?? 0;
+
+  return {
+    id: row.id,
+    datasetId: row.dataset_id,
+    title: row.title,
+    createdAt: formatTimestamp(row.created_at),
+    updatedAt: formatTimestamp(row.updated_at),
+    lastMessageAt: formatTimestamp(lastMessageAt),
+    messageCount: Number(messageCount),
+  };
+}
+
+function mapPolicyConversationMessage(
+  row: RawPolicyConversationMessage,
+): PolicyConversationMessage {
+  return {
+    id: Number(row.id),
+    conversationId: row.conversation_id,
+    role: row.role,
+    content: row.content,
     createdAt: formatTimestamp(row.created_at),
   };
 }

@@ -23,6 +23,26 @@ export interface AuthUser {
   createdAt: string;
 }
 
+export type ConversationRole = "user" | "assistant";
+
+export interface PolicyConversation {
+  id: string;
+  datasetId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt: string;
+  messageCount: number;
+}
+
+export interface PolicyConversationMessage {
+  id: number;
+  conversationId: string;
+  role: ConversationRole;
+  content: string;
+  createdAt: string;
+}
+
 export interface StoredPolicy extends NormalizedPolicyRow {
   id: number;
   datasetId: string;
