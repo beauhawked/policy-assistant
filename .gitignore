@@ -13,3 +13,5 @@ coverage
 *.tsbuildinfo
 
 .cache
+
+data/policy-assistant.sqlite*
