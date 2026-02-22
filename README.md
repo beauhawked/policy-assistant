@@ -51,6 +51,8 @@ Open [http://localhost:3000](http://localhost:3000). The home route redirects to
 - Users create an account and sign in at `/policy-assistant`.
 - Policy datasets are scoped to the signed-in account.
 - Upload once, then sign in later to keep asking questions without re-uploading.
+- Conversation history is saved per user and per dataset.
+- Users can reopen prior conversations after signing back in.
 
 ## Policy Assistant CSV mapping
 

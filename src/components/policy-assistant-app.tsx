@@ -22,6 +22,23 @@ interface AuthUser {
   createdAt: string;
 }
 
+interface ConversationSummary {
+  id: string;
+  datasetId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt: string;
+  messageCount: number;
+}
+
+interface ConversationMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+}
+
 type AuthMode = "login" | "signup";
 
 export function PolicyAssistantApp() {
@@ -41,13 +58,22 @@ export function PolicyAssistantApp() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isConversationLoading, setIsConversationLoading] = useState(false);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [selectedConversationId, setSelectedConversationId] = useState("");
   const [uploadStatus, setUploadStatus] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [chatError, setChatError] = useState("");
+  const [conversationError, setConversationError] = useState("");
 
   const selectedDataset = useMemo(
     () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
     [datasets, selectedDatasetId],
+  );
+
+  const selectedConversation = useMemo(
+    () => conversations.find((conversation) => conversation.id === selectedConversationId) ?? null,
+    [conversations, selectedConversationId],
   );
 
   useEffect(() => {
@@ -60,6 +86,29 @@ export function PolicyAssistantApp() {
       setSelectedDatasetId(datasets[0].id);
     }
   }, [datasets, selectedDatasetId]);
+
+  useEffect(() => {
+    if (!authUser || !selectedDatasetId) {
+      setConversations([]);
+      setSelectedConversationId("");
+      setMessages([]);
+      return;
+    }
+
+    setMessages([]);
+    setSelectedConversationId("");
+    void loadConversations(selectedDatasetId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, selectedDatasetId]);
+
+  useEffect(() => {
+    if (!authUser || !selectedConversationId) {
+      return;
+    }
+
+    void loadConversation(selectedConversationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, selectedConversationId]);
 
   const handleAuthSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -107,9 +156,12 @@ export function PolicyAssistantApp() {
       setAuthPassword("");
       setDatasets([]);
       setSelectedDatasetId("");
+      setConversations([]);
+      setSelectedConversationId("");
       setMessages([]);
       setUploadError("");
       setChatError("");
+      setConversationError("");
       await loadDatasets();
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Authentication failed.");
@@ -179,11 +231,13 @@ export function PolicyAssistantApp() {
 
       setDatasets((previous) => [payload.dataset as PolicyDataset, ...previous]);
       setSelectedDatasetId(payload.dataset.id);
+      setConversations([]);
+      setSelectedConversationId("");
+      setMessages([]);
       setUploadStatus(
         `Uploaded ${payload.dataset.policyCount} policies for ${payload.dataset.districtName}.`,
       );
       setUploadFile(null);
-      setMessages([]);
     } catch (error) {
       setUploadStatus("");
       setUploadError(error instanceof Error ? error.message : "Upload failed.");
@@ -231,12 +285,14 @@ export function PolicyAssistantApp() {
         body: JSON.stringify({
           datasetId: selectedDatasetId,
           scenario: trimmedScenario,
+          conversationId: selectedConversationId || undefined,
         }),
       });
 
       const payload = (await response.json().catch(() => ({}))) as {
         answer?: string;
         error?: string;
+        conversation?: ConversationSummary;
       };
 
       if (!response.ok) {
@@ -244,6 +300,14 @@ export function PolicyAssistantApp() {
           clearSessionState();
           throw new Error("Your session expired. Please sign in again.");
         }
+
+        if (response.status === 404 && selectedConversationId) {
+          setSelectedConversationId("");
+          setConversations((previous) =>
+            previous.filter((conversation) => conversation.id !== selectedConversationId),
+          );
+        }
+
         throw new Error(payload.error ?? `Assistant request failed with status ${response.status}.`);
       }
 
@@ -258,11 +322,24 @@ export function PolicyAssistantApp() {
       };
 
       setMessages((previous) => [...previous, assistantMessage]);
+
+      if (payload.conversation) {
+        const savedConversation = payload.conversation;
+        setSelectedConversationId(savedConversation.id);
+        setConversations((previous) => upsertConversation(previous, savedConversation));
+      }
     } catch (error) {
       setChatError(error instanceof Error ? error.message : "Assistant request failed.");
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleStartNewConversation = (): void => {
+    setSelectedConversationId("");
+    setMessages([]);
+    setChatError("");
+    setConversationError("");
   };
 
   if (isAuthLoading) {
@@ -414,6 +491,50 @@ export function PolicyAssistantApp() {
       <section className="panel assistant-chat-panel">
         <h2 className="section-title">Policy Assistant</h2>
 
+        <div className="assistant-conversation-row">
+          <div className="assistant-conversation-picker">
+            <label htmlFor="conversation-select" className="policy-label">
+              Conversation History
+            </label>
+            <select
+              id="conversation-select"
+              value={selectedConversationId}
+              onChange={(event) => setSelectedConversationId(event.target.value)}
+              disabled={conversations.length === 0 || isConversationLoading}
+            >
+              {conversations.length === 0 ? (
+                <option value="">No saved conversations yet</option>
+              ) : (
+                conversations.map((conversation) => (
+                  <option key={conversation.id} value={conversation.id}>
+                    {formatConversationOption(conversation)}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            className="assistant-auth-toggle"
+            onClick={handleStartNewConversation}
+            disabled={!selectedDatasetId || isSending}
+          >
+            New Conversation
+          </button>
+        </div>
+
+        {selectedConversation ? (
+          <p className="small-muted">
+            Continuing: {selectedConversation.title} ({selectedConversation.messageCount} messages)
+          </p>
+        ) : (
+          <p className="small-muted">Describe a situation to start a new saved conversation.</p>
+        )}
+
+        {isConversationLoading ? <p className="small-muted">Loading conversation history...</p> : null}
+        {conversationError ? <p className="policy-error">{conversationError}</p> : null}
+
         <div className="assistant-message-list">
           {messages.length === 0 ? (
             <article className="assistant-message assistant-message-assistant">
@@ -512,16 +633,120 @@ export function PolicyAssistantApp() {
     }
   }
 
+  async function loadConversations(datasetId: string): Promise<void> {
+    setIsConversationLoading(true);
+    setConversationError("");
+
+    try {
+      const response = await fetch(
+        `/api/policy-assistant/conversations?datasetId=${encodeURIComponent(datasetId)}&limit=50`,
+        {
+          cache: "no-store",
+        },
+      );
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        conversations?: ConversationSummary[];
+        error?: string;
+      };
+
+      if (response.status === 401) {
+        clearSessionState();
+        return;
+      }
+
+      if (!response.ok || !Array.isArray(payload.conversations)) {
+        throw new Error(payload.error ?? "Could not load conversation history.");
+      }
+
+      const loadedConversations = payload.conversations as ConversationSummary[];
+
+      setConversations(loadedConversations);
+
+      if (loadedConversations.length === 0) {
+        setSelectedConversationId("");
+        setMessages([]);
+        return;
+      }
+
+      setSelectedConversationId((currentId) => {
+        if (currentId && loadedConversations.some((conversation) => conversation.id === currentId)) {
+          return currentId;
+        }
+        return loadedConversations[0].id;
+      });
+    } catch (error) {
+      setConversationError(error instanceof Error ? error.message : "Could not load conversation history.");
+      setConversations([]);
+      setSelectedConversationId("");
+      setMessages([]);
+    } finally {
+      setIsConversationLoading(false);
+    }
+  }
+
+  async function loadConversation(conversationId: string): Promise<void> {
+    setIsConversationLoading(true);
+    setConversationError("");
+
+    try {
+      const response = await fetch(`/api/policy-assistant/conversations/${conversationId}`, {
+        cache: "no-store",
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        conversation?: ConversationSummary;
+        messages?: ConversationMessage[];
+        error?: string;
+      };
+
+      if (response.status === 401) {
+        clearSessionState();
+        return;
+      }
+
+      if (response.status === 404) {
+        setConversations((previous) =>
+          previous.filter((conversation) => conversation.id !== conversationId),
+        );
+        setSelectedConversationId("");
+        setMessages([]);
+        throw new Error("Conversation not found. Start a new conversation.");
+      }
+
+      if (!response.ok || !payload.conversation || !Array.isArray(payload.messages)) {
+        throw new Error(payload.error ?? "Could not load conversation messages.");
+      }
+
+      setConversations((previous) => upsertConversation(previous, payload.conversation as ConversationSummary));
+
+      setMessages(
+        payload.messages.map((message) => ({
+          id: `stored-${message.id}`,
+          role: message.role,
+          content: message.content,
+        })),
+      );
+    } catch (error) {
+      setConversationError(error instanceof Error ? error.message : "Could not load conversation.");
+    } finally {
+      setIsConversationLoading(false);
+    }
+  }
+
   function clearSessionState(): void {
     setAuthUser(null);
     setDatasets([]);
     setSelectedDatasetId("");
+    setConversations([]);
+    setSelectedConversationId("");
     setMessages([]);
     setScenario("");
     setUploadFile(null);
     setUploadStatus("");
     setUploadError("");
     setChatError("");
+    setConversationError("");
   }
 }
 
@@ -535,4 +760,25 @@ function formatDatasetOption(dataset: PolicyDataset): string {
     return label;
   }
   return `${label.slice(0, 55)}...`;
+}
+
+function formatConversationOption(conversation: ConversationSummary): string {
+  const base = conversation.title.trim() || "Untitled conversation";
+  const title = base.length > 45 ? `${base.slice(0, 42)}...` : base;
+  const timestamp = new Date(conversation.lastMessageAt || conversation.updatedAt).toLocaleString();
+  return `${title} (${timestamp})`;
+}
+
+function upsertConversation(
+  previous: ConversationSummary[],
+  incoming: ConversationSummary,
+): ConversationSummary[] {
+  const withoutIncoming = previous.filter((conversation) => conversation.id !== incoming.id);
+  const merged = [incoming, ...withoutIncoming];
+
+  return merged.sort(
+    (left, right) =>
+      new Date(right.lastMessageAt || right.updatedAt).getTime() -
+      new Date(left.lastMessageAt || left.updatedAt).getTime(),
+  );
 }
