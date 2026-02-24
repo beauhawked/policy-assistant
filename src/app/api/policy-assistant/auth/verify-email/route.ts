@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { setSessionCookie } from "@/lib/policy-assistant/auth";
 import { createSessionForVerifiedUser, verifyEmailToken } from "@/lib/policy-assistant/auth-flow";
-import { rateLimitExceededResponse } from "@/lib/policy-assistant/http";
+import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
 export const runtime = "nodejs";
@@ -54,9 +54,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     setSessionCookie(response, session.sessionId, session.expiresAt);
     return response;
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Email verification failed." },
-      { status: 500 },
-    );
+    return serverErrorResponse(error, "Email verification failed.", "auth_verify_email");
   }
 }

@@ -11,7 +11,7 @@ import {
 } from "@/lib/policy-assistant/auth";
 import { issueEmailVerificationForUser } from "@/lib/policy-assistant/auth-flow";
 import { createAuthSession, createUserAccount, findUserByEmail } from "@/lib/policy-assistant/db";
-import { rateLimitExceededResponse } from "@/lib/policy-assistant/http";
+import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
 export const runtime = "nodejs";
@@ -105,9 +105,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Signup failed." },
-      { status: 500 },
-    );
+    return serverErrorResponse(error, "Signup failed.", "auth_signup");
   }
 }

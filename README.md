@@ -38,6 +38,7 @@ Optional:
 - `POLICY_ASSISTANT_MODEL=gpt-4.1-mini`
 - `RESEND_API_KEY=<resend-api-key>` (required in production for verification/reset emails)
 - `POLICY_ASSISTANT_FROM_EMAIL="Policy Assistant <noreply@yourdomain.com>"`
+- `POLICY_ASSISTANT_APP_ORIGIN=https://your-domain.example` (required in production for secure verification/reset links)
 
 On Vercel with Vercel Postgres, `POSTGRES_URL` is provided automatically, so
 `POLICY_ASSISTANT_DATABASE_URL` can be omitted.
@@ -65,6 +66,7 @@ Open [http://localhost:3000](http://localhost:3000). The home route redirects to
 - Email verification tokens are single-use and expire after 24 hours.
 - Password reset tokens are single-use and expire after 60 minutes.
 - Basic rate limiting is enabled for auth endpoints, uploads, and chat calls.
+- Policy assistant routes set `no-store` caching and security response headers.
 
 ## Policy Assistant CSV mapping
 

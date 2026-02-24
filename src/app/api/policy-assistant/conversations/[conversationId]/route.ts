@@ -5,7 +5,7 @@ import {
   getPolicyConversation,
   listPolicyConversationMessages,
 } from "@/lib/policy-assistant/db";
-import { rateLimitExceededResponse } from "@/lib/policy-assistant/http";
+import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
 export const runtime = "nodejs";
@@ -63,11 +63,6 @@ export async function GET(
 
     return NextResponse.json({ conversation, messages }, { status: 200 });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Could not load conversation.",
-      },
-      { status: 500 },
-    );
+    return serverErrorResponse(error, "Could not load conversation.", "policy_conversation_detail");
   }
 }

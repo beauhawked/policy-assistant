@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthenticatedUserFromRequest, isUserEmailVerified } from "@/lib/policy-assistant/auth";
 import { listPolicyConversations } from "@/lib/policy-assistant/db";
-import { rateLimitExceededResponse } from "@/lib/policy-assistant/http";
+import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
 export const runtime = "nodejs";
@@ -47,11 +47,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ conversations }, { status: 200 });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Could not load conversations.",
-      },
-      { status: 500 },
-    );
+    return serverErrorResponse(error, "Could not load conversations.", "policy_conversations_list");
   }
 }

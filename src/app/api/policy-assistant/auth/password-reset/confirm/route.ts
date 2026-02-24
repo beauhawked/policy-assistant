@@ -11,7 +11,7 @@ import {
   deleteAuthSessionsForUser,
   updateUserPasswordHash,
 } from "@/lib/policy-assistant/db";
-import { rateLimitExceededResponse } from "@/lib/policy-assistant/http";
+import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
 export const runtime = "nodejs";
@@ -74,9 +74,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     setSessionCookie(response, session.id, session.expiresAt);
     return response;
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Password reset failed." },
-      { status: 500 },
-    );
+    return serverErrorResponse(error, "Password reset failed.", "auth_password_reset_confirm");
   }
 }
