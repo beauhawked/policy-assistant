@@ -8,7 +8,7 @@ import {
 } from "@/lib/policy-assistant/auth";
 import { issueEmailVerificationForUser } from "@/lib/policy-assistant/auth-flow";
 import { createAuthSession, findUserByEmail } from "@/lib/policy-assistant/db";
-import { rateLimitExceededResponse } from "@/lib/policy-assistant/http";
+import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
 export const runtime = "nodejs";
@@ -69,9 +69,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     setSessionCookie(response, session.id, session.expiresAt);
     return response;
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Login failed." },
-      { status: 500 },
-    );
+    return serverErrorResponse(error, "Login failed.", "auth_login");
   }
 }

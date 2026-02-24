@@ -8,7 +8,7 @@ import {
   getPolicyDataset,
   listPolicyConversationMessages,
 } from "@/lib/policy-assistant/db";
-import { rateLimitExceededResponse } from "@/lib/policy-assistant/http";
+import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { generatePolicyGuidance } from "@/lib/policy-assistant/openai";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 import { retrieveRelevantPolicies } from "@/lib/policy-assistant/retrieval";
@@ -132,12 +132,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { status: 200 },
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Policy assistant request failed.",
-      },
-      { status: 500 },
-    );
+    return serverErrorResponse(error, "Policy assistant request failed.", "policy_chat");
   }
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { clearSessionCookie, SESSION_COOKIE_NAME } from "@/lib/policy-assistant/auth";
 import { deleteAuthSession } from "@/lib/policy-assistant/db";
+import { serverErrorResponse } from "@/lib/policy-assistant/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,9 +18,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     clearSessionCookie(response);
     return response;
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Logout failed." },
-      { status: 500 },
-    );
+    return serverErrorResponse(error, "Logout failed.", "auth_logout");
   }
 }

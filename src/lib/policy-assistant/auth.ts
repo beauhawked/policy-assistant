@@ -99,13 +99,18 @@ export function getRequestIpAddress(request: NextRequest): string {
 }
 
 export function getRequestOrigin(request: NextRequest): string {
-  const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
-  if (forwardedHost) {
-    const forwardedProto = request.headers.get("x-forwarded-proto")?.trim() || "https";
-    return `${forwardedProto}://${forwardedHost}`;
+  const configuredOrigin = resolveConfiguredAppOrigin();
+  if (configuredOrigin) {
+    return configuredOrigin;
   }
 
-  return new URL(request.url).origin;
+  if (process.env.NODE_ENV !== "production") {
+    return new URL(request.url).origin;
+  }
+
+  throw new Error(
+    "POLICY_ASSISTANT_APP_ORIGIN is required in production for secure verification and reset links.",
+  );
 }
 
 export function clearSessionCookie(response: NextResponse): void {
@@ -118,4 +123,38 @@ export function clearSessionCookie(response: NextResponse): void {
     path: "/",
     maxAge: 0,
   });
+}
+
+function resolveConfiguredAppOrigin(): string | null {
+  const directOrigin =
+    process.env.POLICY_ASSISTANT_APP_ORIGIN?.trim() ||
+    process.env.APP_ORIGIN?.trim() ||
+    process.env.NEXT_PUBLIC_APP_ORIGIN?.trim();
+
+  if (directOrigin) {
+    return normalizeConfiguredOrigin(directOrigin);
+  }
+
+  const vercelOrigin =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
+  if (vercelOrigin) {
+    return normalizeConfiguredOrigin(vercelOrigin.startsWith("http") ? vercelOrigin : `https://${vercelOrigin}`);
+  }
+
+  return null;
+}
+
+function normalizeConfiguredOrigin(rawOrigin: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawOrigin);
+  } catch {
+    throw new Error(`Invalid app origin configuration: ${rawOrigin}`);
+  }
+
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new Error(`App origin must use http or https: ${rawOrigin}`);
+  }
+
+  return parsed.origin;
 }

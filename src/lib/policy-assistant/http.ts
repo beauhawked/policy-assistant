@@ -18,3 +18,17 @@ export function buildUrlWithPath(origin: string, path: string, params?: Record<s
   }
   return url.toString();
 }
+
+export function serverErrorResponse(
+  error: unknown,
+  message: string,
+  context: string,
+): NextResponse {
+  if (error instanceof Error) {
+    console.error(`[${context}] ${error.message}`, error);
+  } else {
+    console.error(`[${context}]`, error);
+  }
+
+  return NextResponse.json({ error: message }, { status: 500 });
+}

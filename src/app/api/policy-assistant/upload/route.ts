@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUserFromRequest, isUserEmailVerified } from "@/lib/policy-assistant/auth";
 import { parsePolicyCsvBuffer } from "@/lib/policy-assistant/csv";
 import { createPolicyDataset, listPolicyDatasets } from "@/lib/policy-assistant/db";
-import { rateLimitExceededResponse } from "@/lib/policy-assistant/http";
+import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
 export const runtime = "nodejs";
@@ -99,12 +99,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { status: 201 },
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Upload failed.",
-      },
-      { status: 500 },
-    );
+    return serverErrorResponse(error, "Upload failed.", "policy_upload");
   }
 }
 

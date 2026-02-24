@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRequestOrigin, isValidEmail, normalizeEmail } from "@/lib/policy-assistant/auth";
 import { issuePasswordResetForUser } from "@/lib/policy-assistant/auth-flow";
 import { findUserByEmail } from "@/lib/policy-assistant/db";
-import { rateLimitExceededResponse } from "@/lib/policy-assistant/http";
+import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
 export const runtime = "nodejs";
@@ -46,9 +46,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ message: GENERIC_MESSAGE }, { status: 200 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Password reset request failed." },
-      { status: 500 },
+    return serverErrorResponse(
+      error,
+      "Password reset request failed.",
+      "auth_password_reset_request",
     );
   }
 }
