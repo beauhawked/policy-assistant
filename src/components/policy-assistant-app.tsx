@@ -935,11 +935,12 @@ export function PolicyAssistantApp() {
           </div>
         </div>
 
+        <label htmlFor="conversation-select" className="policy-label assistant-conversation-label">
+          Conversation History
+        </label>
+
         <div className="assistant-conversation-row">
           <div className="assistant-conversation-picker">
-            <label htmlFor="conversation-select" className="policy-label">
-              Conversation History
-            </label>
             <select
               id="conversation-select"
               value={selectedConversationId}
@@ -984,11 +985,8 @@ export function PolicyAssistantApp() {
         <div className="assistant-message-shell">
           <div className="assistant-message-list" ref={messageListRef}>
             {renderedMessages.length === 0 ? (
-              <article className="assistant-message assistant-message-assistant">
-                <p className="assistant-message-role">Assistant</p>
-                <div className="assistant-message-body">
-                  Describe a situation to generate policy-grounded guidance.
-                </div>
+              <article className="assistant-message assistant-message-assistant assistant-message-empty">
+                <div className="assistant-message-body">Policy IQ: How can I assist you today?</div>
               </article>
             ) : null}
 
@@ -1025,7 +1023,11 @@ export function PolicyAssistantApp() {
             placeholder="Example: A parent has filed a formal complaint alleging their child with special needs is not receiving services required by the IEP."
             rows={5}
           />
-          <button className="action-button policy-button" type="submit" disabled={isSending}>
+          <button
+            className="action-button policy-button assistant-guidance-button"
+            type="submit"
+            disabled={isSending}
+          >
             {isSending ? "Analyzing..." : "Get Policy-Grounded Guidance"}
           </button>
         </form>

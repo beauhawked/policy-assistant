@@ -271,15 +271,22 @@ textarea {
 .controls button,
 .compare-controls button,
 .action-button {
-  border: 1px solid transparent;
+  border: 1px solid rgba(9, 56, 104, 0.88);
   border-radius: 11px;
-  background: linear-gradient(140deg, var(--accent), var(--accent-strong));
+  padding: 0.6rem 0.98rem;
+  min-height: 44px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0)),
+    linear-gradient(140deg, #1a8ad7, #0a3f77);
   color: #fff;
   font-family: var(--font-display), "Avenir Next", sans-serif;
   font-weight: 600;
+  font-size: 0.97rem;
   letter-spacing: 0.01em;
   cursor: pointer;
-  box-shadow: 0 8px 14px rgba(10, 63, 119, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 8px 14px rgba(10, 63, 119, 0.25);
   transition:
     transform 140ms ease,
     box-shadow 140ms ease,
@@ -290,8 +297,10 @@ textarea {
 .compare-controls button:hover,
 .action-button:hover {
   transform: translateY(-1px);
-  filter: saturate(1.05);
-  box-shadow: 0 12px 18px rgba(10, 63, 119, 0.28);
+  filter: saturate(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 12px 18px rgba(10, 63, 119, 0.3);
 }
 
 .controls button:disabled,
@@ -577,7 +586,11 @@ textarea {
 
 .assistant-chat-panel {
   display: grid;
-  gap: 0.9rem;
+  gap: 1rem;
+}
+
+.assistant-conversation-label {
+  margin-bottom: -0.36rem;
 }
 
 .assistant-conversation-row {
@@ -588,19 +601,26 @@ textarea {
 }
 
 .assistant-conversation-picker {
-  display: grid;
-  gap: 0.45rem;
+  min-width: 0;
+}
+
+.assistant-conversation-picker select {
+  height: 46px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .assistant-logout-button,
 .assistant-auth-toggle {
-  border: 1px solid var(--line);
+  border: 1px solid rgba(146, 175, 204, 0.95);
   border-radius: 11px;
-  padding: 0.52rem 0.78rem;
-  background: #fff;
-  color: var(--ink);
+  padding: 0.56rem 0.86rem;
+  min-height: 42px;
+  background: linear-gradient(180deg, #ffffff, #f5f9ff);
+  color: #0a3f77;
   cursor: pointer;
   font-family: var(--font-display), "Avenir Next", sans-serif;
+  font-weight: 600;
   transition:
     border-color 140ms ease,
     transform 140ms ease,
@@ -610,12 +630,19 @@ textarea {
 .assistant-auth-toggle:hover,
 .assistant-logout-button:hover {
   transform: translateY(-1px);
-  border-color: var(--line-strong);
+  border-color: #85afd4;
   box-shadow: 0 6px 12px rgba(17, 37, 58, 0.12);
 }
 
 .assistant-secondary-button {
-  background: linear-gradient(180deg, #ffffff, #f4f8fd);
+  justify-self: end;
+  align-self: end;
+  height: 46px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(180deg, #ffffff, #eff6ff);
 }
 
 .assistant-feedback-stack {
@@ -646,7 +673,7 @@ textarea {
   max-width: min(90%, 760px);
   border: 1px solid var(--line);
   border-radius: 18px;
-  padding: 0.72rem 0.86rem;
+  padding: 0.78rem 0.94rem;
   background: var(--chat-assistant);
   box-shadow: 0 8px 15px rgba(18, 39, 59, 0.07);
   width: fit-content;
@@ -671,10 +698,10 @@ textarea {
 .assistant-message-role {
   margin: 0;
   font-family: var(--font-display), "Avenir Next", sans-serif;
-  font-size: 0.73rem;
+  font-size: 0.74rem;
   color: #2b5a85;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  text-transform: none;
+  letter-spacing: 0.02em;
   font-weight: 600;
 }
 
@@ -682,14 +709,31 @@ textarea {
   margin: 0;
   white-space: pre-wrap;
   font-family: var(--font-serif), Georgia, serif;
-  font-size: 0.97rem;
-  line-height: 1.52;
+  font-size: 1.02rem;
+  line-height: 1.62;
   overflow-wrap: anywhere;
   color: inherit;
 }
 
 .assistant-message-role + .assistant-message-body {
-  margin-top: 0.34rem;
+  margin-top: 0.38rem;
+}
+
+.assistant-message-empty {
+  align-self: center;
+  width: min(100%, 1000px);
+  max-width: none;
+  text-align: center;
+  border-color: #c7d7e8;
+  background: linear-gradient(180deg, #ffffff, #f6fbff);
+}
+
+.assistant-message-empty .assistant-message-body {
+  font-family: var(--font-display), "Avenir Next", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #1b527f;
 }
 
 .assistant-message-kind-policy .assistant-message-role {
@@ -771,6 +815,11 @@ textarea {
 
 .policy-button {
   justify-self: start;
+}
+
+.assistant-guidance-button {
+  justify-self: end;
+  margin-top: 0.18rem;
 }
 
 .policy-status,
@@ -864,6 +913,22 @@ textarea {
 
   .assistant-conversation-row {
     grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .assistant-conversation-label {
+    margin-bottom: -0.1rem;
+  }
+
+  .assistant-secondary-button {
+    justify-self: stretch;
+    width: 100%;
+    align-self: stretch;
+  }
+
+  .assistant-guidance-button {
+    justify-self: stretch;
+    width: 100%;
   }
 }
 
@@ -877,6 +942,10 @@ textarea {
     padding: 1.2rem;
   }
 
+  .hero-logo {
+    max-width: min(100%, 420px);
+  }
+
   .assistant-upload-panel,
   .assistant-chat-panel,
   .assistant-auth-panel {
@@ -888,7 +957,20 @@ textarea {
   }
 
   .assistant-message-list {
+    padding: 0.72rem;
     max-height: 520px;
+  }
+
+  .assistant-message {
+    max-width: min(94%, 760px);
+  }
+
+  .assistant-message-empty {
+    width: 100%;
+  }
+
+  .assistant-chat-form textarea {
+    min-height: 130px;
   }
 
   .assistant-scroll-latest {
