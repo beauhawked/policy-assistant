@@ -40,6 +40,21 @@ interface ConversationMessage {
   createdAt: string;
 }
 
+type AssistantSectionKind = "general" | "policy" | "action" | "implications" | "disclaimer";
+
+interface AssistantMessageSection {
+  kind: AssistantSectionKind;
+  content: string;
+}
+
+interface RenderedChatBubble {
+  id: string;
+  role: "user" | "assistant";
+  kind: AssistantSectionKind;
+  label?: string;
+  content: string;
+}
+
 type AuthMode = "login" | "signup" | "forgot" | "reset";
 const MESSAGE_LIST_NEAR_BOTTOM_PX = 120;
 
@@ -90,6 +105,11 @@ export function PolicyAssistantApp() {
   const selectedConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedConversationId) ?? null,
     [conversations, selectedConversationId],
+  );
+
+  const renderedMessages = useMemo(
+    () => messages.flatMap((message) => expandChatMessage(message)),
+    [messages],
   );
 
   const syncMessageListScrollState = useCallback(() => {
@@ -963,17 +983,22 @@ export function PolicyAssistantApp() {
 
         <div className="assistant-message-shell">
           <div className="assistant-message-list" ref={messageListRef}>
-            {messages.length === 0 ? (
+            {renderedMessages.length === 0 ? (
               <article className="assistant-message assistant-message-assistant">
                 <p className="assistant-message-role">Assistant</p>
-                <pre>Describe a situation to generate policy-grounded guidance.</pre>
+                <div className="assistant-message-body">
+                  Describe a situation to generate policy-grounded guidance.
+                </div>
               </article>
             ) : null}
 
-            {messages.map((message) => (
-              <article key={message.id} className={`assistant-message assistant-message-${message.role}`}>
-                <p className="assistant-message-role">{message.role === "assistant" ? "Assistant" : "You"}</p>
-                <pre>{message.content}</pre>
+            {renderedMessages.map((bubble) => (
+              <article
+                key={bubble.id}
+                className={`assistant-message assistant-message-${bubble.role} assistant-message-kind-${bubble.kind}`}
+              >
+                {bubble.label ? <p className="assistant-message-role">{bubble.label}</p> : null}
+                <div className="assistant-message-body">{bubble.content}</div>
               </article>
             ))}
           </div>
@@ -1230,6 +1255,212 @@ export function PolicyAssistantApp() {
 
 function buildClientId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function expandChatMessage(message: ChatMessage): RenderedChatBubble[] {
+  if (message.role === "user") {
+    return [
+      {
+        id: message.id,
+        role: "user",
+        kind: "general",
+        content: message.content.trim(),
+      },
+    ];
+  }
+
+  const sections = splitAssistantMessageIntoSections(message.content);
+  if (sections.length === 0) {
+    return [
+      {
+        id: message.id,
+        role: "assistant",
+        kind: "general",
+        label: "Assistant",
+        content: message.content.trim(),
+      },
+    ];
+  }
+
+  let policyCount = 0;
+  return sections.map((section, index) => {
+    let label = "Assistant";
+    if (section.kind === "policy") {
+      policyCount += 1;
+      label = `Policy ${policyCount}`;
+    } else if (section.kind === "action") {
+      label = "Action Plan";
+    } else if (section.kind === "implications") {
+      label = "Implications";
+    } else if (section.kind === "disclaimer") {
+      label = "Important Note";
+    }
+
+    return {
+      id: `${message.id}-${index + 1}`,
+      role: "assistant",
+      kind: section.kind,
+      label,
+      content: section.content,
+    };
+  });
+}
+
+function splitAssistantMessageIntoSections(content: string): AssistantMessageSection[] {
+  const normalized = content.replace(/\r\n?/g, "\n").trim();
+  if (!normalized) {
+    return [];
+  }
+
+  const disclaimerMatch = /(?:^|\n)\s*(?:\*\*)?Please remember[\s\S]*$/i.exec(normalized);
+  const disclaimerText = disclaimerMatch?.[0]?.trim() ?? "";
+  const bodyText =
+    disclaimerMatch && typeof disclaimerMatch.index === "number"
+      ? normalized.slice(0, disclaimerMatch.index).trim()
+      : normalized;
+
+  const policyBlocks: string[][] = [];
+  const preface: string[] = [];
+  const actionLines: string[] = [];
+  const implicationsLines: string[] = [];
+  let currentPolicy: string[] = [];
+  let mode: "preface" | "policy" | "action" | "implications" = "preface";
+
+  for (const rawLine of bodyText.split("\n")) {
+    const line = rawLine.replace(/\s+$/g, "");
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      if (mode === "policy" && currentPolicy.length > 0) {
+        currentPolicy.push("");
+      } else if (mode === "action" && actionLines.length > 0) {
+        actionLines.push("");
+      } else if (mode === "implications" && implicationsLines.length > 0) {
+        implicationsLines.push("");
+      } else if (mode === "preface" && preface.length > 0) {
+        preface.push("");
+      }
+      continue;
+    }
+
+    if (isRelevantPoliciesHeading(trimmed)) {
+      continue;
+    }
+
+    if (isActionStepsHeading(trimmed)) {
+      if (currentPolicy.length > 0) {
+        policyBlocks.push(currentPolicy);
+        currentPolicy = [];
+      }
+      mode = "action";
+      actionLines.push("Action Steps:");
+      continue;
+    }
+
+    if (isImplicationsHeading(trimmed)) {
+      if (currentPolicy.length > 0) {
+        policyBlocks.push(currentPolicy);
+        currentPolicy = [];
+      }
+      mode = "implications";
+      implicationsLines.push("Legal, Ethical, and Academic Implications:");
+      continue;
+    }
+
+    if (isPolicySectionLine(trimmed)) {
+      if (mode === "policy" && currentPolicy.length > 0) {
+        policyBlocks.push(currentPolicy);
+        currentPolicy = [];
+      }
+      mode = "policy";
+      currentPolicy.push(cleanSectionLine(trimmed));
+      continue;
+    }
+
+    if (mode === "policy") {
+      currentPolicy.push(line);
+      continue;
+    }
+
+    if (mode === "action") {
+      actionLines.push(line);
+      continue;
+    }
+
+    if (mode === "implications") {
+      implicationsLines.push(line);
+      continue;
+    }
+
+    preface.push(line);
+  }
+
+  if (currentPolicy.length > 0) {
+    policyBlocks.push(currentPolicy);
+  }
+
+  const sections: AssistantMessageSection[] = [];
+  const prefaceText = preface.join("\n").trim();
+  if (prefaceText) {
+    sections.push({ kind: "general", content: prefaceText });
+  }
+
+  for (const block of policyBlocks) {
+    const blockText = block.join("\n").trim();
+    if (blockText) {
+      sections.push({ kind: "policy", content: blockText });
+    }
+  }
+
+  const actionText = actionLines.join("\n").trim();
+  if (actionText && actionText !== "Action Steps:") {
+    sections.push({ kind: "action", content: actionText });
+  }
+
+  const implicationsText = implicationsLines.join("\n").trim();
+  if (implicationsText && implicationsText !== "Legal, Ethical, and Academic Implications:") {
+    sections.push({ kind: "implications", content: implicationsText });
+  }
+
+  if (disclaimerText) {
+    sections.push({ kind: "disclaimer", content: disclaimerText });
+  }
+
+  if (sections.length === 0) {
+    sections.push({ kind: "general", content: normalized });
+  }
+
+  return sections;
+}
+
+function isRelevantPoliciesHeading(line: string): boolean {
+  const normalized = normalizeHeading(line);
+  return normalized === "relevant policies" || normalized === "relevant policies:";
+}
+
+function isActionStepsHeading(line: string): boolean {
+  const normalized = normalizeHeading(line);
+  return normalized === "action steps:" || normalized === "action steps";
+}
+
+function isImplicationsHeading(line: string): boolean {
+  const normalized = normalizeHeading(line);
+  return (
+    normalized === "legal, ethical, and academic implications:" ||
+    normalized === "legal, ethical, and academic implications"
+  );
+}
+
+function isPolicySectionLine(line: string): boolean {
+  return /^(?:[-*]\s*)?policy section\s*:/i.test(line);
+}
+
+function cleanSectionLine(line: string): string {
+  return line.replace(/^(?:[-*]\s*)?/, "").replace(/\*\*/g, "").trim();
+}
+
+function normalizeHeading(line: string): string {
+  return line.replace(/^#{1,6}\s*/, "").replace(/\*\*/g, "").trim().toLowerCase();
 }
 
 function formatDatasetOption(dataset: PolicyDataset): string {

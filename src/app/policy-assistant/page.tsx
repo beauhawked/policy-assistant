@@ -1,3 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
+
+import Image from "next/image";
 import Link from "next/link";
 
 import { PolicyAssistantApp } from "@/components/policy-assistant-app";
@@ -5,12 +9,32 @@ import { PolicyAssistantApp } from "@/components/policy-assistant-app";
 export const dynamic = "force-dynamic";
 
 export default function PolicyAssistantPage() {
+  const logoFilePath = path.join(process.cwd(), "public", "logo.png");
+  const hasLogo = fs.existsSync(logoFilePath);
+
   return (
     <main className="page-shell policy-assistant-shell">
       <section className="hero hero-policy">
         <div className="hero-policy-main">
-          <p className="hero-eyebrow">District Decision Intelligence</p>
-          <h1>School District Policy Assistant</h1>
+          <div className="hero-brand">
+            {hasLogo ? (
+              <div className="hero-logo-wrap">
+                <Image
+                  src="/logo.png"
+                  alt="District policy assistant logo"
+                  className="hero-logo"
+                  width={480}
+                  height={180}
+                  priority
+                />
+              </div>
+            ) : (
+              <>
+                <p className="hero-eyebrow">District Decision Intelligence</p>
+                <h1>School District Policy Assistant</h1>
+              </>
+            )}
+          </div>
           <p>
             Upload a district policy CSV, store the records in your private account workspace, and generate
             policy-grounded guidance for real-world scenarios in minutes.
