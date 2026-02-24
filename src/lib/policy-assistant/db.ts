@@ -45,6 +45,7 @@ interface RawStoredPolicy {
 interface RawAuthUser {
   id: string;
   email: string;
+  district_name: string;
   created_at: Date | string;
   email_verified_at: Date | string | null;
 }
@@ -307,19 +308,24 @@ export async function searchDatasetPolicies(
   return fallbackResult.rows.map(mapStoredPolicy);
 }
 
-export async function createUserAccount(email: string, passwordHash: string): Promise<AuthUser> {
+export async function createUserAccount(
+  email: string,
+  passwordHash: string,
+  districtName: string,
+): Promise<AuthUser> {
   await ensureSchema();
 
   const userId = randomUUID();
   const normalizedEmail = normalizeEmail(email);
+  const normalizedDistrictName = districtName.trim() || "Unnamed District";
 
   const result = await getPool().query<RawAuthUser>(
     `
-    INSERT INTO users (id, email, password_hash, email_verified_at)
-    VALUES ($1, $2, $3, NULL)
-    RETURNING id, email, created_at, email_verified_at
+    INSERT INTO users (id, email, district_name, password_hash, email_verified_at)
+    VALUES ($1, $2, $3, $4, NULL)
+    RETURNING id, email, district_name, created_at, email_verified_at
     `,
-    [userId, normalizedEmail, passwordHash],
+    [userId, normalizedEmail, normalizedDistrictName, passwordHash],
   );
 
   return mapAuthUser(result.rows[0]);
@@ -333,7 +339,7 @@ export async function findUserByEmail(
   const normalizedEmail = normalizeEmail(email);
   const result = await getPool().query<RawAuthUserWithPassword>(
     `
-    SELECT id, email, password_hash, created_at, email_verified_at
+    SELECT id, email, district_name, password_hash, created_at, email_verified_at
     FROM users
     WHERE email = $1
     LIMIT 1
@@ -357,7 +363,7 @@ export async function findUserById(userId: string): Promise<AuthUser | null> {
 
   const result = await getPool().query<RawAuthUser>(
     `
-    SELECT id, email, created_at, email_verified_at
+    SELECT id, email, district_name, created_at, email_verified_at
     FROM users
     WHERE id = $1
     LIMIT 1
@@ -377,7 +383,7 @@ export async function setUserEmailVerified(userId: string): Promise<AuthUser | n
     UPDATE users
     SET email_verified_at = COALESCE(email_verified_at, NOW())
     WHERE id = $1
-    RETURNING id, email, created_at, email_verified_at
+    RETURNING id, email, district_name, created_at, email_verified_at
     `,
     [userId],
   );
@@ -424,7 +430,7 @@ export async function getUserBySessionId(sessionId: string): Promise<AuthUser | 
 
   const result = await getPool().query<RawAuthUser>(
     `
-    SELECT u.id, u.email, u.created_at, u.email_verified_at
+    SELECT u.id, u.email, u.district_name, u.created_at, u.email_verified_at
     FROM auth_sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.id = $1
@@ -864,6 +870,7 @@ async function ensureSchema(): Promise<void> {
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY,
           email TEXT NOT NULL UNIQUE,
+          district_name TEXT NOT NULL DEFAULT '',
           password_hash TEXT NOT NULL,
           email_verified_at TIMESTAMPTZ,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -873,6 +880,22 @@ async function ensureSchema(): Promise<void> {
       await client.query(`
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
+      `);
+
+      await client.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS district_name TEXT NOT NULL DEFAULT '';
+      `);
+
+      await client.query(`
+        ALTER TABLE users
+        ALTER COLUMN district_name SET DEFAULT '';
+      `);
+
+      await client.query(`
+        UPDATE users
+        SET district_name = ''
+        WHERE district_name IS NULL;
       `);
 
       await client.query(`
@@ -968,6 +991,19 @@ async function ensureSchema(): Promise<void> {
 
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_policy_datasets_user_id ON policy_datasets(user_id);
+      `);
+
+      await client.query(`
+        UPDATE users AS u
+        SET district_name = sub.district_name
+        FROM (
+          SELECT DISTINCT ON (user_id) user_id, district_name
+          FROM policy_datasets
+          WHERE TRIM(district_name) <> ''
+          ORDER BY user_id, uploaded_at DESC
+        ) AS sub
+        WHERE u.id = sub.user_id
+        AND TRIM(u.district_name) = '';
       `);
 
       await client.query(`
@@ -1121,6 +1157,7 @@ function mapAuthUser(row: RawAuthUser): AuthUser {
   return {
     id: row.id,
     email: row.email,
+    districtName: row.district_name || "",
     createdAt: formatTimestamp(row.created_at),
     emailVerifiedAt: row.email_verified_at ? formatTimestamp(row.email_verified_at) : null,
   };

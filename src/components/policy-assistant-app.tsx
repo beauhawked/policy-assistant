@@ -19,6 +19,7 @@ interface ChatMessage {
 interface AuthUser {
   id: string;
   email: string;
+  districtName: string;
   createdAt: string;
   emailVerifiedAt: string | null;
 }
@@ -74,11 +75,11 @@ export function PolicyAssistantApp() {
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [authDistrictName, setAuthDistrictName] = useState("");
   const [authError, setAuthError] = useState("");
   const [authInfo, setAuthInfo] = useState("");
   const [resetToken, setResetToken] = useState("");
 
-  const [districtName, setDistrictName] = useState("West Lafayette Community School Corporation");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [datasets, setDatasets] = useState<PolicyDataset[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState("");
@@ -287,9 +288,15 @@ export function PolicyAssistantApp() {
 
     const email = authEmail.trim().toLowerCase();
     const password = authPassword.trim();
+    const districtName = authDistrictName.trim();
 
     if (!email || !password) {
       setAuthError("Email and password are required.");
+      return;
+    }
+
+    if (authMode === "signup" && !districtName) {
+      setAuthError("District name is required.");
       return;
     }
 
@@ -301,7 +308,11 @@ export function PolicyAssistantApp() {
         headers: {
           "content-type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email,
+          password,
+          districtName: authMode === "signup" ? districtName : undefined,
+        }),
       });
 
       const payload = (await response.json().catch(() => ({}))) as {
@@ -322,6 +333,7 @@ export function PolicyAssistantApp() {
       setAuthUser(payload.user);
       setAuthEmail("");
       setAuthPassword("");
+      setAuthDistrictName("");
       setAuthInfo(payload.message ?? "");
       setDatasets([]);
       setSelectedDatasetId("");
@@ -535,7 +547,6 @@ export function PolicyAssistantApp() {
 
     const formData = new FormData();
     formData.set("file", uploadFile);
-    formData.set("districtName", districtName);
 
     setIsUploading(true);
     setUploadStatus("Uploading and indexing policy CSV...");
@@ -723,6 +734,23 @@ export function PolicyAssistantApp() {
 
           {authMode !== "forgot" ? (
             <>
+              {authMode === "signup" ? (
+                <>
+                  <label htmlFor="auth-district-name" className="policy-label">
+                    District Name
+                  </label>
+                  <input
+                    id="auth-district-name"
+                    type="text"
+                    autoComplete="organization"
+                    value={authDistrictName}
+                    onChange={(event) => setAuthDistrictName(event.target.value)}
+                    required
+                    placeholder="Example: West Lafayette Community School Corporation"
+                  />
+                </>
+              ) : null}
+
               <label htmlFor="auth-password" className="policy-label">
                 Password
               </label>
@@ -754,6 +782,7 @@ export function PolicyAssistantApp() {
                 setAuthMode("signup");
                 setAuthError("");
                 setAuthInfo("");
+                setAuthDistrictName("");
               }}
             >
               Need an account? Create one
@@ -768,6 +797,7 @@ export function PolicyAssistantApp() {
                 setAuthMode("login");
                 setAuthError("");
                 setAuthInfo("");
+                setAuthDistrictName("");
               }}
             >
               Back to Sign In
@@ -853,6 +883,7 @@ export function PolicyAssistantApp() {
           </button>
         </div>
         <p className="small-muted assistant-identity">Signed in as {authUser.email}</p>
+        <p className="small-muted">District: {authUser.districtName || "Not set"}</p>
 
         <form
           className="assistant-upload-form"
@@ -861,19 +892,6 @@ export function PolicyAssistantApp() {
           encType="multipart/form-data"
           onSubmit={handleUpload}
         >
-          <label htmlFor="district-name" className="policy-label">
-            District Name
-          </label>
-          <input
-            id="district-name"
-            name="districtName"
-            type="text"
-            value={districtName}
-            onChange={(event) => setDistrictName(event.target.value)}
-            placeholder="West Lafayette Community School Corporation"
-            required
-          />
-
           <label htmlFor="policy-csv" className="policy-label">
             Policy CSV
           </label>
@@ -1251,6 +1269,7 @@ export function PolicyAssistantApp() {
     setAuthMode("login");
     setAuthEmail("");
     setAuthPassword("");
+    setAuthDistrictName("");
     setResetToken("");
   }
 }

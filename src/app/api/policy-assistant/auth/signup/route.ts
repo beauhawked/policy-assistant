@@ -20,6 +20,7 @@ export const dynamic = "force-dynamic";
 interface SignupPayload {
   email?: string;
   password?: string;
+  districtName?: string;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const payload = (await request.json().catch(() => ({}))) as SignupPayload;
     const email = normalizeEmail(payload.email);
     const password = payload.password?.trim() ?? "";
+    const districtName = payload.districtName?.trim() ?? "";
 
     const rateLimit = await checkRateLimit({
       scope: "auth_signup",
@@ -49,6 +51,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const passwordError = validatePasswordPolicy(password);
     if (passwordError) {
       return NextResponse.json({ error: passwordError }, { status: 400 });
+    }
+
+    if (!districtName) {
+      return NextResponse.json({ error: "District name is required." }, { status: 400 });
     }
 
     const existing = await findUserByEmail(email);
@@ -83,7 +89,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const passwordHash = await hashPassword(password);
-    const user = await createUserAccount(email, passwordHash);
+    const user = await createUserAccount(email, passwordHash, districtName);
     await issueEmailVerificationForUser(user, getRequestOrigin(request));
 
     const session = await createAuthSession(user.id);

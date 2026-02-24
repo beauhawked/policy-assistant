@@ -39,9 +39,11 @@ export default function PolicyAssistantPage() {
             Upload a district policy CSV, store the records in your private account workspace, and generate
             policy-grounded guidance for real-world scenarios in minutes.
           </p>
-          <p className="small-muted">
-            Need to generate a CSV first? Open the <Link href="/policies">Policy Scraper</Link>.
-          </p>
+          <div className="hero-nav-actions">
+            <Link href="/policies" className="action-button nav-action-link hero-nav-button">
+              Open Policy Scraper
+            </Link>
+          </div>
         </div>
 
         <aside className="hero-policy-aside" aria-label="Platform highlights">

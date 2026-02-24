@@ -20,6 +20,7 @@ export interface PolicyDataset {
 export interface AuthUser {
   id: string;
   email: string;
+  districtName: string;
   createdAt: string;
   emailVerifiedAt: string | null;
 }

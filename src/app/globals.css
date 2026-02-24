@@ -123,6 +123,62 @@ textarea {
   max-width: 72ch;
 }
 
+.scraper-hero-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem 1rem;
+}
+
+.scraper-hero-title-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.scraper-hero-logo {
+  width: clamp(66px, 9vw, 92px);
+  height: auto;
+  flex-shrink: 0;
+}
+
+.hero-instructions {
+  margin: 0.82rem 0 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--ink-muted);
+}
+
+.hero-instructions li {
+  max-width: 82ch;
+}
+
+.hero-nav-actions {
+  margin-top: 0.92rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.nav-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none !important;
+}
+
+.nav-action-link:hover {
+  text-decoration: none;
+}
+
+.hero-nav-button {
+  min-height: 44px;
+  padding-inline: 1rem;
+}
+
 .hero-policy {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.95fr);
@@ -944,6 +1000,14 @@ textarea {
 
   .hero-logo {
     max-width: min(100%, 420px);
+  }
+
+  .scraper-hero-title-group {
+    width: 100%;
+  }
+
+  .hero-nav-button {
+    width: 100%;
   }
 
   .assistant-upload-panel,

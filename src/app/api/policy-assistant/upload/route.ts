@@ -56,8 +56,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const form = await request.formData();
     const fileField = form.get("file");
-    const districtName = String(form.get("districtName") ?? "").trim();
-
     if (!isMultipartFile(fileField)) {
       return NextResponse.json({ error: "Please upload a CSV file." }, { status: 400 });
     }
@@ -80,9 +78,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const parsed = parsePolicyCsvBuffer(Buffer.from(arrayBuffer));
+    const accountDistrictName = user.districtName?.trim() || "Unnamed District";
+
     const dataset = await createPolicyDataset({
       userId: user.id,
-      districtName,
+      districtName: accountDistrictName,
       filename,
       headers: parsed.headers,
       rows: parsed.rows,
