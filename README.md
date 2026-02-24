@@ -54,8 +54,10 @@ Open [http://localhost:3000](http://localhost:3000). The home route redirects to
 ## Account access
 
 - Users create an account and sign in at `/policy-assistant`.
+- New signup requires a district name, which is stored on the user profile.
 - New accounts must verify email before uploading datasets or chatting.
 - Policy datasets are scoped to the signed-in account.
+- The account district name is reused automatically for uploads (no editable district field in upload).
 - Upload once, then sign in later to keep asking questions without re-uploading.
 - Conversation history is saved per user and per dataset.
 - Users can reopen prior conversations after signing back in.
