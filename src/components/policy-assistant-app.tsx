@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface PolicyDataset {
   id: string;
@@ -41,6 +41,15 @@ interface ConversationMessage {
 }
 
 type AuthMode = "login" | "signup" | "forgot" | "reset";
+const MESSAGE_LIST_NEAR_BOTTOM_PX = 120;
+
+function isMessageListNearBottom(
+  element: HTMLDivElement,
+  thresholdPx: number = MESSAGE_LIST_NEAR_BOTTOM_PX,
+): boolean {
+  const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+  return distanceFromBottom <= thresholdPx;
+}
 
 export function PolicyAssistantApp() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -69,6 +78,9 @@ export function PolicyAssistantApp() {
   const [uploadError, setUploadError] = useState("");
   const [chatError, setChatError] = useState("");
   const [conversationError, setConversationError] = useState("");
+  const [showScrollToLatest, setShowScrollToLatest] = useState(false);
+  const messageListRef = useRef<HTMLDivElement | null>(null);
+  const nearBottomRef = useRef(true);
 
   const selectedDataset = useMemo(
     () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
@@ -78,6 +90,34 @@ export function PolicyAssistantApp() {
   const selectedConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedConversationId) ?? null,
     [conversations, selectedConversationId],
+  );
+
+  const syncMessageListScrollState = useCallback(() => {
+    const messageList = messageListRef.current;
+    if (!messageList) {
+      setShowScrollToLatest(false);
+      nearBottomRef.current = true;
+      return;
+    }
+
+    const nearBottom = isMessageListNearBottom(messageList);
+    const hasOverflow = messageList.scrollHeight > messageList.clientHeight + 2;
+    nearBottomRef.current = nearBottom;
+    setShowScrollToLatest(hasOverflow && !nearBottom);
+  }, []);
+
+  const scrollToLatestMessage = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      const messageList = messageListRef.current;
+      if (!messageList) {
+        return;
+      }
+
+      messageList.scrollTo({ top: messageList.scrollHeight, behavior });
+      nearBottomRef.current = true;
+      setShowScrollToLatest(false);
+    },
+    [],
   );
 
   useEffect(() => {
@@ -113,6 +153,37 @@ export function PolicyAssistantApp() {
     void loadConversation(selectedConversationId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.emailVerifiedAt, selectedConversationId]);
+
+  useEffect(() => {
+    const messageList = messageListRef.current;
+    if (!messageList) {
+      return;
+    }
+
+    const handleMessageListScroll = () => {
+      syncMessageListScrollState();
+    };
+
+    handleMessageListScroll();
+    messageList.addEventListener("scroll", handleMessageListScroll, { passive: true });
+    return () => {
+      messageList.removeEventListener("scroll", handleMessageListScroll);
+    };
+  }, [syncMessageListScrollState]);
+
+  useEffect(() => {
+    const messageList = messageListRef.current;
+    if (!messageList) {
+      return;
+    }
+
+    if (nearBottomRef.current) {
+      scrollToLatestMessage("smooth");
+      return;
+    }
+
+    syncMessageListScrollState();
+  }, [messages, selectedConversationId, scrollToLatestMessage, syncMessageListScrollState]);
 
   async function bootstrap(): Promise<void> {
     setIsAuthLoading(true);
@@ -890,20 +961,32 @@ export function PolicyAssistantApp() {
           {conversationError ? <p className="policy-error">{conversationError}</p> : null}
         </div>
 
-        <div className="assistant-message-list">
-          {messages.length === 0 ? (
-            <article className="assistant-message assistant-message-assistant">
-              <p className="assistant-message-role">Assistant</p>
-              <pre>Describe a situation to generate policy-grounded guidance.</pre>
-            </article>
-          ) : null}
+        <div className="assistant-message-shell">
+          <div className="assistant-message-list" ref={messageListRef}>
+            {messages.length === 0 ? (
+              <article className="assistant-message assistant-message-assistant">
+                <p className="assistant-message-role">Assistant</p>
+                <pre>Describe a situation to generate policy-grounded guidance.</pre>
+              </article>
+            ) : null}
 
-          {messages.map((message) => (
-            <article key={message.id} className={`assistant-message assistant-message-${message.role}`}>
-              <p className="assistant-message-role">{message.role === "assistant" ? "Assistant" : "You"}</p>
-              <pre>{message.content}</pre>
-            </article>
-          ))}
+            {messages.map((message) => (
+              <article key={message.id} className={`assistant-message assistant-message-${message.role}`}>
+                <p className="assistant-message-role">{message.role === "assistant" ? "Assistant" : "You"}</p>
+                <pre>{message.content}</pre>
+              </article>
+            ))}
+          </div>
+
+          {showScrollToLatest ? (
+            <button
+              type="button"
+              className="assistant-scroll-latest"
+              onClick={() => scrollToLatestMessage("smooth")}
+            >
+              Jump to Latest
+            </button>
+          ) : null}
         </div>
 
         <form className="assistant-chat-form" onSubmit={handleScenarioSubmit}>

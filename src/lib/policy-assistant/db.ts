@@ -1058,11 +1058,16 @@ function resolveDatabaseUrl(): string {
   const url =
     process.env.POLICY_ASSISTANT_DATABASE_URL?.trim() ||
     process.env.POSTGRES_URL?.trim() ||
-    process.env.DATABASE_URL?.trim();
+    process.env.DATABASE_URL?.trim() ||
+    process.env.DATABASE_URL_UNPOOLED?.trim() ||
+    process.env.POSTGRES_URL_NON_POOLING?.trim() ||
+    process.env.POSTGRES_PRISMA_URL?.trim() ||
+    process.env.STORAGE_URL?.trim() ||
+    process.env.STORAGE_DATABASE_URL?.trim();
 
   if (!url) {
     throw new Error(
-      "Postgres database URL is missing. Set POLICY_ASSISTANT_DATABASE_URL (or POSTGRES_URL in Vercel).",
+      "Postgres database URL is missing. Set one of POLICY_ASSISTANT_DATABASE_URL, POSTGRES_URL, DATABASE_URL, or DATABASE_URL_UNPOOLED.",
     );
   }
 
