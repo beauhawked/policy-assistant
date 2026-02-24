@@ -14,8 +14,8 @@ export default function PolicyScraperPage() {
             <Image
               src="/logo.png"
               alt="PolicyIQ logo"
-              width={92}
-              height={92}
+              width={480}
+              height={180}
               className="scraper-hero-logo"
               priority
             />
