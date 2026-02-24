@@ -1,6 +1,7 @@
 :root {
   --ink: #11253a;
-  --ink-muted: #4f677d;
+  --ink-muted: #4a6278;
+  --ink-muted-strong: #3c566d;
   --surface: #eef4fa;
   --surface-strong: #ffffff;
   --surface-tint: #f8fbff;
@@ -415,7 +416,8 @@ textarea {
 .small-muted {
   margin: 0;
   font-size: 0.84rem;
-  color: var(--ink-muted);
+  color: var(--ink-muted-strong);
+  font-weight: 500;
 }
 
 .policy-scraper-panel {
@@ -489,7 +491,7 @@ textarea {
 
 .assistant-panel-kicker {
   margin: 0.36rem 0 0;
-  color: var(--ink-muted);
+  color: var(--ink-muted-strong);
   font-family: var(--font-display), "Avenir Next", sans-serif;
   font-size: 0.86rem;
   letter-spacing: 0.01em;
@@ -592,6 +594,10 @@ textarea {
   background: linear-gradient(180deg, #f7fbff, #f2f8fd);
 }
 
+.assistant-message-shell {
+  position: relative;
+}
+
 .assistant-message {
   margin: 0.34rem 0.42rem;
   border: 1px solid var(--line);
@@ -626,6 +632,41 @@ textarea {
   font-family: var(--font-serif), Georgia, serif;
   font-size: 0.97rem;
   line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.assistant-message-assistant pre {
+  width: min(100%, 74ch);
+}
+
+.assistant-scroll-latest {
+  position: absolute;
+  right: 0.9rem;
+  bottom: 0.9rem;
+  border: 1px solid rgba(60, 86, 109, 0.25);
+  border-radius: 999px;
+  padding: 0.42rem 0.72rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1f3b53;
+  font-family: var(--font-display), "Avenir Next", sans-serif;
+  font-size: 0.77rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 8px 16px rgba(17, 37, 58, 0.14);
+  z-index: 2;
+  backdrop-filter: blur(2px);
+}
+
+.assistant-scroll-latest:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(17, 37, 58, 0.18);
+}
+
+.assistant-scroll-latest:focus-visible {
+  outline: none;
+  border-color: rgba(184, 74, 40, 0.55);
+  box-shadow: 0 0 0 4px rgba(184, 74, 40, 0.16);
 }
 
 .assistant-chat-form textarea {
@@ -760,6 +801,11 @@ textarea {
 
   .assistant-message-list {
     max-height: 520px;
+  }
+
+  .assistant-scroll-latest {
+    right: 0.7rem;
+    bottom: 0.7rem;
   }
 }
 
