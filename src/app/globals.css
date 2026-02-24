@@ -139,7 +139,8 @@ textarea {
 }
 
 .scraper-hero-logo {
-  width: clamp(66px, 9vw, 92px);
+  width: clamp(240px, 34vw, 520px);
+  max-width: min(100%, 560px);
   height: auto;
   flex-shrink: 0;
 }
@@ -1004,6 +1005,16 @@ textarea {
 
   .scraper-hero-title-group {
     width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .scraper-hero-title-group h1 {
+    width: 100%;
+    margin-top: 0.2rem;
+  }
+
+  .scraper-hero-logo {
+    width: min(100%, 440px);
   }
 
   .hero-nav-button {
