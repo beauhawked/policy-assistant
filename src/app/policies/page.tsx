@@ -17,6 +17,12 @@ export default function PolicyScraperPage() {
             Policy Chapter, Policy Number, Policy Title, Policy Wording, Statutory Authority, Law(s) Implemented,
             History, Notes.
           </strong>
+          Accordion + PDF exports:
+          <strong>
+            {" "}
+            Board Policy Number, Title, Series, Adopted Date, Revision History, Policy Wording, Legal References,
+            Cross References.
+          </strong>
         </p>
       </section>
       <PolicyScraperPanel />

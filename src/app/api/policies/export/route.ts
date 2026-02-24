@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  accordionPdfPolicyRowsToCsv,
+  isAccordionPdfPolicyListingHtml,
+  scrapeAccordionPdfPolicies,
+} from "@/lib/accordion-pdf-policy-scraper";
 import { policyRowsToCsv, scrapeBoardDocsPolicies } from "@/lib/boarddocs-policy-scraper";
-import { scrapeTableLinkedPolicies, tableLinkedPolicyRowsToCsv } from "@/lib/table-link-policy-scraper";
+import {
+  isTableLinkedPolicyListingHtml,
+  scrapeTableLinkedPolicies,
+  tableLinkedPolicyRowsToCsv,
+} from "@/lib/table-link-policy-scraper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type RequestedPolicyPlatform = "auto" | "boarddocs" | "table-link";
+const BROWSER_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
+type RequestedPolicyPlatform = "auto" | "boarddocs" | "table-link" | "accordion-pdf";
 type ResolvedPolicyPlatform = Exclude<RequestedPolicyPlatform, "auto">;
 
 interface ExportPoliciesPayload {
@@ -53,7 +65,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       sourceLabel = "book(s)";
       failedCount = result.failedItems.length;
       legacyBookCount = result.selectedBooks.length;
-    } else {
+    } else if (resolvedPlatform === "table-link") {
       const result = await scrapeTableLinkedPolicies({
         sourceUrl: normalizedSourceUrl,
         concurrency: 6,
@@ -64,6 +76,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       policyCount = result.rows.length;
       sourceCount = result.discoveredPolicyLinks;
       sourceLabel = "policy link(s)";
+      failedCount = result.failedItems.length;
+      legacyBookCount = 0;
+    } else {
+      const result = await scrapeAccordionPdfPolicies({
+        sourceUrl: normalizedSourceUrl,
+        concurrency: 4,
+      });
+
+      csv = accordionPdfPolicyRowsToCsv(result.rows);
+      baseUrl = result.listingUrl;
+      policyCount = result.rows.length;
+      sourceCount = result.discoveredPolicyLinks;
+      sourceLabel = "policy PDF(s)";
       failedCount = result.failedItems.length;
       legacyBookCount = 0;
     }
@@ -95,7 +120,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 function normalizeRequestedPlatform(value: string | undefined): RequestedPolicyPlatform {
-  if (value === "boarddocs" || value === "table-link") {
+  if (value === "boarddocs" || value === "table-link" || value === "accordion-pdf") {
     return value;
   }
   return "auto";
@@ -118,7 +143,67 @@ async function resolvePolicyPlatform(
     return "boarddocs";
   }
 
+  const listingHtml = await fetchListingHtmlForDetection(sourceUrl).catch(() => "");
+  if (listingHtml) {
+    if (isAccordionPdfPolicyListingHtml(listingHtml)) {
+      return "accordion-pdf";
+    }
+
+    if (isTableLinkedPolicyListingHtml(listingHtml)) {
+      return "table-link";
+    }
+  }
+
   return "table-link";
+}
+
+async function fetchListingHtmlForDetection(url: string): Promise<string> {
+  const firstAttempt = await fetchListingHtml(url, false);
+  if (firstAttempt.status === 403) {
+    const secondAttempt = await fetchListingHtml(url, true);
+    if (!secondAttempt.ok) {
+      throw new Error(`Platform detection request failed with status ${secondAttempt.status}.`);
+    }
+    return secondAttempt.text;
+  }
+
+  if (!firstAttempt.ok) {
+    throw new Error(`Platform detection request failed with status ${firstAttempt.status}.`);
+  }
+
+  return firstAttempt.text;
+}
+
+async function fetchListingHtml(
+  url: string,
+  useBrowserUserAgent: boolean,
+): Promise<{ ok: boolean; status: number; text: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, 25_000);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      cache: "no-store",
+      signal: controller.signal,
+      headers: {
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        ...(useBrowserUserAgent ? { "user-agent": BROWSER_USER_AGENT } : {}),
+      },
+    });
+
+    const text = await response.text();
+    return {
+      ok: response.ok,
+      status: response.status,
+      text,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function buildCsvFilename(baseUrl: string, platform: ResolvedPolicyPlatform): string {

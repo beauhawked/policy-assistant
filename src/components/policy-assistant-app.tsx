@@ -592,7 +592,7 @@ export function PolicyAssistantApp() {
 
   if (isAuthLoading) {
     return (
-      <section className="panel assistant-auth-panel">
+      <section className="panel assistant-auth-panel assistant-panel assistant-panel-centered">
         <h2 className="section-title">Loading Workspace</h2>
         <p className="small-muted">Checking account session...</p>
       </section>
@@ -601,11 +601,15 @@ export function PolicyAssistantApp() {
 
   if (!authUser) {
     return (
-      <section className="panel assistant-auth-panel">
-        <h2 className="section-title">{authTitleForMode(authMode)}</h2>
-        <p className="small-muted">
-          Each account has isolated policy datasets and private conversation history.
-        </p>
+      <section className="panel assistant-auth-panel assistant-panel assistant-panel-centered">
+        <div className="assistant-panel-header">
+          <div>
+            <h2 className="section-title">{authTitleForMode(authMode)}</h2>
+            <p className="assistant-panel-kicker">
+              Secure workspace access with account-level data isolation.
+            </p>
+          </div>
+        </div>
 
         <form className="assistant-auth-form" onSubmit={handleAuthSubmit}>
           {authMode !== "reset" ? (
@@ -706,25 +710,29 @@ export function PolicyAssistantApp() {
           ) : null}
         </div>
 
-        {authInfo ? <p className="policy-status">{authInfo}</p> : null}
-        {authError ? <p className="policy-error">{authError}</p> : null}
+        <div className="assistant-feedback-stack">
+          {authInfo ? <p className="policy-status">{authInfo}</p> : null}
+          {authError ? <p className="policy-error">{authError}</p> : null}
+        </div>
       </section>
     );
   }
 
   if (!authUser.emailVerifiedAt) {
     return (
-      <section className="panel assistant-auth-panel">
-        <div className="assistant-account-row">
-          <h2 className="section-title">Verify Your Email</h2>
+      <section className="panel assistant-auth-panel assistant-panel assistant-panel-centered">
+        <div className="assistant-panel-header">
+          <div>
+            <h2 className="section-title">Verify Your Email</h2>
+            <p className="assistant-panel-kicker">
+              Confirm your address to activate uploads, chat, and saved history.
+            </p>
+          </div>
           <button type="button" className="assistant-logout-button" onClick={handleLogout}>
             Sign Out
           </button>
         </div>
-        <p className="small-muted">Signed in as {authUser.email}</p>
-        <p className="small-muted">
-          Please verify your email address to unlock dataset upload and policy guidance.
-        </p>
+        <p className="small-muted assistant-identity">Signed in as {authUser.email}</p>
         <button
           type="button"
           className="action-button policy-button"
@@ -733,22 +741,27 @@ export function PolicyAssistantApp() {
         >
           {isResendingVerification ? "Sending..." : "Resend Verification Email"}
         </button>
-        {authInfo ? <p className="policy-status">{authInfo}</p> : null}
-        {authError ? <p className="policy-error">{authError}</p> : null}
+        <div className="assistant-feedback-stack">
+          {authInfo ? <p className="policy-status">{authInfo}</p> : null}
+          {authError ? <p className="policy-error">{authError}</p> : null}
+        </div>
       </section>
     );
   }
 
   return (
-    <section className="assistant-layout">
-      <section className="panel assistant-upload-panel">
-        <div className="assistant-account-row">
-          <h2 className="section-title">Policy Dataset</h2>
+    <section className="assistant-layout assistant-layout-pro">
+      <section className="panel assistant-upload-panel assistant-panel">
+        <div className="assistant-panel-header">
+          <div>
+            <h2 className="section-title">Policy Dataset</h2>
+            <p className="assistant-panel-kicker">Upload and manage your district policy source of truth.</p>
+          </div>
           <button type="button" className="assistant-logout-button" onClick={handleLogout}>
             Sign Out
           </button>
         </div>
-        <p className="small-muted">Signed in as {authUser.email}</p>
+        <p className="small-muted assistant-identity">Signed in as {authUser.email}</p>
 
         <form
           className="assistant-upload-form"
@@ -815,12 +828,21 @@ export function PolicyAssistantApp() {
           </p>
         ) : null}
 
-        {uploadStatus ? <p className="policy-status">{uploadStatus}</p> : null}
-        {uploadError ? <p className="policy-error">{uploadError}</p> : null}
+        <div className="assistant-feedback-stack">
+          {uploadStatus ? <p className="policy-status">{uploadStatus}</p> : null}
+          {uploadError ? <p className="policy-error">{uploadError}</p> : null}
+        </div>
       </section>
 
-      <section className="panel assistant-chat-panel">
-        <h2 className="section-title">Policy Assistant</h2>
+      <section className="panel assistant-chat-panel assistant-panel">
+        <div className="assistant-panel-header assistant-panel-header-tight">
+          <div>
+            <h2 className="section-title">Policy Assistant</h2>
+            <p className="assistant-panel-kicker">
+              Confidential, account-scoped guidance aligned to your uploaded policies.
+            </p>
+          </div>
+        </div>
 
         <div className="assistant-conversation-row">
           <div className="assistant-conversation-picker">
@@ -847,7 +869,7 @@ export function PolicyAssistantApp() {
 
           <button
             type="button"
-            className="assistant-auth-toggle"
+            className="assistant-auth-toggle assistant-secondary-button"
             onClick={handleStartNewConversation}
             disabled={!selectedDatasetId || isSending}
           >
@@ -863,8 +885,10 @@ export function PolicyAssistantApp() {
           <p className="small-muted">Describe a situation to start a new saved conversation.</p>
         )}
 
-        {isConversationLoading ? <p className="small-muted">Loading conversation history...</p> : null}
-        {conversationError ? <p className="policy-error">{conversationError}</p> : null}
+        <div className="assistant-feedback-stack">
+          {isConversationLoading ? <p className="small-muted">Loading conversation history...</p> : null}
+          {conversationError ? <p className="policy-error">{conversationError}</p> : null}
+        </div>
 
         <div className="assistant-message-list">
           {messages.length === 0 ? (
@@ -898,7 +922,9 @@ export function PolicyAssistantApp() {
           </button>
         </form>
 
-        {chatError ? <p className="policy-error">{chatError}</p> : null}
+        <div className="assistant-feedback-stack">
+          {chatError ? <p className="policy-error">{chatError}</p> : null}
+        </div>
       </section>
     </section>
   );

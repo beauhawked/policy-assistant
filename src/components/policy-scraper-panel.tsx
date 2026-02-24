@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
-type PolicyPlatform = "auto" | "boarddocs" | "table-link";
+type PolicyPlatform = "auto" | "boarddocs" | "table-link" | "accordion-pdf";
 type ResolvedPolicyPlatform = Exclude<PolicyPlatform, "auto">;
 
 interface ExportSummary {
@@ -79,7 +79,11 @@ export function PolicyScraperPanel() {
       const failedCount = Number(response.headers.get("x-failed-count") ?? "0");
       const sourceLabel =
         (response.headers.get("x-source-label") ?? "").trim() ||
-        (platformFromHeader === "table-link" ? "policy link(s)" : "book(s)");
+        (platformFromHeader === "table-link"
+          ? "policy link(s)"
+          : platformFromHeader === "accordion-pdf"
+            ? "policy PDF(s)"
+            : "book(s)");
 
       setSummary({
         policyCount: Number.isFinite(policyCount) ? policyCount : 0,
@@ -98,14 +102,15 @@ export function PolicyScraperPanel() {
     }
   };
 
-  const urlLabel =
-    platform === "table-link" ? "District Policy Listing URL" : "District Policy URL";
+  const urlLabel = platform === "boarddocs" ? "District Policy URL" : "District Policy Listing URL";
   const urlPlaceholder =
     platform === "boarddocs"
       ? "https://go.boarddocs.com/in/blm/Board.nsf/Public"
       : platform === "table-link"
         ? "https://www.sarasotacountyschools.net/page/school-board-policies"
-        : "https://go.boarddocs.com/... or https://district-site.org/page/policies";
+        : platform === "accordion-pdf"
+          ? "https://www.isd186.org/district-home-page/district-policies"
+          : "https://go.boarddocs.com/... or https://district-site.org/page/policies";
 
   return (
     <section className="panel policy-scraper-panel">
@@ -121,6 +126,7 @@ export function PolicyScraperPanel() {
           <option value="auto">Auto-detect</option>
           <option value="boarddocs">BoardDocs</option>
           <option value="table-link">Table-based (Sarasota-style)</option>
+          <option value="accordion-pdf">Accordion + PDF (Pequot-style)</option>
         </select>
 
         <label htmlFor="district-url" className="policy-label">
@@ -135,7 +141,7 @@ export function PolicyScraperPanel() {
           required
         />
 
-        {platform !== "table-link" ? (
+        {platform === "boarddocs" || platform === "auto" ? (
           <label className="policy-checkbox">
             <input
               type="checkbox"
@@ -192,11 +198,27 @@ function parseFilenameFromDisposition(contentDisposition: string | null): string
 }
 
 function parseResolvedPlatform(value: string | null): ResolvedPolicyPlatform {
-  return value === "table-link" ? "table-link" : "boarddocs";
+  if (value === "table-link") {
+    return "table-link";
+  }
+
+  if (value === "accordion-pdf") {
+    return "accordion-pdf";
+  }
+
+  return "boarddocs";
 }
 
 function formatPlatform(platform: ResolvedPolicyPlatform): string {
-  return platform === "table-link" ? "Table-based (Sarasota-style)" : "BoardDocs";
+  if (platform === "table-link") {
+    return "Table-based (Sarasota-style)";
+  }
+
+  if (platform === "accordion-pdf") {
+    return "Accordion + PDF (Pequot-style)";
+  }
+
+  return "BoardDocs";
 }
 
 function triggerDownload(blob: Blob, filename: string): void {
