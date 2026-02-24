@@ -11,7 +11,7 @@ This Next.js app now supports two workflows:
 - Ask scenario-based questions and receive policy-grounded guidance using OpenAI
 
 2. `Policy Scraper` (existing flow)
-- Scrape district policies from BoardDocs or table-based policy pages
+- Scrape district policies from BoardDocs, table-based policy pages, or accordion pages with PDF policy links
 - Export results as CSV for upload into the assistant
 
 ## Run locally
@@ -88,6 +88,7 @@ Supported platforms:
 
 1. `BoardDocs`
 2. `Table-based policy pages` (Sarasota-style index table with policy detail pages)
+3. `Accordion + PDF policy pages` (Pequot-style series accordion with linked PDF files)
 
 BoardDocs export columns:
 
@@ -110,7 +111,19 @@ Table-based export columns:
 7. `History`
 8. `Notes`
 
+Accordion + PDF export columns:
+
+1. `Board Policy Number`
+2. `Title`
+3. `Series`
+4. `Adopted Date`
+5. `Revision History`
+6. `Policy Wording`
+7. `Legal References`
+8. `Cross References`
+
 Example URLs:
 
 - BoardDocs: `https://go.boarddocs.com/in/blm/Board.nsf/Public`
 - Table-based: `https://www.sarasotacountyschools.net/page/school-board-policies`
+- Accordion + PDF: `https://www.isd186.org/district-home-page/district-policies`
