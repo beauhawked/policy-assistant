@@ -621,6 +621,12 @@ textarea {
   gap: 0.72rem;
 }
 
+.assistant-handbook-form {
+  margin-top: 0.86rem;
+  padding-top: 0.86rem;
+  border-top: 1px dashed rgba(145, 171, 195, 0.65);
+}
+
 .assistant-auth-links {
   display: flex;
   flex-wrap: wrap;
@@ -633,6 +639,52 @@ textarea {
   display: grid;
   gap: 0.5rem;
   min-width: 0;
+}
+
+.assistant-handbook-list {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.assistant-uploaded-list {
+  margin: 0;
+  padding-left: 1rem;
+  color: var(--ink-muted-strong);
+  font-size: 0.9rem;
+}
+
+.assistant-uploaded-list li {
+  margin: 0.2rem 0;
+}
+
+.assistant-debug-panel {
+  margin-top: 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 0.7rem 0.8rem;
+}
+
+.assistant-debug-panel summary {
+  cursor: pointer;
+  font-family: var(--font-display), "Avenir Next", sans-serif;
+  font-weight: 600;
+  color: #1b4f7d;
+}
+
+.assistant-debug-panel[open] summary {
+  margin-bottom: 0.5rem;
+}
+
+.assistant-debug-section {
+  margin-top: 0.45rem;
+  display: grid;
+  gap: 0.22rem;
+}
+
+.assistant-debug-excerpt {
+  color: var(--ink-muted-strong);
 }
 
 .assistant-dataset-picker select {
@@ -726,6 +778,14 @@ textarea {
   position: relative;
 }
 
+.assistant-context-note {
+  margin: 0.42rem 0 0;
+  font-family: var(--font-display), "Avenir Next", sans-serif;
+  font-size: 0.73rem;
+  letter-spacing: 0.01em;
+  color: #5e7590;
+}
+
 .assistant-message {
   max-width: min(90%, 760px);
   border: 1px solid var(--line);
@@ -795,6 +855,15 @@ textarea {
 
 .assistant-message-kind-policy .assistant-message-role {
   color: #1a5e8c;
+}
+
+.assistant-message-kind-handbook {
+  border-color: #d4deea;
+  background: #f8fbff;
+}
+
+.assistant-message-kind-handbook .assistant-message-role {
+  color: #35648a;
 }
 
 .assistant-message-kind-action {

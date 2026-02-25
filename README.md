@@ -4,11 +4,12 @@ This Next.js app now supports two workflows:
 
 1. `Policy Assistant` (primary flow)
 - Upload a district policy `.csv` file
+- Upload student handbook documents (`.pdf`, `.txt`, `.md`)
 - Store policies in a Postgres database
 - Sign in with an account (email/password) to keep each district dataset private
 - Verify email before activating the workspace
 - Reset password securely via email
-- Ask scenario-based questions and receive policy-grounded guidance using OpenAI
+- Ask scenario-based questions and receive guidance grounded in policies and handbook context using OpenAI
 
 2. `Policy Scraper` (existing flow)
 - Scrape district policies from BoardDocs, table-based policy pages, or accordion pages with PDF policy links
@@ -57,6 +58,7 @@ Open [http://localhost:3000](http://localhost:3000). The home route redirects to
 - New signup requires a district name, which is stored on the user profile.
 - New accounts must verify email before uploading datasets or chatting.
 - Policy datasets are scoped to the signed-in account.
+- Handbook documents are scoped to the signed-in account.
 - The account district name is reused automatically for uploads (no editable district field in upload).
 - Upload once, then sign in later to keep asking questions without re-uploading.
 - Conversation history is saved per user and per dataset.

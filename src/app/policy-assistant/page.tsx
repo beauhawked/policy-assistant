@@ -36,8 +36,8 @@ export default function PolicyAssistantPage() {
             )}
           </div>
           <p>
-            Upload a district policy CSV, store the records in your private account workspace, and generate
-            policy-grounded guidance for real-world scenarios in minutes.
+            Upload a district policy CSV and student handbook documents, store them in your private account
+            workspace, and generate guidance grounded in your full district expectations.
           </p>
           <div className="hero-nav-actions">
             <Link href="/policies" className="action-button nav-action-link hero-nav-button">

@@ -5,10 +5,12 @@ import { Pool, type PoolClient } from "pg";
 import type {
   AuthUser,
   ConversationRole,
+  HandbookDocument,
   NormalizedPolicyRow,
   PolicyConversation,
   PolicyConversationMessage,
   PolicyDataset,
+  StoredHandbookChunk,
   StoredPolicy,
 } from "@/lib/policy-assistant/types";
 
@@ -18,6 +20,19 @@ interface CreatePolicyDatasetInput {
   filename: string;
   headers: string[];
   rows: NormalizedPolicyRow[];
+}
+
+interface HandbookChunkInput {
+  sectionTitle: string;
+  content: string;
+  sourceIndex: number;
+}
+
+interface CreateHandbookDocumentInput {
+  userId: string;
+  districtName: string;
+  filename: string;
+  chunks: HandbookChunkInput[];
 }
 
 interface RawPolicyDataset {
@@ -40,6 +55,23 @@ interface RawStoredPolicy {
   policy_title: string;
   policy_wording: string;
   source_row_index: number | string;
+}
+
+interface RawHandbookDocument {
+  id: string;
+  user_id: string;
+  district_name: string;
+  filename: string;
+  uploaded_at: Date | string;
+  chunk_count: number | string;
+}
+
+interface RawStoredHandbookChunk {
+  id: number | string;
+  document_id: string;
+  section_title: string;
+  content: string;
+  source_index: number | string;
 }
 
 interface RawAuthUser {
@@ -175,6 +207,80 @@ export async function createPolicyDataset(input: CreatePolicyDatasetInput): Prom
   };
 }
 
+export async function createHandbookDocument(
+  input: CreateHandbookDocumentInput,
+): Promise<HandbookDocument> {
+  await ensureSchema();
+  const client = await getClient();
+
+  const documentId = randomUUID();
+  const uploadedAt = new Date().toISOString();
+  const normalizedDistrictName = input.districtName.trim() || "Unnamed District";
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      `
+      INSERT INTO handbook_documents (
+        id,
+        user_id,
+        district_name,
+        filename,
+        uploaded_at,
+        chunk_count
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
+      `,
+      [
+        documentId,
+        input.userId,
+        normalizedDistrictName,
+        input.filename,
+        uploadedAt,
+        input.chunks.length,
+      ],
+    );
+
+    for (const chunk of input.chunks) {
+      await client.query(
+        `
+        INSERT INTO handbook_chunks (
+          document_id,
+          section_title,
+          content,
+          search_text,
+          source_index
+        )
+        VALUES ($1, $2, $3, $4, $5)
+        `,
+        [
+          documentId,
+          chunk.sectionTitle,
+          chunk.content,
+          buildHandbookSearchText(chunk.sectionTitle, chunk.content),
+          chunk.sourceIndex,
+        ],
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return {
+    id: documentId,
+    districtName: normalizedDistrictName,
+    filename: input.filename,
+    uploadedAt,
+    chunkCount: input.chunks.length,
+  };
+}
+
 export async function getPolicyDataset(userId: string, datasetId: string): Promise<PolicyDataset | null> {
   await ensureSchema();
 
@@ -208,6 +314,27 @@ export async function listPolicyDatasets(userId: string, limit = 20): Promise<Po
   );
 
   return queryResult.rows.map(mapDataset);
+}
+
+export async function listHandbookDocuments(
+  userId: string,
+  limit = 20,
+): Promise<HandbookDocument[]> {
+  await ensureSchema();
+
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
+  const queryResult = await getPool().query<RawHandbookDocument>(
+    `
+    SELECT id, user_id, district_name, filename, uploaded_at, chunk_count
+    FROM handbook_documents
+    WHERE user_id = $1
+    ORDER BY uploaded_at DESC
+    LIMIT $2
+    `,
+    [userId, safeLimit],
+  );
+
+  return queryResult.rows.map(mapHandbookDocument);
 }
 
 export async function searchDatasetPolicies(
@@ -306,6 +433,86 @@ export async function searchDatasetPolicies(
   );
 
   return fallbackResult.rows.map(mapStoredPolicy);
+}
+
+export async function searchHandbookChunks(
+  userId: string,
+  terms: string[],
+  options?: { limit?: number },
+): Promise<StoredHandbookChunk[]> {
+  await ensureSchema();
+
+  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 500) : 300;
+  const poolInstance = getPool();
+
+  if (terms.length === 0) {
+    const result = await poolInstance.query<RawStoredHandbookChunk>(
+      `
+      SELECT
+        c.id,
+        c.document_id,
+        c.section_title,
+        c.content,
+        c.source_index
+      FROM handbook_chunks c
+      JOIN handbook_documents d ON d.id = c.document_id
+      WHERE d.user_id = $1
+      ORDER BY d.uploaded_at DESC, c.source_index ASC, c.id ASC
+      LIMIT $2
+      `,
+      [userId, limit],
+    );
+
+    return result.rows.map(mapStoredHandbookChunk);
+  }
+
+  const patterns = terms.map((term) => `%${escapeLike(term.toLowerCase())}%`);
+  const whereClauses = patterns.map(
+    (_value, index) => `c.search_text ILIKE $${index + 2} ESCAPE '\\'`,
+  );
+  const params = [userId, ...patterns, limit];
+  const limitPlaceholder = `$${params.length}`;
+
+  const filteredResult = await poolInstance.query<RawStoredHandbookChunk>(
+    `
+    SELECT
+      c.id,
+      c.document_id,
+      c.section_title,
+      c.content,
+      c.source_index
+    FROM handbook_chunks c
+    JOIN handbook_documents d ON d.id = c.document_id
+    WHERE d.user_id = $1
+    AND (${whereClauses.join(" OR ")})
+    ORDER BY d.uploaded_at DESC, c.source_index ASC, c.id ASC
+    LIMIT ${limitPlaceholder}
+    `,
+    params,
+  );
+
+  if (filteredResult.rows.length > 0) {
+    return filteredResult.rows.map(mapStoredHandbookChunk);
+  }
+
+  const fallbackResult = await poolInstance.query<RawStoredHandbookChunk>(
+    `
+    SELECT
+      c.id,
+      c.document_id,
+      c.section_title,
+      c.content,
+      c.source_index
+    FROM handbook_chunks c
+    JOIN handbook_documents d ON d.id = c.document_id
+    WHERE d.user_id = $1
+    ORDER BY d.uploaded_at DESC, c.source_index ASC, c.id ASC
+    LIMIT $2
+    `,
+    [userId, limit],
+  );
+
+  return fallbackResult.rows.map(mapStoredHandbookChunk);
 }
 
 export async function createUserAccount(
@@ -1027,6 +1234,36 @@ async function ensureSchema(): Promise<void> {
       `);
 
       await client.query(`
+        CREATE TABLE IF NOT EXISTS handbook_documents (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          district_name TEXT NOT NULL,
+          filename TEXT NOT NULL,
+          uploaded_at TIMESTAMPTZ NOT NULL,
+          chunk_count INTEGER NOT NULL DEFAULT 0
+        );
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_handbook_documents_user_id ON handbook_documents(user_id);
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS handbook_chunks (
+          id SERIAL PRIMARY KEY,
+          document_id TEXT NOT NULL REFERENCES handbook_documents(id) ON DELETE CASCADE,
+          section_title TEXT NOT NULL DEFAULT '',
+          content TEXT NOT NULL DEFAULT '',
+          search_text TEXT NOT NULL DEFAULT '',
+          source_index INTEGER NOT NULL DEFAULT 0
+        );
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_handbook_chunks_document_id ON handbook_chunks(document_id);
+      `);
+
+      await client.query(`
         CREATE TABLE IF NOT EXISTS policy_conversations (
           id TEXT PRIMARY KEY,
           user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1124,6 +1361,10 @@ function buildSearchText(row: NormalizedPolicyRow): string {
     .toLowerCase();
 }
 
+function buildHandbookSearchText(sectionTitle: string, content: string): string {
+  return [sectionTitle, content].join(" ").toLowerCase();
+}
+
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");
 }
@@ -1135,6 +1376,16 @@ function mapDataset(row: RawPolicyDataset): PolicyDataset {
     filename: row.filename,
     uploadedAt: formatTimestamp(row.uploaded_at),
     policyCount: Number(row.policy_count),
+  };
+}
+
+function mapHandbookDocument(row: RawHandbookDocument): HandbookDocument {
+  return {
+    id: row.id,
+    districtName: row.district_name,
+    filename: row.filename,
+    uploadedAt: formatTimestamp(row.uploaded_at),
+    chunkCount: Number(row.chunk_count),
   };
 }
 
@@ -1150,6 +1401,16 @@ function mapStoredPolicy(row: RawStoredPolicy): StoredPolicy {
     policyTitle: row.policy_title,
     policyWording: row.policy_wording,
     sourceRowIndex: Number(row.source_row_index),
+  };
+}
+
+function mapStoredHandbookChunk(row: RawStoredHandbookChunk): StoredHandbookChunk {
+  return {
+    id: Number(row.id),
+    documentId: row.document_id,
+    sectionTitle: row.section_title,
+    content: row.content,
+    sourceIndex: Number(row.source_index),
   };
 }
 
