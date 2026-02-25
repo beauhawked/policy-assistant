@@ -10,6 +10,14 @@ interface PolicyDataset {
   policyCount: number;
 }
 
+interface HandbookDocument {
+  id: string;
+  districtName: string;
+  filename: string;
+  uploadedAt: string;
+  chunkCount: number;
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -41,7 +49,37 @@ interface ConversationMessage {
   createdAt: string;
 }
 
-type AssistantSectionKind = "general" | "policy" | "action" | "implications" | "disclaimer";
+interface RetrievalPolicyMatch {
+  id: number;
+  policySection: string;
+  policyCode: string;
+  policyTitle: string;
+  relevanceScore: number;
+  excerpt: string;
+}
+
+interface RetrievalHandbookMatch {
+  id: number;
+  sectionTitle: string;
+  relevanceScore: number;
+  excerpt: string;
+}
+
+interface RetrievalDebugData {
+  policyCount: number;
+  handbookCount: number;
+  matchedTerms: string[];
+  policyMatches?: RetrievalPolicyMatch[];
+  handbookMatches?: RetrievalHandbookMatch[];
+}
+
+type AssistantSectionKind =
+  | "general"
+  | "policy"
+  | "handbook"
+  | "action"
+  | "implications"
+  | "disclaimer";
 
 interface AssistantMessageSection {
   kind: AssistantSectionKind;
@@ -81,19 +119,25 @@ export function PolicyAssistantApp() {
   const [resetToken, setResetToken] = useState("");
 
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [handbookFile, setHandbookFile] = useState<File | null>(null);
   const [datasets, setDatasets] = useState<PolicyDataset[]>([]);
+  const [handbookDocuments, setHandbookDocuments] = useState<HandbookDocument[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState("");
   const [scenario, setScenario] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isHandbookUploading, setIsHandbookUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isConversationLoading, setIsConversationLoading] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState("");
   const [uploadStatus, setUploadStatus] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const [handbookStatus, setHandbookStatus] = useState("");
+  const [handbookError, setHandbookError] = useState("");
   const [chatError, setChatError] = useState("");
   const [conversationError, setConversationError] = useState("");
+  const [retrievalDebug, setRetrievalDebug] = useState<RetrievalDebugData | null>(null);
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const nearBottomRef = useRef(true);
@@ -157,11 +201,13 @@ export function PolicyAssistantApp() {
       setConversations([]);
       setSelectedConversationId("");
       setMessages([]);
+      setRetrievalDebug(null);
       return;
     }
 
     setMessages([]);
     setSelectedConversationId("");
+    setRetrievalDebug(null);
     void loadConversations(selectedDatasetId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.emailVerifiedAt, selectedDatasetId]);
@@ -261,7 +307,7 @@ export function PolicyAssistantApp() {
       setAuthUser(payload.user);
       setAuthInfo(payload.message ?? "Email verified successfully.");
       if (payload.user.emailVerifiedAt) {
-        await loadDatasets();
+        await loadWorkspaceData();
       }
     }
   }
@@ -336,16 +382,23 @@ export function PolicyAssistantApp() {
       setAuthDistrictName("");
       setAuthInfo(payload.message ?? "");
       setDatasets([]);
+      setHandbookDocuments([]);
       setSelectedDatasetId("");
       setConversations([]);
       setSelectedConversationId("");
       setMessages([]);
+      setRetrievalDebug(null);
+      setUploadFile(null);
+      setHandbookFile(null);
+      setUploadStatus("");
       setUploadError("");
+      setHandbookError("");
+      setHandbookStatus("");
       setChatError("");
       setConversationError("");
 
       if (payload.user.emailVerifiedAt) {
-        await loadDatasets();
+        await loadWorkspaceData();
       } else {
         setAuthInfo("Check your inbox to verify your email before using datasets and chat.");
       }
@@ -434,7 +487,7 @@ export function PolicyAssistantApp() {
       setAuthInfo(payload.message ?? "Password updated successfully.");
 
       if (payload.user.emailVerifiedAt) {
-        await loadDatasets();
+        await loadWorkspaceData();
       }
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Could not reset password.");
@@ -591,6 +644,68 @@ export function PolicyAssistantApp() {
     }
   };
 
+  const handleHandbookUpload = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    setHandbookError("");
+    setHandbookStatus("");
+
+    if (!authUser) {
+      setHandbookError("Sign in to upload student handbooks.");
+      return;
+    }
+
+    if (!authUser.emailVerifiedAt) {
+      setHandbookError("Verify your email before uploading handbooks.");
+      return;
+    }
+
+    if (!handbookFile) {
+      setHandbookError("Choose a handbook file before uploading.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("file", handbookFile);
+
+    setIsHandbookUploading(true);
+    setHandbookStatus("Uploading and indexing student handbook...");
+
+    try {
+      const response = await fetch("/api/policy-assistant/handbooks", {
+        method: "POST",
+        body: formData,
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        document?: HandbookDocument;
+      };
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          clearSessionState();
+          throw new Error("Your session expired. Please sign in again.");
+        }
+        throw new Error(payload.error ?? `Handbook upload failed with status ${response.status}.`);
+      }
+
+      if (!payload.document) {
+        throw new Error("Upload completed but no handbook document metadata was returned.");
+      }
+
+      setHandbookDocuments((previous) => [payload.document as HandbookDocument, ...previous]);
+      setHandbookStatus(
+        `Uploaded handbook "${payload.document.filename}" with ${payload.document.chunkCount} guidance excerpts.`,
+      );
+      setHandbookFile(null);
+    } catch (error) {
+      setHandbookStatus("");
+      setHandbookError(error instanceof Error ? error.message : "Handbook upload failed.");
+    } finally {
+      setIsHandbookUploading(false);
+    }
+  };
+
   const handleScenarioSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     setChatError("");
@@ -643,6 +758,7 @@ export function PolicyAssistantApp() {
         answer?: string;
         error?: string;
         conversation?: ConversationSummary;
+        retrieval?: RetrievalDebugData;
       };
 
       if (!response.ok) {
@@ -672,6 +788,7 @@ export function PolicyAssistantApp() {
       };
 
       setMessages((previous) => [...previous, assistantMessage]);
+      setRetrievalDebug(payload.retrieval ?? null);
 
       if (payload.conversation) {
         const savedConversation = payload.conversation;
@@ -690,6 +807,7 @@ export function PolicyAssistantApp() {
     setMessages([]);
     setChatError("");
     setConversationError("");
+    setRetrievalDebug(null);
   };
 
   if (isAuthLoading) {
@@ -875,8 +993,10 @@ export function PolicyAssistantApp() {
       <section className="panel assistant-upload-panel assistant-panel">
         <div className="assistant-panel-header">
           <div>
-            <h2 className="section-title">Policy Dataset</h2>
-            <p className="assistant-panel-kicker">Upload and manage your district policy source of truth.</p>
+            <h2 className="section-title">District Knowledge Base</h2>
+            <p className="assistant-panel-kicker">
+              Upload and manage district policies and student handbook guidance.
+            </p>
           </div>
           <button type="button" className="assistant-logout-button" onClick={handleLogout}>
             Sign Out
@@ -909,6 +1029,30 @@ export function PolicyAssistantApp() {
           </button>
         </form>
 
+        <form
+          className="assistant-upload-form assistant-handbook-form"
+          method="post"
+          action="/api/policy-assistant/handbooks"
+          encType="multipart/form-data"
+          onSubmit={handleHandbookUpload}
+        >
+          <label htmlFor="student-handbook-file" className="policy-label">
+            Student Handbook
+          </label>
+          <input
+            id="student-handbook-file"
+            name="file"
+            type="file"
+            accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain,text/markdown"
+            onChange={(event) => setHandbookFile(event.target.files?.[0] ?? null)}
+            required
+          />
+
+          <button className="action-button policy-button" type="submit" disabled={isHandbookUploading}>
+            {isHandbookUploading ? "Uploading..." : "Upload Handbook"}
+          </button>
+        </form>
+
         <div className="assistant-dataset-picker">
           <label htmlFor="dataset-select" className="policy-label">
             Active Dataset
@@ -937,9 +1081,26 @@ export function PolicyAssistantApp() {
           </p>
         ) : null}
 
+        <div className="assistant-handbook-list">
+          <p className="policy-label">Uploaded Handbooks</p>
+          {handbookDocuments.length === 0 ? (
+            <p className="small-muted">No student handbook documents uploaded yet.</p>
+          ) : (
+            <ul className="assistant-uploaded-list">
+              {handbookDocuments.slice(0, 5).map((document) => (
+                <li key={document.id}>
+                  {document.filename} ({document.chunkCount} excerpts)
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         <div className="assistant-feedback-stack">
           {uploadStatus ? <p className="policy-status">{uploadStatus}</p> : null}
           {uploadError ? <p className="policy-error">{uploadError}</p> : null}
+          {handbookStatus ? <p className="policy-status">{handbookStatus}</p> : null}
+          {handbookError ? <p className="policy-error">{handbookError}</p> : null}
         </div>
       </section>
 
@@ -948,7 +1109,7 @@ export function PolicyAssistantApp() {
           <div>
             <h2 className="section-title">Policy Assistant</h2>
             <p className="assistant-panel-kicker">
-              Confidential, account-scoped guidance aligned to your uploaded policies.
+              Confidential, account-scoped guidance aligned to your uploaded policies and handbooks.
             </p>
           </div>
         </div>
@@ -1019,6 +1180,10 @@ export function PolicyAssistantApp() {
             ))}
           </div>
 
+          <p className="assistant-context-note">
+            Guidance only. Not legal advice. Consult your district attorney for legal interpretation.
+          </p>
+
           {showScrollToLatest ? (
             <button
               type="button"
@@ -1053,6 +1218,59 @@ export function PolicyAssistantApp() {
         <div className="assistant-feedback-stack">
           {chatError ? <p className="policy-error">{chatError}</p> : null}
         </div>
+
+        {retrievalDebug ? (
+          <details className="assistant-debug-panel">
+            <summary>Retrieval Debug</summary>
+            <p className="small-muted">
+              Matched terms:{" "}
+              {retrievalDebug.matchedTerms.length > 0
+                ? retrievalDebug.matchedTerms.join(", ")
+                : "None"}
+            </p>
+            <p className="small-muted">
+              Policy matches: {retrievalDebug.policyCount} | Handbook matches:{" "}
+              {retrievalDebug.handbookCount}
+            </p>
+
+            <div className="assistant-debug-section">
+              <p className="policy-label">Policy Matches</p>
+              {retrievalDebug.policyMatches && retrievalDebug.policyMatches.length > 0 ? (
+                <ul className="assistant-uploaded-list">
+                  {retrievalDebug.policyMatches.map((match) => (
+                    <li key={`policy-match-${match.id}`}>
+                      [{match.relevanceScore}] {match.policySection || "Section ?"} {match.policyCode || ""} -{" "}
+                      {match.policyTitle || "Untitled"}
+                      {match.excerpt ? (
+                        <span className="assistant-debug-excerpt"> - {match.excerpt}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="small-muted">No policy matches returned.</p>
+              )}
+            </div>
+
+            <div className="assistant-debug-section">
+              <p className="policy-label">Handbook Matches</p>
+              {retrievalDebug.handbookMatches && retrievalDebug.handbookMatches.length > 0 ? (
+                <ul className="assistant-uploaded-list">
+                  {retrievalDebug.handbookMatches.map((match) => (
+                    <li key={`handbook-match-${match.id}`}>
+                      [{match.relevanceScore}] {match.sectionTitle || "General Guidance"}
+                      {match.excerpt ? (
+                        <span className="assistant-debug-excerpt"> - {match.excerpt}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="small-muted">No handbook matches returned.</p>
+              )}
+            </div>
+          </details>
+        ) : null}
       </section>
     </section>
   );
@@ -1077,19 +1295,23 @@ export function PolicyAssistantApp() {
       if (payload.user) {
         setAuthUser(payload.user);
         if (payload.user.emailVerifiedAt) {
-          await loadDatasets();
+          await loadWorkspaceData();
         }
       } else {
         setAuthUser(null);
         setDatasets([]);
+        setHandbookDocuments([]);
         setSelectedDatasetId("");
         setConversations([]);
         setSelectedConversationId("");
         setMessages([]);
         setScenario("");
         setUploadFile(null);
+        setHandbookFile(null);
         setUploadStatus("");
         setUploadError("");
+        setHandbookStatus("");
+        setHandbookError("");
         setChatError("");
         setConversationError("");
       }
@@ -1133,6 +1355,41 @@ export function PolicyAssistantApp() {
     }
   }
 
+  async function loadHandbookDocuments(): Promise<void> {
+    try {
+      const response = await fetch("/api/policy-assistant/handbooks", {
+        cache: "no-store",
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        documents?: HandbookDocument[];
+        error?: string;
+      };
+
+      if (response.status === 401) {
+        clearSessionState();
+        return;
+      }
+
+      if (response.status === 403) {
+        setHandbookError(payload.error ?? "Please verify your email before loading handbook documents.");
+        return;
+      }
+
+      if (!response.ok || !Array.isArray(payload.documents)) {
+        throw new Error(payload.error ?? "Could not load student handbooks.");
+      }
+
+      setHandbookDocuments(payload.documents);
+    } catch (error) {
+      setHandbookError(error instanceof Error ? error.message : "Could not load student handbooks.");
+    }
+  }
+
+  async function loadWorkspaceData(): Promise<void> {
+    await Promise.all([loadDatasets(), loadHandbookDocuments()]);
+  }
+
   async function loadConversations(datasetId: string): Promise<void> {
     setIsConversationLoading(true);
     setConversationError("");
@@ -1160,6 +1417,7 @@ export function PolicyAssistantApp() {
         setConversations([]);
         setSelectedConversationId("");
         setMessages([]);
+        setRetrievalDebug(null);
         return;
       }
 
@@ -1174,6 +1432,7 @@ export function PolicyAssistantApp() {
       if (loadedConversations.length === 0) {
         setSelectedConversationId("");
         setMessages([]);
+        setRetrievalDebug(null);
         return;
       }
 
@@ -1188,6 +1447,7 @@ export function PolicyAssistantApp() {
       setConversations([]);
       setSelectedConversationId("");
       setMessages([]);
+      setRetrievalDebug(null);
     } finally {
       setIsConversationLoading(false);
     }
@@ -1218,6 +1478,7 @@ export function PolicyAssistantApp() {
         setConversations([]);
         setSelectedConversationId("");
         setMessages([]);
+        setRetrievalDebug(null);
         return;
       }
 
@@ -1227,6 +1488,7 @@ export function PolicyAssistantApp() {
         );
         setSelectedConversationId("");
         setMessages([]);
+        setRetrievalDebug(null);
         throw new Error("Conversation not found. Start a new conversation.");
       }
 
@@ -1255,14 +1517,19 @@ export function PolicyAssistantApp() {
   function clearSessionState(): void {
     setAuthUser(null);
     setDatasets([]);
+    setHandbookDocuments([]);
     setSelectedDatasetId("");
     setConversations([]);
     setSelectedConversationId("");
     setMessages([]);
+    setRetrievalDebug(null);
     setScenario("");
     setUploadFile(null);
+    setHandbookFile(null);
     setUploadStatus("");
     setUploadError("");
+    setHandbookStatus("");
+    setHandbookError("");
     setChatError("");
     setConversationError("");
     setAuthInfo("");
@@ -1304,11 +1571,15 @@ function expandChatMessage(message: ChatMessage): RenderedChatBubble[] {
   }
 
   let policyCount = 0;
+  let handbookCount = 0;
   return sections.map((section, index) => {
     let label = "Assistant";
     if (section.kind === "policy") {
       policyCount += 1;
       label = `Policy ${policyCount}`;
+    } else if (section.kind === "handbook") {
+      handbookCount += 1;
+      label = `Handbook ${handbookCount}`;
     } else if (section.kind === "action") {
       label = "Action Plan";
     } else if (section.kind === "implications") {
@@ -1341,11 +1612,13 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
       : normalized;
 
   const policyBlocks: string[][] = [];
+  const handbookBlocks: string[][] = [];
   const preface: string[] = [];
   const actionLines: string[] = [];
   const implicationsLines: string[] = [];
   let currentPolicy: string[] = [];
-  let mode: "preface" | "policy" | "action" | "implications" = "preface";
+  let currentHandbook: string[] = [];
+  let mode: "preface" | "policy" | "handbook" | "action" | "implications" = "preface";
 
   for (const rawLine of bodyText.split("\n")) {
     const line = rawLine.replace(/\s+$/g, "");
@@ -1354,6 +1627,8 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
     if (!trimmed) {
       if (mode === "policy" && currentPolicy.length > 0) {
         currentPolicy.push("");
+      } else if (mode === "handbook" && currentHandbook.length > 0) {
+        currentHandbook.push("");
       } else if (mode === "action" && actionLines.length > 0) {
         actionLines.push("");
       } else if (mode === "implications" && implicationsLines.length > 0) {
@@ -1368,10 +1643,23 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
       continue;
     }
 
+    if (isRelevantHandbookHeading(trimmed)) {
+      if (mode === "policy" && currentPolicy.length > 0) {
+        policyBlocks.push(currentPolicy);
+        currentPolicy = [];
+      }
+      mode = "handbook";
+      continue;
+    }
+
     if (isActionStepsHeading(trimmed)) {
       if (currentPolicy.length > 0) {
         policyBlocks.push(currentPolicy);
         currentPolicy = [];
+      }
+      if (currentHandbook.length > 0) {
+        handbookBlocks.push(currentHandbook);
+        currentHandbook = [];
       }
       mode = "action";
       actionLines.push("Action Steps:");
@@ -1382,6 +1670,10 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
       if (currentPolicy.length > 0) {
         policyBlocks.push(currentPolicy);
         currentPolicy = [];
+      }
+      if (currentHandbook.length > 0) {
+        handbookBlocks.push(currentHandbook);
+        currentHandbook = [];
       }
       mode = "implications";
       implicationsLines.push("Legal, Ethical, and Academic Implications:");
@@ -1398,8 +1690,29 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
       continue;
     }
 
+    if (isHandbookSectionLine(trimmed)) {
+      if (mode === "handbook" && currentHandbook.length > 0) {
+        handbookBlocks.push(currentHandbook);
+        currentHandbook = [];
+      }
+      mode = "handbook";
+      currentHandbook.push(cleanSectionLine(trimmed));
+      continue;
+    }
+
     if (mode === "policy") {
       currentPolicy.push(line);
+      continue;
+    }
+
+    if (mode === "handbook") {
+      if (
+        /^no matching handbook guidance found\.?$/i.test(trimmed) &&
+        (currentHandbook.length > 0 || handbookBlocks.length > 0)
+      ) {
+        continue;
+      }
+      currentHandbook.push(line);
       continue;
     }
 
@@ -1420,6 +1733,10 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
     policyBlocks.push(currentPolicy);
   }
 
+  if (currentHandbook.length > 0) {
+    handbookBlocks.push(currentHandbook);
+  }
+
   const sections: AssistantMessageSection[] = [];
   const prefaceText = preface.join("\n").trim();
   if (prefaceText) {
@@ -1428,8 +1745,15 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
 
   for (const block of policyBlocks) {
     const blockText = block.join("\n").trim();
-    if (blockText) {
+    if (isSubstantivePolicyBlock(blockText)) {
       sections.push({ kind: "policy", content: blockText });
+    }
+  }
+
+  for (const block of handbookBlocks) {
+    const blockText = block.join("\n").trim();
+    if (isSubstantiveHandbookBlock(blockText)) {
+      sections.push({ kind: "handbook", content: blockText });
     }
   }
 
@@ -1459,6 +1783,14 @@ function isRelevantPoliciesHeading(line: string): boolean {
   return normalized === "relevant policies" || normalized === "relevant policies:";
 }
 
+function isRelevantHandbookHeading(line: string): boolean {
+  const normalized = normalizeHeading(line);
+  return (
+    normalized === "relevant student handbook guidance" ||
+    normalized === "relevant student handbook guidance:"
+  );
+}
+
 function isActionStepsHeading(line: string): boolean {
   const normalized = normalizeHeading(line);
   return normalized === "action steps:" || normalized === "action steps";
@@ -1476,12 +1808,44 @@ function isPolicySectionLine(line: string): boolean {
   return /^(?:[-*]\s*)?policy section\s*:/i.test(line);
 }
 
+function isHandbookSectionLine(line: string): boolean {
+  return /^(?:[-*]\s*)?handbook section\s*:/i.test(line);
+}
+
 function cleanSectionLine(line: string): string {
   return line.replace(/^(?:[-*]\s*)?/, "").replace(/\*\*/g, "").trim();
 }
 
 function normalizeHeading(line: string): string {
   return line.replace(/^#{1,6}\s*/, "").replace(/\*\*/g, "").trim().toLowerCase();
+}
+
+function isSubstantivePolicyBlock(blockText: string): boolean {
+  if (!blockText) {
+    return false;
+  }
+
+  if (!/policy wording\s*:/i.test(blockText) && !/policy title\s*:/i.test(blockText)) {
+    return false;
+  }
+
+  return blockText.replace(/\s+/g, "").length > 40;
+}
+
+function isSubstantiveHandbookBlock(blockText: string): boolean {
+  if (!blockText) {
+    return false;
+  }
+
+  if (blockText.toLowerCase() === "no matching handbook guidance found.") {
+    return false;
+  }
+
+  if (!/handbook guidance\s*:/i.test(blockText)) {
+    return false;
+  }
+
+  return blockText.replace(/\s+/g, "").length > 40;
 }
 
 function formatDatasetOption(dataset: PolicyDataset): string {

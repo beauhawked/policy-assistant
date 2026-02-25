@@ -17,6 +17,14 @@ export interface PolicyDataset {
   policyCount: number;
 }
 
+export interface HandbookDocument {
+  id: string;
+  districtName: string;
+  filename: string;
+  uploadedAt: string;
+  chunkCount: number;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -51,5 +59,17 @@ export interface StoredPolicy extends NormalizedPolicyRow {
 }
 
 export interface RetrievalResult extends StoredPolicy {
+  relevanceScore: number;
+}
+
+export interface StoredHandbookChunk {
+  id: number;
+  documentId: string;
+  sectionTitle: string;
+  content: string;
+  sourceIndex: number;
+}
+
+export interface HandbookRetrievalResult extends StoredHandbookChunk {
   relevanceScore: number;
 }
