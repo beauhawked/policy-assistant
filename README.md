@@ -37,6 +37,14 @@ Set at least:
 Optional:
 
 - `POLICY_ASSISTANT_MODEL=gpt-4.1-mini`
+- `POLICY_ASSISTANT_EMBEDDING_MODEL=text-embedding-3-small`
+- `POLICY_ASSISTANT_EMBEDDINGS_DISABLED=0` (set to `1` to disable embeddings)
+- `POLICY_ASSISTANT_STATE_LAW_CORPUS_ENABLED=1` (set to `0` to disable corpus retrieval)
+- `POLICY_ASSISTANT_LIVE_STATE_LAW_ENABLED=0` (set to `1` to enable live official-state-site lookup)
+- `POLICY_ASSISTANT_STATE_CODE=IN` (two-letter state code for state-law retrieval)
+- `POLICY_ASSISTANT_APPROVED_STATE_LAW_DOMAINS=iga.in.gov,in.gov` (comma-separated allowlist; exact host matching by default, wildcard prefixes allowed like `*.iga.in.gov`)
+- `POLICY_ASSISTANT_STATE_LAW_INGEST_KEY=<strong-secret>` (required for state-law ingest endpoint)
+- `POLICY_ASSISTANT_LIVE_LAW_MODEL=gpt-4.1-mini` (optional live-law lookup model override)
 - `RESEND_API_KEY=<resend-api-key>` (required in production for verification/reset emails)
 - `POLICY_ASSISTANT_FROM_EMAIL="Policy Assistant <noreply@yourdomain.com>"`
 - `POLICY_ASSISTANT_APP_ORIGIN=https://your-domain.example` (required in production for secure verification/reset links)
@@ -64,6 +72,39 @@ Open [http://localhost:3000](http://localhost:3000). The home route redirects to
 - Conversation history is saved per user and per dataset.
 - Users can reopen prior conversations after signing back in.
 - Password reset links are one-time and time-limited.
+- Embeddings are generated at upload time for hybrid retrieval; older uploads can be re-uploaded to backfill embeddings.
+
+## State-law modes
+
+The assistant supports two state-law modes:
+
+1. `State-law corpus mode` (internal retrieval index)
+- Ingest official statutes/regulations into `state_law_corpus` through:
+  - `POST /api/policy-assistant/state-law/ingest`
+  - Header: `x-policy-assistant-admin-key: <POLICY_ASSISTANT_STATE_LAW_INGEST_KEY>`
+- Ingestion payload format:
+
+```json
+{
+  "stateCode": "IN",
+  "replaceStateCode": false,
+  "records": [
+    {
+      "sourceName": "Indiana General Assembly",
+      "citationTitle": "IC 20-33-2-11",
+      "sectionId": "IC 20-33-2-11",
+      "sourceUrl": "https://iga.in.gov/laws/....",
+      "content": "Statute text...",
+      "sourceUpdatedAt": "2026-02-25T00:00:00Z"
+    }
+  ]
+}
+```
+
+2. `Live external mode` (approved domains only)
+- Enable with `POLICY_ASSISTANT_LIVE_STATE_LAW_ENABLED=1`
+- The assistant uses OpenAI web search constrained by `POLICY_ASSISTANT_APPROVED_STATE_LAW_DOMAINS`
+- Returned sources are filtered to the approved domains and included with URL citations.
 
 ## Security controls
 

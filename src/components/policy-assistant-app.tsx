@@ -65,18 +65,41 @@ interface RetrievalHandbookMatch {
   excerpt: string;
 }
 
+interface RetrievalStateLawMatch {
+  id: number;
+  stateCode: string;
+  sourceName: string;
+  citationTitle: string;
+  sectionId: string;
+  sourceUrl: string;
+  relevanceScore: number;
+  excerpt: string;
+}
+
+interface RetrievalLiveStateLawSource {
+  title: string;
+  url: string;
+  excerpt: string;
+  relevanceNote: string;
+}
+
 interface RetrievalDebugData {
   policyCount: number;
   handbookCount: number;
+  stateLawCount?: number;
+  liveStateLawCount?: number;
   matchedTerms: string[];
   policyMatches?: RetrievalPolicyMatch[];
   handbookMatches?: RetrievalHandbookMatch[];
+  stateLawMatches?: RetrievalStateLawMatch[];
+  liveStateLawSources?: RetrievalLiveStateLawSource[];
 }
 
 type AssistantSectionKind =
   | "general"
   | "policy"
   | "handbook"
+  | "state_law"
   | "action"
   | "implications"
   | "disclaimer";
@@ -1057,6 +1080,7 @@ export function PolicyAssistantApp() {
           <label htmlFor="dataset-select" className="policy-label">
             Active Dataset
           </label>
+          <p className="small-muted">Datasets are listed newest to oldest.</p>
           <select
             id="dataset-select"
             value={selectedDatasetId}
@@ -1066,9 +1090,9 @@ export function PolicyAssistantApp() {
             {datasets.length === 0 ? (
               <option value="">No datasets uploaded yet</option>
             ) : (
-              datasets.map((dataset) => (
+              datasets.map((dataset, index) => (
                 <option key={dataset.id} value={dataset.id}>
-                  {formatDatasetOption(dataset)}
+                  {formatDatasetOption(dataset, index === 0)}
                 </option>
               ))
             )}
@@ -1087,9 +1111,11 @@ export function PolicyAssistantApp() {
             <p className="small-muted">No student handbook documents uploaded yet.</p>
           ) : (
             <ul className="assistant-uploaded-list">
-              {handbookDocuments.slice(0, 5).map((document) => (
+              {handbookDocuments.slice(0, 5).map((document, index) => (
                 <li key={document.id}>
-                  {document.filename} ({document.chunkCount} excerpts)
+                  {index === 0 ? "Latest - " : ""}
+                  {document.filename} ({document.chunkCount} excerpts) -{" "}
+                  {formatCompactTimestamp(document.uploadedAt)}
                 </li>
               ))}
             </ul>
@@ -1230,7 +1256,8 @@ export function PolicyAssistantApp() {
             </p>
             <p className="small-muted">
               Policy matches: {retrievalDebug.policyCount} | Handbook matches:{" "}
-              {retrievalDebug.handbookCount}
+              {retrievalDebug.handbookCount} | State-law matches: {retrievalDebug.stateLawCount ?? 0} |
+              Live state-law sources: {retrievalDebug.liveStateLawCount ?? 0}
             </p>
 
             <div className="assistant-debug-section">
@@ -1267,6 +1294,49 @@ export function PolicyAssistantApp() {
                 </ul>
               ) : (
                 <p className="small-muted">No handbook matches returned.</p>
+              )}
+            </div>
+
+            <div className="assistant-debug-section">
+              <p className="policy-label">State Law Matches</p>
+              {retrievalDebug.stateLawMatches && retrievalDebug.stateLawMatches.length > 0 ? (
+                <ul className="assistant-uploaded-list">
+                  {retrievalDebug.stateLawMatches.map((match) => (
+                    <li key={`state-law-match-${match.id}`}>
+                      [{match.relevanceScore}] {match.stateCode} {match.citationTitle || "State law"}
+                      {match.sectionId ? ` (${match.sectionId})` : ""}
+                      {match.excerpt ? (
+                        <span className="assistant-debug-excerpt"> - {match.excerpt}</span>
+                      ) : null}
+                      {match.sourceUrl ? (
+                        <span className="assistant-debug-excerpt"> - {match.sourceUrl}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="small-muted">No state-law corpus matches returned.</p>
+              )}
+            </div>
+
+            <div className="assistant-debug-section">
+              <p className="policy-label">Live State Law Sources</p>
+              {retrievalDebug.liveStateLawSources && retrievalDebug.liveStateLawSources.length > 0 ? (
+                <ul className="assistant-uploaded-list">
+                  {retrievalDebug.liveStateLawSources.map((source) => (
+                    <li key={`live-state-law-${source.url}`}>
+                      {source.title}
+                      {source.url ? (
+                        <span className="assistant-debug-excerpt"> - {source.url}</span>
+                      ) : null}
+                      {source.excerpt ? (
+                        <span className="assistant-debug-excerpt"> - {source.excerpt}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="small-muted">No live state-law sources returned.</p>
               )}
             </div>
           </details>
@@ -1572,6 +1642,7 @@ function expandChatMessage(message: ChatMessage): RenderedChatBubble[] {
 
   let policyCount = 0;
   let handbookCount = 0;
+  let stateLawCount = 0;
   return sections.map((section, index) => {
     let label = "Assistant";
     if (section.kind === "policy") {
@@ -1580,6 +1651,9 @@ function expandChatMessage(message: ChatMessage): RenderedChatBubble[] {
     } else if (section.kind === "handbook") {
       handbookCount += 1;
       label = `Handbook ${handbookCount}`;
+    } else if (section.kind === "state_law") {
+      stateLawCount += 1;
+      label = `State Law ${stateLawCount}`;
     } else if (section.kind === "action") {
       label = "Action Plan";
     } else if (section.kind === "implications") {
@@ -1613,12 +1687,14 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
 
   const policyBlocks: string[][] = [];
   const handbookBlocks: string[][] = [];
+  const stateLawBlocks: string[][] = [];
   const preface: string[] = [];
   const actionLines: string[] = [];
   const implicationsLines: string[] = [];
   let currentPolicy: string[] = [];
   let currentHandbook: string[] = [];
-  let mode: "preface" | "policy" | "handbook" | "action" | "implications" = "preface";
+  let currentStateLaw: string[] = [];
+  let mode: "preface" | "policy" | "handbook" | "state_law" | "action" | "implications" = "preface";
 
   for (const rawLine of bodyText.split("\n")) {
     const line = rawLine.replace(/\s+$/g, "");
@@ -1629,6 +1705,8 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
         currentPolicy.push("");
       } else if (mode === "handbook" && currentHandbook.length > 0) {
         currentHandbook.push("");
+      } else if (mode === "state_law" && currentStateLaw.length > 0) {
+        currentStateLaw.push("");
       } else if (mode === "action" && actionLines.length > 0) {
         actionLines.push("");
       } else if (mode === "implications" && implicationsLines.length > 0) {
@@ -1636,6 +1714,10 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
       } else if (mode === "preface" && preface.length > 0) {
         preface.push("");
       }
+      continue;
+    }
+
+    if (isStandaloneBlockMarkerLine(trimmed)) {
       continue;
     }
 
@@ -1652,6 +1734,19 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
       continue;
     }
 
+    if (isRelevantStateLawHeading(trimmed)) {
+      if (mode === "policy" && currentPolicy.length > 0) {
+        policyBlocks.push(currentPolicy);
+        currentPolicy = [];
+      }
+      if (mode === "handbook" && currentHandbook.length > 0) {
+        handbookBlocks.push(currentHandbook);
+        currentHandbook = [];
+      }
+      mode = "state_law";
+      continue;
+    }
+
     if (isActionStepsHeading(trimmed)) {
       if (currentPolicy.length > 0) {
         policyBlocks.push(currentPolicy);
@@ -1660,6 +1755,10 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
       if (currentHandbook.length > 0) {
         handbookBlocks.push(currentHandbook);
         currentHandbook = [];
+      }
+      if (currentStateLaw.length > 0) {
+        stateLawBlocks.push(currentStateLaw);
+        currentStateLaw = [];
       }
       mode = "action";
       actionLines.push("Action Steps:");
@@ -1674,6 +1773,10 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
       if (currentHandbook.length > 0) {
         handbookBlocks.push(currentHandbook);
         currentHandbook = [];
+      }
+      if (currentStateLaw.length > 0) {
+        stateLawBlocks.push(currentStateLaw);
+        currentStateLaw = [];
       }
       mode = "implications";
       implicationsLines.push("Legal, Ethical, and Academic Implications:");
@@ -1700,6 +1803,16 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
       continue;
     }
 
+    if (isStateLawSourceLine(trimmed)) {
+      if (mode === "state_law" && currentStateLaw.length > 0) {
+        stateLawBlocks.push(currentStateLaw);
+        currentStateLaw = [];
+      }
+      mode = "state_law";
+      currentStateLaw.push(cleanSectionLine(trimmed));
+      continue;
+    }
+
     if (mode === "policy") {
       currentPolicy.push(line);
       continue;
@@ -1713,6 +1826,17 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
         continue;
       }
       currentHandbook.push(line);
+      continue;
+    }
+
+    if (mode === "state_law") {
+      if (
+        /^no matching state law references found\.?$/i.test(trimmed) &&
+        (currentStateLaw.length > 0 || stateLawBlocks.length > 0)
+      ) {
+        continue;
+      }
+      currentStateLaw.push(line);
       continue;
     }
 
@@ -1737,6 +1861,10 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
     handbookBlocks.push(currentHandbook);
   }
 
+  if (currentStateLaw.length > 0) {
+    stateLawBlocks.push(currentStateLaw);
+  }
+
   const sections: AssistantMessageSection[] = [];
   const prefaceText = preface.join("\n").trim();
   if (prefaceText) {
@@ -1754,6 +1882,13 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
     const blockText = block.join("\n").trim();
     if (isSubstantiveHandbookBlock(blockText)) {
       sections.push({ kind: "handbook", content: blockText });
+    }
+  }
+
+  for (const block of stateLawBlocks) {
+    const blockText = block.join("\n").trim();
+    if (isSubstantiveStateLawBlock(blockText)) {
+      sections.push({ kind: "state_law", content: blockText });
     }
   }
 
@@ -1791,6 +1926,14 @@ function isRelevantHandbookHeading(line: string): boolean {
   );
 }
 
+function isRelevantStateLawHeading(line: string): boolean {
+  const normalized = normalizeHeading(line);
+  return (
+    normalized === "relevant state law references" ||
+    normalized === "relevant state law references:"
+  );
+}
+
 function isActionStepsHeading(line: string): boolean {
   const normalized = normalizeHeading(line);
   return normalized === "action steps:" || normalized === "action steps";
@@ -1810,6 +1953,14 @@ function isPolicySectionLine(line: string): boolean {
 
 function isHandbookSectionLine(line: string): boolean {
   return /^(?:[-*]\s*)?handbook section\s*:/i.test(line);
+}
+
+function isStateLawSourceLine(line: string): boolean {
+  return /^(?:[-*]\s*)?state law source\s*:/i.test(line);
+}
+
+function isStandaloneBlockMarkerLine(line: string): boolean {
+  return /^(?:policy|handbook(?: guidance)?|state law)\s+\d+\s*:?\s*$/i.test(line);
 }
 
 function cleanSectionLine(line: string): string {
@@ -1848,12 +1999,30 @@ function isSubstantiveHandbookBlock(blockText: string): boolean {
   return blockText.replace(/\s+/g, "").length > 40;
 }
 
-function formatDatasetOption(dataset: PolicyDataset): string {
-  const label = `${dataset.districtName} (${dataset.policyCount} policies)`;
-  if (label.length <= 58) {
+function isSubstantiveStateLawBlock(blockText: string): boolean {
+  if (!blockText) {
+    return false;
+  }
+
+  if (blockText.toLowerCase() === "no matching state law references found.") {
+    return false;
+  }
+
+  if (!/state law (?:source|citation|url|guidance)\s*:/i.test(blockText)) {
+    return false;
+  }
+
+  return blockText.replace(/\s+/g, "").length > 40;
+}
+
+function formatDatasetOption(dataset: PolicyDataset, isLatest: boolean): string {
+  const timestamp = formatCompactTimestamp(dataset.uploadedAt);
+  const latestPrefix = isLatest ? "Latest - " : "";
+  const label = `${latestPrefix}${dataset.districtName} (${dataset.policyCount} policies) - ${timestamp}`;
+  if (label.length <= 88) {
     return label;
   }
-  return `${label.slice(0, 55)}...`;
+  return `${label.slice(0, 85)}...`;
 }
 
 function formatConversationOption(conversation: ConversationSummary): string {
@@ -1861,6 +2030,21 @@ function formatConversationOption(conversation: ConversationSummary): string {
   const title = base.length > 45 ? `${base.slice(0, 42)}...` : base;
   const timestamp = new Date(conversation.lastMessageAt || conversation.updatedAt).toLocaleString();
   return `${title} (${timestamp})`;
+}
+
+function formatCompactTimestamp(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString(undefined, {
+    month: "numeric",
+    day: "numeric",
+    year: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function upsertConversation(

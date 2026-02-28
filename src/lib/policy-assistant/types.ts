@@ -56,6 +56,7 @@ export interface PolicyConversationMessage {
 export interface StoredPolicy extends NormalizedPolicyRow {
   id: number;
   datasetId: string;
+  embedding: number[] | null;
 }
 
 export interface RetrievalResult extends StoredPolicy {
@@ -68,8 +69,32 @@ export interface StoredHandbookChunk {
   sectionTitle: string;
   content: string;
   sourceIndex: number;
+  embedding: number[] | null;
 }
 
 export interface HandbookRetrievalResult extends StoredHandbookChunk {
   relevanceScore: number;
+}
+
+export interface StoredStateLawChunk {
+  id: number;
+  stateCode: string;
+  sourceName: string;
+  citationTitle: string;
+  sectionId: string;
+  sourceUrl: string;
+  content: string;
+  sourceUpdatedAt: string | null;
+  embedding: number[] | null;
+}
+
+export interface StateLawRetrievalResult extends StoredStateLawChunk {
+  relevanceScore: number;
+}
+
+export interface LiveStateLawSource {
+  title: string;
+  url: string;
+  excerpt: string;
+  relevanceNote: string;
 }

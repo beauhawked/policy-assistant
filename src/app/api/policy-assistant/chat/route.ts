@@ -9,13 +9,24 @@ import {
   listPolicyConversationMessages,
 } from "@/lib/policy-assistant/db";
 import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
+import {
+  getConfiguredStateCode,
+  liveStateLawEnabled,
+  searchLiveStateLawSources,
+} from "@/lib/policy-assistant/live-law";
 import { generatePolicyGuidance } from "@/lib/policy-assistant/openai";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 import {
   retrieveRelevantHandbookGuidance,
   retrieveRelevantPolicies,
+  retrieveRelevantStateLawGuidance,
 } from "@/lib/policy-assistant/retrieval";
-import type { HandbookRetrievalResult, RetrievalResult } from "@/lib/policy-assistant/types";
+import type {
+  HandbookRetrievalResult,
+  LiveStateLawSource,
+  RetrievalResult,
+  StateLawRetrievalResult,
+} from "@/lib/policy-assistant/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,9 +35,16 @@ interface PolicyAssistantChatPayload {
   datasetId?: string;
   scenario?: string;
   conversationId?: string;
+  useLiveStateLaw?: boolean;
 }
 
 type ScenarioFocus = "policy" | "handbook" | "mixed";
+
+interface QueryScope {
+  stateLawRequested: boolean;
+  localGuidanceRequested: boolean;
+  stateLawOnly: boolean;
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -59,6 +77,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const datasetId = payload.datasetId?.trim() ?? "";
     const scenario = payload.scenario?.trim() ?? "";
     const conversationId = payload.conversationId?.trim() ?? "";
+    const useLiveStateLaw = payload.useLiveStateLaw !== false;
 
     if (!datasetId) {
       return NextResponse.json({ error: "datasetId is required." }, { status: 400 });
@@ -99,12 +118,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const scenarioFocus = detectScenarioFocus(scenario);
-    const policyLimit = scenarioFocus === "handbook" ? 2 : 4;
-    const handbookLimit = scenarioFocus === "policy" ? 2 : 4;
+    const queryScope = detectQueryScope(scenario);
+    const useDistrictSources = !queryScope.stateLawOnly;
+    const policyLimit = useDistrictSources ? (scenarioFocus === "handbook" ? 2 : 4) : 0;
+    const handbookLimit = useDistrictSources ? (scenarioFocus === "policy" ? 2 : 4) : 0;
+    const stateLawLimit = scenarioFocus === "policy" ? 2 : 3;
+    const stateCode = getConfiguredStateCode();
+    const useStateLawCorpus = stateLawCorpusEnabled();
+    const useLiveExternal = useLiveStateLaw && liveStateLawEnabled();
 
-    const [retrieval, handbookRetrieval] = await Promise.all([
-      retrieveRelevantPolicies(user.id, dataset.id, scenario, { limit: policyLimit }),
-      retrieveRelevantHandbookGuidance(user.id, scenario, { limit: handbookLimit }),
+    const [retrieval, handbookRetrieval, stateLawRetrieval, liveStateLawSources] = await Promise.all([
+      useDistrictSources
+        ? retrieveRelevantPolicies(user.id, dataset.id, scenario, { limit: policyLimit })
+        : Promise.resolve({ terms: [] as string[], policies: [] as RetrievalResult[] }),
+      useDistrictSources
+        ? retrieveRelevantHandbookGuidance(user.id, scenario, { limit: handbookLimit })
+        : Promise.resolve({ terms: [] as string[], guidance: [] as HandbookRetrievalResult[] }),
+      useStateLawCorpus
+        ? retrieveRelevantStateLawGuidance(stateCode, scenario, { limit: stateLawLimit })
+        : Promise.resolve({ terms: [] as string[], guidance: [] as StateLawRetrievalResult[] }),
+      useLiveExternal
+        ? searchLiveStateLawSources({ scenario, stateCode, maxSources: 3 })
+        : Promise.resolve([] as LiveStateLawSource[]),
     ]);
 
     const refinedPolicyMatches = refinePolicyMatchesForScenario(
@@ -117,12 +152,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       scenario,
       scenarioFocus,
     );
+    const refinedStateLawMatches = refineStateLawMatchesForScenario(
+      stateLawRetrieval.guidance,
+      scenario,
+    );
 
-    if (refinedPolicyMatches.length === 0 && refinedHandbookMatches.length === 0) {
+    if (
+      refinedPolicyMatches.length === 0 &&
+      refinedHandbookMatches.length === 0 &&
+      refinedStateLawMatches.length === 0 &&
+      liveStateLawSources.length === 0
+    ) {
       return NextResponse.json(
         {
           error:
-            "No relevant guidance was found in your uploaded policies or student handbooks for this question.",
+            "No relevant guidance was found in your uploaded policies, student handbooks, or configured state-law sources for this question.",
         },
         { status: 400 },
       );
@@ -134,6 +178,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       focus: scenarioFocus,
       policies: refinedPolicyMatches,
       handbookGuidance: refinedHandbookMatches,
+      stateLawGuidance: refinedStateLawMatches,
+      liveStateLawSources,
+      stateLawOnly: queryScope.stateLawOnly,
       conversationHistory: historyForModel,
     });
 
@@ -157,7 +204,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         retrieval: {
           policyCount: refinedPolicyMatches.length,
           handbookCount: refinedHandbookMatches.length,
-          matchedTerms: Array.from(new Set([...retrieval.terms, ...handbookRetrieval.terms])),
+          stateLawCount: refinedStateLawMatches.length,
+          liveStateLawCount: liveStateLawSources.length,
+          matchedTerms: Array.from(
+            new Set([...retrieval.terms, ...handbookRetrieval.terms, ...stateLawRetrieval.terms]),
+          ),
           policyMatches: refinedPolicyMatches.map((policy) => ({
             id: policy.id,
             policySection: policy.policySection,
@@ -172,6 +223,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             relevanceScore: chunk.relevanceScore,
             excerpt: buildExcerpt(chunk.content, 240),
           })),
+          stateLawMatches: refinedStateLawMatches.map((chunk) => ({
+            id: chunk.id,
+            stateCode: chunk.stateCode,
+            sourceName: chunk.sourceName,
+            citationTitle: chunk.citationTitle,
+            sectionId: chunk.sectionId,
+            sourceUrl: chunk.sourceUrl,
+            relevanceScore: chunk.relevanceScore,
+            excerpt: buildExcerpt(chunk.content, 240),
+          })),
+          liveStateLawSources,
         },
       },
       { status: 200 },
@@ -208,6 +270,26 @@ function detectScenarioFocus(scenario: string): ScenarioFocus {
   }
 
   return "mixed";
+}
+
+function detectQueryScope(scenario: string): QueryScope {
+  const normalized = scenario.toLowerCase();
+
+  const stateLawRequested =
+    /\b(state law|state laws|indiana law|indiana laws|indiana code|state statute|state statutes|statute|statutes|regulation|regulations|administrative code|title\s+\d+|article\s+\d+|chapter\s+\d+)\b/.test(
+      normalized,
+    ) || /\bic\s*\d{1,2}[-.]/.test(normalized);
+
+  const localGuidanceRequested =
+    /\b(our district|district policy|district policies|local policy|local policies|board policy|board policies|school policy|school policies|handbook|student handbook|code of conduct|our policy|our policies)\b/.test(
+      normalized,
+    );
+
+  return {
+    stateLawRequested,
+    localGuidanceRequested,
+    stateLawOnly: stateLawRequested && !localGuidanceRequested,
+  };
 }
 
 function buildExcerpt(value: string, maxLength: number): string {
@@ -252,11 +334,7 @@ function refinePolicyMatchesForScenario(
   }
 
   if (intent.attendance) {
-    filtered = filtered.filter((policy) =>
-      /\battendance\b|\babsence\b|\babsent\b|\btruancy\b|\btardy\b|\bexcused\b/i.test(
-        `${policy.policyTitle} ${policy.policyWording}`,
-      ),
-    );
+    filtered = filtered.filter((policy) => isLikelyStudentAttendancePolicy(policy));
   }
 
   if (intent.records) {
@@ -293,11 +371,18 @@ function refineHandbookMatchesForScenario(
   }
 
   if (intent.attendance) {
-    filtered = filtered.filter((chunk) =>
-      /\battendance\b|\babsence\b|\babsent\b|\btruancy\b|\btardy\b|\bexcused\b/i.test(
-        `${chunk.sectionTitle} ${chunk.content}`,
-      ),
+    const titleStrict = filtered.filter((chunk) =>
+      /\battendance\b|\babsence\b|\btruancy\b|\btardy\b/i.test(chunk.sectionTitle),
     );
+    if (titleStrict.length > 0) {
+      filtered = titleStrict;
+    } else {
+      filtered = filtered.filter((chunk) =>
+        /\battendance\b|\babsence\b|\babsent\b|\btruancy\b|\btardy\b|\bexcused\b/i.test(
+          `${chunk.sectionTitle} ${chunk.content}`,
+        ),
+      );
+    }
   }
 
   if (intent.records) {
@@ -317,6 +402,42 @@ function refineHandbookMatchesForScenario(
   return focused;
 }
 
+function refineStateLawMatchesForScenario(
+  guidance: StateLawRetrievalResult[],
+  scenario: string,
+): StateLawRetrievalResult[] {
+  if (guidance.length === 0) {
+    return [];
+  }
+
+  const intent = detectDetailedIntent(scenario);
+  let filtered = guidance;
+
+  if (intent.dress) {
+    filtered = filtered.filter((chunk) =>
+      hasDressSignal(`${chunk.citationTitle} ${chunk.content}`.toLowerCase()),
+    );
+  }
+
+  if (intent.attendance) {
+    filtered = filtered.filter((chunk) =>
+      /\battendance\b|\babsence\b|\babsent\b|\btruancy\b|\btardy\b|\bexcused\b/i.test(
+        `${chunk.citationTitle} ${chunk.content}`,
+      ),
+    );
+  }
+
+  if (intent.records) {
+    filtered = filtered.filter((chunk) =>
+      /\brecord\b|\brecords\b|\bretention\b|\bferpa\b|\bprivacy\b|\bconfidential\b/i.test(
+        `${chunk.citationTitle} ${chunk.content}`,
+      ),
+    );
+  }
+
+  return filtered.slice(0, 3);
+}
+
 function detectDetailedIntent(scenario: string): {
   dress: boolean;
   attendance: boolean;
@@ -326,7 +447,7 @@ function detectDetailedIntent(scenario: string): {
   const normalized = scenario.toLowerCase();
 
   return {
-    dress: /\bdress\b|\bdress code\b|\buniform\b|\battire\b|\bgroom(?:ing)?\b|\bappearance\b/i.test(
+    dress: /\bdress\b|\bdress code\b|\buniform\b|\battire\b|\bgroom(?:ing)?\b|\bappearance\b|\bapparel\b|\bclothing\b/i.test(
       normalized,
     ),
     attendance: /\battendance\b|\babsence\b|\babsent\b|\btruancy\b|\btardy\b|\bexcused\b/i.test(
@@ -368,6 +489,41 @@ function hasUniformDressContext(content: string): boolean {
     ) ||
     /\bschool\s+uniforms?\b/.test(content)
   );
+}
+
+function stateLawCorpusEnabled(): boolean {
+  return process.env.POLICY_ASSISTANT_STATE_LAW_CORPUS_ENABLED?.trim() !== "0";
+}
+
+function isLikelyStudentAttendancePolicy(policy: RetrievalResult): boolean {
+  const section = policy.policySection.toLowerCase();
+  const title = policy.policyTitle.toLowerCase();
+  const wording = policy.policyWording.toLowerCase();
+  const combined = `${section} ${title} ${wording}`;
+
+  const hasAttendanceSignal =
+    /\battendance\b|\babsence\b|\babsent\b|\btruancy\b|\btardy\b|\bexcused\b/.test(combined);
+  if (!hasAttendanceSignal) {
+    return false;
+  }
+
+  const hasStudentContext =
+    /\bstudent\b|\bstudents\b|\bpupil\b|\bpupils\b/.test(combined) || /\b5000\b/.test(section);
+  const hasStudentAttendanceSemantics =
+    /\bcompulsory\b|\btruancy\b|\bhabitual truant\b|\bunexcused\b|\battendance officer\b|\bschool attendance\b/.test(
+      combined,
+    );
+
+  const isClearlyNonStudent =
+    /\bboard member\b|\bpublic attendance at school events\b|\baudience\b|\bspectator\b/.test(
+      combined,
+    );
+
+  if (isClearlyNonStudent) {
+    return false;
+  }
+
+  return hasStudentContext || hasStudentAttendanceSemantics;
 }
 
 function focusHandbookChunkContent(
