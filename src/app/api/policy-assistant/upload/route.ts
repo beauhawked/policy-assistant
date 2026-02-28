@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUserFromRequest, isUserEmailVerified } from "@/lib/policy-assistant/auth";
 import { parsePolicyCsvBuffer } from "@/lib/policy-assistant/csv";
 import { createPolicyDataset, listPolicyDatasets } from "@/lib/policy-assistant/db";
+import { buildPolicyEmbeddingText, embedTexts, embeddingsEnabled } from "@/lib/policy-assistant/embeddings";
 import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
@@ -80,12 +81,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const parsed = parsePolicyCsvBuffer(Buffer.from(arrayBuffer));
     const accountDistrictName = user.districtName?.trim() || "Unnamed District";
 
+    let rowEmbeddings: Array<number[] | null> = parsed.rows.map(() => null);
+    let embeddingsWarning = "";
+
+    if (embeddingsEnabled()) {
+      try {
+        rowEmbeddings = await embedTexts(parsed.rows.map((row) => buildPolicyEmbeddingText(row)));
+      } catch {
+        embeddingsWarning =
+          "Embeddings could not be generated for this upload. Lexical retrieval is still available.";
+      }
+    }
+
     const dataset = await createPolicyDataset({
       userId: user.id,
       districtName: accountDistrictName,
       filename,
       headers: parsed.headers,
       rows: parsed.rows,
+      rowEmbeddings,
     });
 
     return NextResponse.json(
@@ -94,6 +108,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ingest: {
           headers: parsed.headers,
           policyCount: parsed.rows.length,
+          embeddingsEnabled: embeddingsEnabled(),
+          embeddedRows: rowEmbeddings.filter((embedding) => Array.isArray(embedding)).length,
+          warning: embeddingsWarning || undefined,
         },
       },
       { status: 201 },

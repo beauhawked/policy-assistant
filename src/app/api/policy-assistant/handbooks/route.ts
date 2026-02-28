@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthenticatedUserFromRequest, isUserEmailVerified } from "@/lib/policy-assistant/auth";
 import { createHandbookDocument, listHandbookDocuments } from "@/lib/policy-assistant/db";
+import {
+  buildHandbookEmbeddingText,
+  embedTexts,
+  embeddingsEnabled,
+} from "@/lib/policy-assistant/embeddings";
 import { extractHandbookText, chunkHandbookText } from "@/lib/policy-assistant/handbook";
 import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
@@ -94,12 +99,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    let chunkEmbeddings: Array<number[] | null> = chunks.map(() => null);
+    let embeddingsWarning = "";
+
+    if (embeddingsEnabled()) {
+      try {
+        chunkEmbeddings = await embedTexts(
+          chunks.map((chunk) => buildHandbookEmbeddingText(chunk.sectionTitle, chunk.content)),
+        );
+      } catch {
+        embeddingsWarning =
+          "Embeddings could not be generated for this handbook. Lexical retrieval is still available.";
+      }
+    }
+
     const accountDistrictName = user.districtName?.trim() || "Unnamed District";
     const document = await createHandbookDocument({
       userId: user.id,
       districtName: accountDistrictName,
       filename,
       chunks,
+      chunkEmbeddings,
     });
 
     return NextResponse.json(
@@ -107,6 +127,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         document,
         ingest: {
           chunkCount: chunks.length,
+          embeddingsEnabled: embeddingsEnabled(),
+          embeddedChunks: chunkEmbeddings.filter((embedding) => Array.isArray(embedding)).length,
+          warning: embeddingsWarning || undefined,
         },
       },
       { status: 201 },

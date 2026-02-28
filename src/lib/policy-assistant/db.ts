@@ -12,6 +12,7 @@ import type {
   PolicyDataset,
   StoredHandbookChunk,
   StoredPolicy,
+  StoredStateLawChunk,
 } from "@/lib/policy-assistant/types";
 
 interface CreatePolicyDatasetInput {
@@ -20,6 +21,7 @@ interface CreatePolicyDatasetInput {
   filename: string;
   headers: string[];
   rows: NormalizedPolicyRow[];
+  rowEmbeddings?: Array<number[] | null>;
 }
 
 interface HandbookChunkInput {
@@ -33,6 +35,17 @@ interface CreateHandbookDocumentInput {
   districtName: string;
   filename: string;
   chunks: HandbookChunkInput[];
+  chunkEmbeddings?: Array<number[] | null>;
+}
+
+export interface StateLawCorpusChunkInput {
+  stateCode: string;
+  sourceName: string;
+  citationTitle: string;
+  sectionId: string;
+  sourceUrl: string;
+  content: string;
+  sourceUpdatedAt?: string | null;
 }
 
 interface RawPolicyDataset {
@@ -55,6 +68,7 @@ interface RawStoredPolicy {
   policy_title: string;
   policy_wording: string;
   source_row_index: number | string;
+  embedding: unknown;
 }
 
 interface RawHandbookDocument {
@@ -72,6 +86,19 @@ interface RawStoredHandbookChunk {
   section_title: string;
   content: string;
   source_index: number | string;
+  embedding: unknown;
+}
+
+interface RawStoredStateLawChunk {
+  id: number | string;
+  state_code: string;
+  source_name: string;
+  citation_title: string;
+  section_id: string;
+  source_url: string;
+  content: string;
+  source_updated_at: Date | string | null;
+  embedding: unknown;
 }
 
 interface RawAuthUser {
@@ -158,7 +185,9 @@ export async function createPolicyDataset(input: CreatePolicyDatasetInput): Prom
       ],
     );
 
-    for (const row of input.rows) {
+    for (let index = 0; index < input.rows.length; index += 1) {
+      const row = input.rows[index];
+      const rowEmbedding = input.rowEmbeddings?.[index] ?? null;
       await client.query(
         `
         INSERT INTO policies (
@@ -171,9 +200,10 @@ export async function createPolicyDataset(input: CreatePolicyDatasetInput): Prom
           policy_title,
           policy_wording,
           search_text,
-          source_row_index
+          source_row_index,
+          embedding
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
         `,
         [
           datasetId,
@@ -186,6 +216,7 @@ export async function createPolicyDataset(input: CreatePolicyDatasetInput): Prom
           row.policyWording,
           buildSearchText(row),
           row.sourceRowIndex,
+          rowEmbedding ? JSON.stringify(rowEmbedding) : null,
         ],
       );
     }
@@ -242,7 +273,9 @@ export async function createHandbookDocument(
       ],
     );
 
-    for (const chunk of input.chunks) {
+    for (let index = 0; index < input.chunks.length; index += 1) {
+      const chunk = input.chunks[index];
+      const chunkEmbedding = input.chunkEmbeddings?.[index] ?? null;
       await client.query(
         `
         INSERT INTO handbook_chunks (
@@ -250,9 +283,10 @@ export async function createHandbookDocument(
           section_title,
           content,
           search_text,
-          source_index
+          source_index,
+          embedding
         )
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb)
         `,
         [
           documentId,
@@ -260,6 +294,7 @@ export async function createHandbookDocument(
           chunk.content,
           buildHandbookSearchText(chunk.sectionTitle, chunk.content),
           chunk.sourceIndex,
+          chunkEmbedding ? JSON.stringify(chunkEmbedding) : null,
         ],
       );
     }
@@ -361,7 +396,8 @@ export async function searchDatasetPolicies(
         p.policy_status,
         p.policy_title,
         p.policy_wording,
-        p.source_row_index
+        p.source_row_index,
+        p.embedding
       FROM policies p
       JOIN policy_datasets d ON d.id = p.dataset_id
       WHERE p.dataset_id = $1
@@ -393,7 +429,8 @@ export async function searchDatasetPolicies(
       p.policy_status,
       p.policy_title,
       p.policy_wording,
-      p.source_row_index
+      p.source_row_index,
+      p.embedding
     FROM policies p
     JOIN policy_datasets d ON d.id = p.dataset_id
     WHERE p.dataset_id = $1
@@ -421,7 +458,8 @@ export async function searchDatasetPolicies(
       p.policy_status,
       p.policy_title,
       p.policy_wording,
-      p.source_row_index
+      p.source_row_index,
+      p.embedding
     FROM policies p
     JOIN policy_datasets d ON d.id = p.dataset_id
     WHERE p.dataset_id = $1
@@ -453,7 +491,8 @@ export async function searchHandbookChunks(
         c.document_id,
         c.section_title,
         c.content,
-        c.source_index
+        c.source_index,
+        c.embedding
       FROM handbook_chunks c
       JOIN handbook_documents d ON d.id = c.document_id
       WHERE d.user_id = $1
@@ -480,7 +519,8 @@ export async function searchHandbookChunks(
       c.document_id,
       c.section_title,
       c.content,
-      c.source_index
+      c.source_index,
+      c.embedding
     FROM handbook_chunks c
     JOIN handbook_documents d ON d.id = c.document_id
     WHERE d.user_id = $1
@@ -502,7 +542,8 @@ export async function searchHandbookChunks(
       c.document_id,
       c.section_title,
       c.content,
-      c.source_index
+      c.source_index,
+      c.embedding
     FROM handbook_chunks c
     JOIN handbook_documents d ON d.id = c.document_id
     WHERE d.user_id = $1
@@ -513,6 +554,195 @@ export async function searchHandbookChunks(
   );
 
   return fallbackResult.rows.map(mapStoredHandbookChunk);
+}
+
+export async function upsertStateLawCorpus(
+  chunks: StateLawCorpusChunkInput[],
+  options?: { replaceStateCode?: string; embeddings?: Array<number[] | null> },
+): Promise<{ upserted: number }> {
+  await ensureSchema();
+
+  const normalizedChunks = chunks
+    .map((chunk) => ({
+      stateCode: chunk.stateCode.trim().toUpperCase(),
+      sourceName: chunk.sourceName.trim() || "Official State Source",
+      citationTitle: chunk.citationTitle.trim(),
+      sectionId: chunk.sectionId.trim(),
+      sourceUrl: chunk.sourceUrl.trim(),
+      content: chunk.content.trim(),
+      sourceUpdatedAt: chunk.sourceUpdatedAt?.trim() || null,
+    }))
+    .filter(
+      (chunk) =>
+        chunk.stateCode &&
+        chunk.citationTitle &&
+        chunk.sectionId &&
+        chunk.sourceUrl &&
+        chunk.content,
+    );
+
+  if (normalizedChunks.length === 0 && !options?.replaceStateCode?.trim()) {
+    return { upserted: 0 };
+  }
+
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
+
+    const replaceStateCode = options?.replaceStateCode?.trim().toUpperCase();
+    if (replaceStateCode) {
+      await client.query(
+        `
+        DELETE FROM state_law_corpus
+        WHERE state_code = $1
+        `,
+        [replaceStateCode],
+      );
+    }
+
+    for (let index = 0; index < normalizedChunks.length; index += 1) {
+      const chunk = normalizedChunks[index];
+      const embedding = options?.embeddings?.[index] ?? null;
+      await client.query(
+        `
+        INSERT INTO state_law_corpus (
+          state_code,
+          source_name,
+          citation_title,
+          section_id,
+          source_url,
+          content,
+          search_text,
+          source_updated_at,
+          embedding,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::jsonb, NOW())
+        ON CONFLICT (state_code, source_url, section_id)
+        DO UPDATE SET
+          source_name = EXCLUDED.source_name,
+          citation_title = EXCLUDED.citation_title,
+          content = EXCLUDED.content,
+          search_text = EXCLUDED.search_text,
+          source_updated_at = EXCLUDED.source_updated_at,
+          embedding = EXCLUDED.embedding,
+          updated_at = NOW()
+        `,
+        [
+          chunk.stateCode,
+          chunk.sourceName,
+          chunk.citationTitle,
+          chunk.sectionId,
+          chunk.sourceUrl,
+          chunk.content,
+          buildStateLawSearchText(chunk),
+          chunk.sourceUpdatedAt,
+          embedding ? JSON.stringify(embedding) : null,
+        ],
+      );
+    }
+
+    await client.query("COMMIT");
+    return { upserted: normalizedChunks.length };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function searchStateLawCorpus(
+  stateCode: string,
+  terms: string[],
+  options?: { limit?: number },
+): Promise<StoredStateLawChunk[]> {
+  await ensureSchema();
+
+  const normalizedStateCode = stateCode.trim().toUpperCase();
+  if (!normalizedStateCode) {
+    return [];
+  }
+
+  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 500) : 300;
+  const poolInstance = getPool();
+
+  if (terms.length === 0) {
+    const result = await poolInstance.query<RawStoredStateLawChunk>(
+      `
+      SELECT
+        id,
+        state_code,
+        source_name,
+        citation_title,
+        section_id,
+        source_url,
+        content,
+        source_updated_at,
+        embedding
+      FROM state_law_corpus
+      WHERE state_code = $1
+      ORDER BY COALESCE(source_updated_at, created_at) DESC, id ASC
+      LIMIT $2
+      `,
+      [normalizedStateCode, limit],
+    );
+    return result.rows.map(mapStoredStateLawChunk);
+  }
+
+  const patterns = terms.map((term) => `%${escapeLike(term.toLowerCase())}%`);
+  const whereClauses = patterns.map(
+    (_value, index) => `search_text ILIKE $${index + 2} ESCAPE '\\'`,
+  );
+  const params = [normalizedStateCode, ...patterns, limit];
+  const limitPlaceholder = `$${params.length}`;
+
+  const filteredResult = await poolInstance.query<RawStoredStateLawChunk>(
+    `
+    SELECT
+      id,
+      state_code,
+      source_name,
+      citation_title,
+      section_id,
+      source_url,
+      content,
+      source_updated_at,
+      embedding
+    FROM state_law_corpus
+    WHERE state_code = $1
+    AND (${whereClauses.join(" OR ")})
+    ORDER BY COALESCE(source_updated_at, created_at) DESC, id ASC
+    LIMIT ${limitPlaceholder}
+    `,
+    params,
+  );
+
+  if (filteredResult.rows.length > 0) {
+    return filteredResult.rows.map(mapStoredStateLawChunk);
+  }
+
+  const fallbackResult = await poolInstance.query<RawStoredStateLawChunk>(
+    `
+    SELECT
+      id,
+      state_code,
+      source_name,
+      citation_title,
+      section_id,
+      source_url,
+      content,
+      source_updated_at,
+      embedding
+    FROM state_law_corpus
+    WHERE state_code = $1
+    ORDER BY COALESCE(source_updated_at, created_at) DESC, id ASC
+    LIMIT $2
+    `,
+    [normalizedStateCode, limit],
+  );
+
+  return fallbackResult.rows.map(mapStoredStateLawChunk);
 }
 
 export async function createUserAccount(
@@ -1225,8 +1455,14 @@ async function ensureSchema(): Promise<void> {
           policy_title TEXT NOT NULL DEFAULT '',
           policy_wording TEXT NOT NULL DEFAULT '',
           search_text TEXT NOT NULL DEFAULT '',
-          source_row_index INTEGER NOT NULL DEFAULT 0
+          source_row_index INTEGER NOT NULL DEFAULT 0,
+          embedding JSONB
         );
+      `);
+
+      await client.query(`
+        ALTER TABLE policies
+        ADD COLUMN IF NOT EXISTS embedding JSONB;
       `);
 
       await client.query(`
@@ -1255,12 +1491,50 @@ async function ensureSchema(): Promise<void> {
           section_title TEXT NOT NULL DEFAULT '',
           content TEXT NOT NULL DEFAULT '',
           search_text TEXT NOT NULL DEFAULT '',
-          source_index INTEGER NOT NULL DEFAULT 0
+          source_index INTEGER NOT NULL DEFAULT 0,
+          embedding JSONB
         );
       `);
 
       await client.query(`
+        ALTER TABLE handbook_chunks
+        ADD COLUMN IF NOT EXISTS embedding JSONB;
+      `);
+
+      await client.query(`
         CREATE INDEX IF NOT EXISTS idx_handbook_chunks_document_id ON handbook_chunks(document_id);
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS state_law_corpus (
+          id SERIAL PRIMARY KEY,
+          state_code TEXT NOT NULL,
+          source_name TEXT NOT NULL DEFAULT '',
+          citation_title TEXT NOT NULL DEFAULT '',
+          section_id TEXT NOT NULL DEFAULT '',
+          source_url TEXT NOT NULL DEFAULT '',
+          content TEXT NOT NULL DEFAULT '',
+          search_text TEXT NOT NULL DEFAULT '',
+          source_updated_at TIMESTAMPTZ,
+          embedding JSONB,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      await client.query(`
+        ALTER TABLE state_law_corpus
+        ADD COLUMN IF NOT EXISTS embedding JSONB;
+      `);
+
+      await client.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_state_law_unique_source
+        ON state_law_corpus(state_code, source_url, section_id);
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_state_law_corpus_state_code
+        ON state_law_corpus(state_code);
       `);
 
       await client.query(`
@@ -1365,6 +1639,19 @@ function buildHandbookSearchText(sectionTitle: string, content: string): string 
   return [sectionTitle, content].join(" ").toLowerCase();
 }
 
+function buildStateLawSearchText(chunk: StateLawCorpusChunkInput): string {
+  return [
+    chunk.stateCode,
+    chunk.sourceName,
+    chunk.citationTitle,
+    chunk.sectionId,
+    chunk.sourceUrl,
+    chunk.content,
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");
 }
@@ -1401,6 +1688,7 @@ function mapStoredPolicy(row: RawStoredPolicy): StoredPolicy {
     policyTitle: row.policy_title,
     policyWording: row.policy_wording,
     sourceRowIndex: Number(row.source_row_index),
+    embedding: parseEmbedding(row.embedding),
   };
 }
 
@@ -1411,6 +1699,21 @@ function mapStoredHandbookChunk(row: RawStoredHandbookChunk): StoredHandbookChun
     sectionTitle: row.section_title,
     content: row.content,
     sourceIndex: Number(row.source_index),
+    embedding: parseEmbedding(row.embedding),
+  };
+}
+
+function mapStoredStateLawChunk(row: RawStoredStateLawChunk): StoredStateLawChunk {
+  return {
+    id: Number(row.id),
+    stateCode: row.state_code,
+    sourceName: row.source_name,
+    citationTitle: row.citation_title,
+    sectionId: row.section_id,
+    sourceUrl: row.source_url,
+    content: row.content,
+    sourceUpdatedAt: row.source_updated_at ? formatTimestamp(row.source_updated_at) : null,
+    embedding: parseEmbedding(row.embedding),
   };
 }
 
@@ -1453,6 +1756,22 @@ function mapPolicyConversationMessage(
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+function parseEmbedding(value: unknown): number[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const parsed: number[] = [];
+  for (const component of value) {
+    if (typeof component !== "number" || !Number.isFinite(component)) {
+      return null;
+    }
+    parsed.push(component);
+  }
+
+  return parsed.length > 0 ? parsed : null;
 }
 
 function formatTimestamp(value: Date | string): string {

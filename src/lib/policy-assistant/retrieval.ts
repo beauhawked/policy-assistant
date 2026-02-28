@@ -1,9 +1,16 @@
-import { searchDatasetPolicies, searchHandbookChunks } from "@/lib/policy-assistant/db";
+import {
+  searchDatasetPolicies,
+  searchHandbookChunks,
+  searchStateLawCorpus,
+} from "@/lib/policy-assistant/db";
+import { getScenarioEmbedding } from "@/lib/policy-assistant/embeddings";
 import type {
   HandbookRetrievalResult,
   RetrievalResult,
+  StateLawRetrievalResult,
   StoredHandbookChunk,
   StoredPolicy,
+  StoredStateLawChunk,
 } from "@/lib/policy-assistant/types";
 
 const STOP_WORDS = new Set([
@@ -41,6 +48,12 @@ const STOP_WORDS = new Set([
   "will",
   "with",
   "does",
+  "definition",
+  "define",
+  "defined",
+  "require",
+  "required",
+  "requires",
   "expect",
   "expected",
   "your",
@@ -68,6 +81,10 @@ const DOMAIN_GENERIC_TERMS = new Set([
   "says",
   "question",
   "regarding",
+  "law",
+  "laws",
+  "state",
+  "indiana",
   "code",
   "violation",
   "violations",
@@ -85,6 +102,11 @@ export interface RetrievalBundle {
 export interface HandbookRetrievalBundle {
   terms: string[];
   guidance: HandbookRetrievalResult[];
+}
+
+export interface StateLawRetrievalBundle {
+  terms: string[];
+  guidance: StateLawRetrievalResult[];
 }
 
 export function retrieveRelevantPolicies(
@@ -108,6 +130,16 @@ export function retrieveRelevantHandbookGuidance(
   return buildHandbookRetrievalBundle(userId, scenario, terms, intent, options);
 }
 
+export function retrieveRelevantStateLawGuidance(
+  stateCode: string,
+  scenario: string,
+  options?: { limit?: number },
+): Promise<StateLawRetrievalBundle> {
+  const terms = extractSearchTerms(scenario);
+  const intent = detectIntent(scenario);
+  return buildStateLawRetrievalBundle(stateCode, scenario, terms, intent, options);
+}
+
 async function buildRetrievalBundle(
   userId: string,
   datasetId: string,
@@ -116,8 +148,13 @@ async function buildRetrievalBundle(
   intent: RetrievalIntent,
   options?: { limit?: number },
 ): Promise<RetrievalBundle> {
-  const candidates = await searchDatasetPolicies(userId, datasetId, terms, { limit: 350 });
-  const scored = scorePolicies(candidates, scenario, terms, intent);
+  const lexicalCandidates = await searchDatasetPolicies(userId, datasetId, terms, { limit: 350 });
+  const scenarioEmbedding = await getScenarioEmbedding(scenario);
+  const semanticCandidates = scenarioEmbedding
+    ? await searchDatasetPolicies(userId, datasetId, [], { limit: 900 })
+    : [];
+  const candidates = mergePolicyCandidates(lexicalCandidates, semanticCandidates);
+  const scored = scorePolicies(candidates, scenario, terms, intent, scenarioEmbedding);
   const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 12) : 6;
   const threshold = getPolicyThreshold(intent);
   const strongMatches = scored.filter((policy) => policy.relevanceScore >= threshold);
@@ -144,6 +181,7 @@ function scorePolicies(
   scenario: string,
   terms: string[],
   intent: RetrievalIntent,
+  scenarioEmbedding: number[] | null,
 ): RetrievalResult[] {
   const scenarioLower = scenario.toLowerCase();
   const policyCodeMatches = extractLikelyPolicyCodes(scenarioLower);
@@ -157,6 +195,9 @@ function scorePolicies(
     const hasDressContext = hasDressSignal(combined);
     const hasDressCodePhrase = /\bdress\s+code\b/.test(combined);
     let score = 0;
+    const semanticSimilarity = scenarioEmbedding
+      ? cosineSimilarity(scenarioEmbedding, policy.embedding)
+      : null;
 
     for (const codeMatch of policyCodeMatches) {
       if (code.includes(codeMatch)) {
@@ -267,6 +308,13 @@ function scorePolicies(
       score += 1;
     }
 
+    if (semanticSimilarity !== null) {
+      score += Math.round(Math.max(0, semanticSimilarity) * 16);
+      if ((intent.dress || intent.attendance || intent.records) && semanticSimilarity < 0.08) {
+        score -= 4;
+      }
+    }
+
     return {
       ...policy,
       relevanceScore: score,
@@ -367,26 +415,48 @@ async function buildHandbookRetrievalBundle(
   intent: RetrievalIntent,
   options?: { limit?: number },
 ): Promise<HandbookRetrievalBundle> {
-  const candidates = await searchHandbookChunks(userId, terms, { limit: 280 });
-  const scored = scoreHandbookChunks(candidates, scenario, terms, intent);
-  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 10) : 4;
+  const lexicalCandidates = await searchHandbookChunks(userId, terms, { limit: 280 });
+  const scenarioEmbedding = await getScenarioEmbedding(scenario);
+  const semanticCandidates = scenarioEmbedding
+    ? await searchHandbookChunks(userId, [], { limit: 700 })
+    : [];
+  const candidates = mergeHandbookCandidates(lexicalCandidates, semanticCandidates);
+  const scored = scoreHandbookChunks(candidates, scenario, terms, intent, scenarioEmbedding);
+  const defaultLimit = intent.dress ? 2 : 4;
+  const limit =
+    options?.limit && options.limit > 0 ? Math.min(options.limit, 10) : defaultLimit;
   const threshold = getHandbookThreshold(intent);
   const strongMatches = scored.filter((chunk) => chunk.relevanceScore >= threshold);
   const weakMatches = scored.filter((chunk) => chunk.relevanceScore > 0);
   const strictIntent = intent.dress || intent.attendance || intent.records;
   const filteredStrong = strongMatches.filter((chunk) => isHandbookIntentMatch(chunk, intent));
   const filteredWeak = weakMatches.filter((chunk) => isHandbookIntentMatch(chunk, intent));
-  const relevant = strictIntent
-    ? filteredStrong.length > 0
-      ? filteredStrong
-      : filteredWeak.slice(0, 1)
-    : filteredStrong.length > 0
-      ? filteredStrong
-      : filteredWeak.slice(0, 2);
+  const dressTitleStrong = intent.dress
+    ? filteredStrong.filter((chunk) => hasDressSignal(chunk.sectionTitle.toLowerCase()))
+    : [];
+  const dressTitleWeak = intent.dress
+    ? filteredWeak.filter((chunk) => hasDressSignal(chunk.sectionTitle.toLowerCase()))
+    : [];
+
+  let relevant: HandbookRetrievalResult[];
+  if (strictIntent && intent.dress) {
+    relevant =
+      dressTitleStrong.length > 0
+        ? dressTitleStrong
+        : filteredStrong.length > 0
+          ? filteredStrong
+          : dressTitleWeak.length > 0
+            ? dressTitleWeak.slice(0, 1)
+            : filteredWeak.slice(0, 1);
+  } else if (strictIntent) {
+    relevant = filteredStrong.length > 0 ? filteredStrong : filteredWeak.slice(0, 1);
+  } else {
+    relevant = filteredStrong.length > 0 ? filteredStrong : filteredWeak.slice(0, 2);
+  }
 
   return {
     terms,
-    guidance: relevant.slice(0, limit),
+    guidance: dedupeHandbookGuidance(relevant).slice(0, limit),
   };
 }
 
@@ -395,6 +465,7 @@ function scoreHandbookChunks(
   scenario: string,
   terms: string[],
   intent: RetrievalIntent,
+  scenarioEmbedding: number[] | null,
 ): HandbookRetrievalResult[] {
   const scenarioLower = scenario.toLowerCase();
 
@@ -405,6 +476,9 @@ function scoreHandbookChunks(
     const hasDressContext = hasDressSignal(combined);
     const hasDressCodePhrase = /\bdress\s+code\b/.test(combined);
     let score = 0;
+    const semanticSimilarity = scenarioEmbedding
+      ? cosineSimilarity(scenarioEmbedding, chunk.embedding)
+      : null;
 
     for (const term of terms) {
       if (containsSearchTerm(title, term)) {
@@ -447,6 +521,13 @@ function scoreHandbookChunks(
       score -= 8;
     }
 
+    if (semanticSimilarity !== null) {
+      score += Math.round(Math.max(0, semanticSimilarity) * 16);
+      if ((intent.dress || intent.attendance || intent.records) && semanticSimilarity < 0.08) {
+        score -= 4;
+      }
+    }
+
     return {
       ...chunk,
       relevanceScore: score,
@@ -466,6 +547,131 @@ function scoreHandbookChunks(
 
 function isHandbookIntentMatch(chunk: StoredHandbookChunk, intent: RetrievalIntent): boolean {
   const title = chunk.sectionTitle.toLowerCase();
+  const content = chunk.content.toLowerCase();
+  const combined = `${title} ${content}`;
+
+  if (intent.dress && !hasDressSignal(combined)) {
+    return false;
+  }
+
+  if (intent.attendance && !containsAny(combined, ATTENDANCE_TERMS)) {
+    return false;
+  }
+
+  if (intent.records && !containsAny(combined, RECORDS_TERMS)) {
+    return false;
+  }
+
+  return true;
+}
+
+async function buildStateLawRetrievalBundle(
+  stateCode: string,
+  scenario: string,
+  terms: string[],
+  intent: RetrievalIntent,
+  options?: { limit?: number },
+): Promise<StateLawRetrievalBundle> {
+  const lexicalCandidates = await searchStateLawCorpus(stateCode, terms, { limit: 320 });
+  const scenarioEmbedding = await getScenarioEmbedding(scenario);
+  const semanticCandidates = scenarioEmbedding
+    ? await searchStateLawCorpus(stateCode, [], { limit: 900 })
+    : [];
+  const candidates = mergeStateLawCandidates(lexicalCandidates, semanticCandidates);
+  const scored = scoreStateLawChunks(candidates, terms, intent, scenarioEmbedding);
+  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 8) : 3;
+  const threshold = getStateLawThreshold(intent);
+  const strongMatches = scored.filter((chunk) => chunk.relevanceScore >= threshold);
+  const weakMatches = scored.filter((chunk) => chunk.relevanceScore > 0);
+  const filteredStrong = strongMatches.filter((chunk) => isStateLawIntentMatch(chunk, intent));
+  const filteredWeak = weakMatches.filter((chunk) => isStateLawIntentMatch(chunk, intent));
+  const relevant = filteredStrong.length > 0 ? filteredStrong : filteredWeak.slice(0, 2);
+
+  return {
+    terms,
+    guidance: dedupeStateLawGuidance(relevant).slice(0, limit),
+  };
+}
+
+function scoreStateLawChunks(
+  chunks: StoredStateLawChunk[],
+  terms: string[],
+  intent: RetrievalIntent,
+  scenarioEmbedding: number[] | null,
+): StateLawRetrievalResult[] {
+  const scored = chunks.map((chunk) => {
+    const title = chunk.citationTitle.toLowerCase();
+    const sectionId = chunk.sectionId.toLowerCase();
+    const sourceName = chunk.sourceName.toLowerCase();
+    const content = chunk.content.toLowerCase();
+    const combined = `${title} ${sectionId} ${sourceName} ${content}`;
+    let score = 0;
+    const semanticSimilarity = scenarioEmbedding
+      ? cosineSimilarity(scenarioEmbedding, chunk.embedding)
+      : null;
+
+    for (const term of terms) {
+      if (containsSearchTerm(title, term) || containsSearchTerm(sectionId, term)) {
+        score += 7;
+      }
+      if (containsSearchTerm(sourceName, term)) {
+        score += 2;
+      }
+      if (containsSearchTerm(content, term)) {
+        score += 3;
+      }
+    }
+
+    if (intent.dress && hasDressSignal(combined)) {
+      score += 5;
+    }
+
+    if (intent.attendance && containsAny(combined, ATTENDANCE_TERMS)) {
+      score += 5;
+    }
+
+    if (intent.records && containsAny(combined, RECORDS_TERMS)) {
+      score += 5;
+    }
+
+    if (intent.dress && !hasDressSignal(combined)) {
+      score -= 8;
+    }
+
+    if (intent.attendance && !containsAny(combined, ATTENDANCE_TERMS)) {
+      score -= 6;
+    }
+
+    if (intent.records && !containsAny(combined, RECORDS_TERMS)) {
+      score -= 6;
+    }
+
+    if (semanticSimilarity !== null) {
+      score += Math.round(Math.max(0, semanticSimilarity) * 16);
+      if ((intent.dress || intent.attendance || intent.records) && semanticSimilarity < 0.08) {
+        score -= 4;
+      }
+    }
+
+    return {
+      ...chunk,
+      relevanceScore: score,
+    };
+  });
+
+  return scored.sort((a, b) => {
+    if (b.relevanceScore !== a.relevanceScore) {
+      return b.relevanceScore - a.relevanceScore;
+    }
+    if (a.citationTitle.length !== b.citationTitle.length) {
+      return a.citationTitle.length - b.citationTitle.length;
+    }
+    return a.id - b.id;
+  });
+}
+
+function isStateLawIntentMatch(chunk: StoredStateLawChunk, intent: RetrievalIntent): boolean {
+  const title = chunk.citationTitle.toLowerCase();
   const content = chunk.content.toLowerCase();
   const combined = `${title} ${content}`;
 
@@ -515,9 +721,11 @@ function expandIntentTerms(normalizedScenario: string): string[] {
     expanded.add("tardy");
   }
 
-  if (/\bdress\b/.test(normalizedScenario)) {
+  if (/\bdress\b|\bclothing\b|\bapparel\b/.test(normalizedScenario)) {
     expanded.add("dress");
     expanded.add("dress code");
+    expanded.add("apparel");
+    expanded.add("clothing");
   }
 
   if (/\bappearance\b/.test(normalizedScenario)) {
@@ -575,7 +783,7 @@ function detectIntent(scenario: string): RetrievalIntent {
   const normalized = normalizeScenario(scenario);
 
   return {
-    dress: /\bdress|appearance|uniform|groom\w*|attire\b/.test(normalized),
+    dress: /\bdress|appearance|uniform|groom\w*|attire|apparel|clothing\b/.test(normalized),
     attendance: /\battendance|absence|absent|truancy|tardy|late|excused\b/.test(normalized),
     records: /\brecord|records|retention|ferpa|privacy|confidential\b/.test(normalized),
     staffRequested: /\bstaff|support staff|administrator|administration|professional staff\b/.test(normalized),
@@ -609,6 +817,18 @@ function getHandbookThreshold(intent: RetrievalIntent): number {
   }
 
   return 4;
+}
+
+function getStateLawThreshold(intent: RetrievalIntent): number {
+  if (intent.dress) {
+    return 9;
+  }
+
+  if (intent.attendance || intent.records) {
+    return 8;
+  }
+
+  return 5;
 }
 
 function normalizeScenario(input: string): string {
@@ -711,4 +931,122 @@ function containsSearchTerm(content: string, term: string): boolean {
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function mergePolicyCandidates(
+  lexicalCandidates: StoredPolicy[],
+  semanticCandidates: StoredPolicy[],
+): StoredPolicy[] {
+  const merged = new Map<number, StoredPolicy>();
+  for (const candidate of lexicalCandidates) {
+    merged.set(candidate.id, candidate);
+  }
+  for (const candidate of semanticCandidates) {
+    if (!merged.has(candidate.id)) {
+      merged.set(candidate.id, candidate);
+    }
+  }
+  return Array.from(merged.values());
+}
+
+function mergeHandbookCandidates(
+  lexicalCandidates: StoredHandbookChunk[],
+  semanticCandidates: StoredHandbookChunk[],
+): StoredHandbookChunk[] {
+  const merged = new Map<number, StoredHandbookChunk>();
+  for (const candidate of lexicalCandidates) {
+    merged.set(candidate.id, candidate);
+  }
+  for (const candidate of semanticCandidates) {
+    if (!merged.has(candidate.id)) {
+      merged.set(candidate.id, candidate);
+    }
+  }
+  return Array.from(merged.values());
+}
+
+function mergeStateLawCandidates(
+  lexicalCandidates: StoredStateLawChunk[],
+  semanticCandidates: StoredStateLawChunk[],
+): StoredStateLawChunk[] {
+  const merged = new Map<number, StoredStateLawChunk>();
+  for (const candidate of lexicalCandidates) {
+    merged.set(candidate.id, candidate);
+  }
+  for (const candidate of semanticCandidates) {
+    if (!merged.has(candidate.id)) {
+      merged.set(candidate.id, candidate);
+    }
+  }
+  return Array.from(merged.values());
+}
+
+function dedupeStateLawGuidance(
+  chunks: StateLawRetrievalResult[],
+): StateLawRetrievalResult[] {
+  const seen = new Set<string>();
+  const deduped: StateLawRetrievalResult[] = [];
+
+  for (const chunk of chunks) {
+    const key = `${chunk.sourceUrl}::${chunk.sectionId.toLowerCase()}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(chunk);
+  }
+
+  return deduped;
+}
+
+function dedupeHandbookGuidance(
+  chunks: HandbookRetrievalResult[],
+): HandbookRetrievalResult[] {
+  const seen = new Set<string>();
+  const deduped: HandbookRetrievalResult[] = [];
+
+  for (const chunk of chunks) {
+    const title = normalizeChunkText(chunk.sectionTitle);
+    const snippet = normalizeChunkText(chunk.content).slice(0, 180);
+    const key = `${title}::${snippet}`;
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    deduped.push(chunk);
+  }
+
+  return deduped;
+}
+
+function normalizeChunkText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[^a-z0-9 ]/g, "")
+    .trim();
+}
+
+function cosineSimilarity(a: number[] | null, b: number[] | null): number | null {
+  if (!a || !b || a.length === 0 || a.length !== b.length) {
+    return null;
+  }
+
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let index = 0; index < a.length; index += 1) {
+    dot += a[index] * b[index];
+    normA += a[index] * a[index];
+    normB += b[index] * b[index];
+  }
+
+  if (normA <= 0 || normB <= 0) {
+    return null;
+  }
+
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
