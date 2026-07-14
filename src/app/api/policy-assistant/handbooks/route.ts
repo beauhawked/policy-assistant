@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthenticatedUserFromRequest, isUserEmailVerified } from "@/lib/policy-assistant/auth";
 import { createHandbookDocument, listHandbookDocuments } from "@/lib/policy-assistant/db";
+import { indexHandbookDocumentEmbeddingsSafe } from "@/lib/policy-assistant/embedding-indexer";
 import { extractHandbookText, chunkHandbookText } from "@/lib/policy-assistant/handbook";
 import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import type { HandbookType } from "@/lib/policy-assistant/types";
@@ -109,6 +110,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       handbookType,
       chunks,
     });
+
+    await indexHandbookDocumentEmbeddingsSafe(document.id);
 
     return NextResponse.json(
       {

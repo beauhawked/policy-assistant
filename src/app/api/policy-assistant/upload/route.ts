@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUserFromRequest, isUserEmailVerified } from "@/lib/policy-assistant/auth";
 import { parsePolicyCsvBuffer } from "@/lib/policy-assistant/csv";
 import { createPolicyDataset, listPolicyDatasets } from "@/lib/policy-assistant/db";
+import { indexDatasetEmbeddingsSafe } from "@/lib/policy-assistant/embedding-indexer";
 import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
@@ -90,6 +91,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       headers: parsed.headers,
       rows: parsed.rows,
     });
+
+    await indexDatasetEmbeddingsSafe(dataset.id);
 
     return NextResponse.json(
       {

@@ -5,7 +5,9 @@ import { Pool, type PoolClient } from "pg";
 import type {
   AuthUser,
   ConversationRole,
+  EmbeddingCoverage,
   HandbookSearchCandidate,
+  HandbookSemanticCandidate,
   HandbookDocument,
   HandbookType,
   NormalizedPolicyRow,
@@ -15,6 +17,7 @@ import type {
   PolicyDataset,
   PolicyDatasetSourceType,
   PolicySearchCandidate,
+  PolicySemanticCandidate,
   StoredHandbookChunk,
   StoredPolicy,
 } from "@/lib/policy-assistant/types";
@@ -206,6 +209,7 @@ interface RawPolicyConversationMessage {
 
 let pool: Pool | null = null;
 let schemaReadyPromise: Promise<void> | null = null;
+let vectorExtensionReady = false;
 
 export async function createPolicyDataset(input: CreatePolicyDatasetInput): Promise<PolicyDataset> {
   await ensureSchema();
@@ -2344,6 +2348,28 @@ async function ensureSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS idx_policy_conversation_messages_created_at
         ON policy_conversation_messages(created_at);
       `);
+
+      if (vectorExtensionReady) {
+        await client.query(`
+          ALTER TABLE policies
+          ADD COLUMN IF NOT EXISTS embedding vector(1536);
+        `);
+
+        await client.query(`
+          ALTER TABLE handbook_chunks
+          ADD COLUMN IF NOT EXISTS embedding vector(1536);
+        `);
+
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_policies_embedding
+          ON policies USING hnsw (embedding vector_cosine_ops);
+        `);
+
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_handbook_chunks_embedding
+          ON handbook_chunks USING hnsw (embedding vector_cosine_ops);
+        `);
+      }
     } finally {
       client.release();
     }
@@ -2356,6 +2382,19 @@ async function enableRetrievalExtensions(client: PoolClient): Promise<void> {
   await client.query(`
     CREATE EXTENSION IF NOT EXISTS pg_trgm;
   `);
+
+  try {
+    await client.query(`
+      CREATE EXTENSION IF NOT EXISTS vector;
+    `);
+    vectorExtensionReady = true;
+  } catch (error) {
+    vectorExtensionReady = false;
+    console.error(
+      "[policy_assistant_db] pgvector extension unavailable; semantic retrieval disabled",
+      error,
+    );
+  }
 }
 
 function getPool(): Pool {
@@ -2782,4 +2821,309 @@ function normalizeSearchQuery(value: string): string {
 
 function normalizeTrigramSearchQuery(value: string): string {
   return value.replace(/\s+OR\s+/gi, " ").replace(/\s+/g, " ").trim();
+}
+
+// ---------------------------------------------------------------------------
+// Semantic (vector) retrieval support
+// ---------------------------------------------------------------------------
+
+interface RawPolicySemanticCandidate extends RawStoredPolicy {
+  semantic_score: number | string;
+}
+
+interface RawHandbookSemanticCandidate extends RawStoredHandbookChunk {
+  semantic_score: number | string;
+}
+
+export interface PolicyEmbeddingBacklogRow {
+  id: number;
+  policySection: string;
+  policyCode: string;
+  policyTitle: string;
+  policyWording: string;
+}
+
+export interface HandbookChunkEmbeddingBacklogRow {
+  id: number;
+  handbookType: HandbookType;
+  sectionTitle: string;
+  content: string;
+}
+
+/** True when the pgvector extension is installed and embedding columns exist. */
+export async function isVectorSearchAvailable(): Promise<boolean> {
+  await ensureSchema();
+  return vectorExtensionReady;
+}
+
+export async function listPolicyEmbeddingBacklog(
+  options?: { limit?: number; datasetId?: string },
+): Promise<PolicyEmbeddingBacklogRow[]> {
+  await ensureSchema();
+  if (!vectorExtensionReady) {
+    return [];
+  }
+
+  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 500) : 200;
+  const params: Array<string | number> = [];
+  let datasetClause = "";
+  if (options?.datasetId) {
+    params.push(options.datasetId);
+    datasetClause = `AND p.dataset_id = $${params.length}`;
+  }
+  params.push(limit);
+
+  const result = await getPool().query<{
+    id: number | string;
+    policy_section: string;
+    policy_code: string;
+    policy_title: string;
+    policy_wording: string;
+  }>(
+    `
+    SELECT p.id, p.policy_section, p.policy_code, p.policy_title, p.policy_wording
+    FROM policies p
+    WHERE p.embedding IS NULL
+    ${datasetClause}
+    ORDER BY p.id ASC
+    LIMIT $${params.length}
+    `,
+    params,
+  );
+
+  return result.rows.map((row) => ({
+    id: Number(row.id),
+    policySection: row.policy_section,
+    policyCode: row.policy_code,
+    policyTitle: row.policy_title,
+    policyWording: row.policy_wording,
+  }));
+}
+
+export async function listHandbookChunkEmbeddingBacklog(
+  options?: { limit?: number; documentId?: string },
+): Promise<HandbookChunkEmbeddingBacklogRow[]> {
+  await ensureSchema();
+  if (!vectorExtensionReady) {
+    return [];
+  }
+
+  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 500) : 200;
+  const params: Array<string | number> = [];
+  let documentClause = "";
+  if (options?.documentId) {
+    params.push(options.documentId);
+    documentClause = `AND c.document_id = $${params.length}`;
+  }
+  params.push(limit);
+
+  const result = await getPool().query<{
+    id: number | string;
+    handbook_type: string | null;
+    section_title: string;
+    content: string;
+  }>(
+    `
+    SELECT c.id, d.handbook_type, c.section_title, c.content
+    FROM handbook_chunks c
+    JOIN handbook_documents d ON d.id = c.document_id
+    WHERE c.embedding IS NULL
+    ${documentClause}
+    ORDER BY c.id ASC
+    LIMIT $${params.length}
+    `,
+    params,
+  );
+
+  return result.rows.map((row) => ({
+    id: Number(row.id),
+    handbookType: normalizeHandbookType(row.handbook_type),
+    sectionTitle: row.section_title,
+    content: row.content,
+  }));
+}
+
+export async function updatePolicyEmbeddings(
+  items: Array<{ id: number; vectorLiteral: string }>,
+): Promise<void> {
+  await ensureSchema();
+  if (!vectorExtensionReady || items.length === 0) {
+    return;
+  }
+
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
+    for (const item of items) {
+      await client.query(
+        `UPDATE policies SET embedding = $2::vector WHERE id = $1`,
+        [item.id, item.vectorLiteral],
+      );
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateHandbookChunkEmbeddings(
+  items: Array<{ id: number; vectorLiteral: string }>,
+): Promise<void> {
+  await ensureSchema();
+  if (!vectorExtensionReady || items.length === 0) {
+    return;
+  }
+
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
+    for (const item of items) {
+      await client.query(
+        `UPDATE handbook_chunks SET embedding = $2::vector WHERE id = $1`,
+        [item.id, item.vectorLiteral],
+      );
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function searchDatasetPoliciesByEmbedding(
+  userId: string,
+  datasetId: string,
+  vectorLiteral: string,
+  options?: { limit?: number },
+): Promise<PolicySemanticCandidate[]> {
+  await ensureSchema();
+  if (!vectorExtensionReady) {
+    return [];
+  }
+
+  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 60) : 20;
+  const result = await getPool().query<RawPolicySemanticCandidate>(
+    `
+    SELECT
+      p.id,
+      p.dataset_id,
+      p.policy_section,
+      p.policy_code,
+      p.adopted_date,
+      p.revised_date,
+      p.policy_status,
+      p.policy_title,
+      p.policy_wording,
+      p.source_row_index,
+      1 - (p.embedding <=> $3::vector) AS semantic_score
+    FROM policies p
+    JOIN policy_datasets d ON d.id = p.dataset_id
+    WHERE p.dataset_id = $1
+    AND d.user_id = $2
+    AND p.embedding IS NOT NULL
+    ORDER BY p.embedding <=> $3::vector ASC, p.id ASC
+    LIMIT $4
+    `,
+    [datasetId, userId, vectorLiteral, limit],
+  );
+
+  return result.rows.map((row) => ({
+    ...mapStoredPolicy(row),
+    semanticScore: Number(row.semantic_score),
+  }));
+}
+
+export async function searchHandbookChunksByEmbedding(
+  userId: string,
+  vectorLiteral: string,
+  options?: { limit?: number; handbookTypes?: HandbookType[] },
+): Promise<HandbookSemanticCandidate[]> {
+  await ensureSchema();
+  if (!vectorExtensionReady) {
+    return [];
+  }
+
+  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 60) : 20;
+  const handbookTypes = normalizeHandbookTypes(options?.handbookTypes);
+  const params: Array<string | number | HandbookType[]> = [userId, vectorLiteral];
+  let typeClause = "";
+  if (handbookTypes.length > 0) {
+    params.push(handbookTypes);
+    typeClause = `AND d.handbook_type = ANY($${params.length}::text[])`;
+  }
+  params.push(limit);
+
+  const result = await getPool().query<RawHandbookSemanticCandidate>(
+    `
+    SELECT
+      c.id,
+      c.document_id,
+      d.handbook_type,
+      c.section_title,
+      c.content,
+      c.source_index,
+      1 - (c.embedding <=> $2::vector) AS semantic_score
+    FROM handbook_chunks c
+    JOIN handbook_documents d ON d.id = c.document_id
+    WHERE d.user_id = $1
+    AND d.archived_at IS NULL
+    AND c.embedding IS NOT NULL
+    ${typeClause}
+    ORDER BY c.embedding <=> $2::vector ASC, c.id ASC
+    LIMIT $${params.length}
+    `,
+    params,
+  );
+
+  return result.rows.map((row) => ({
+    ...mapStoredHandbookChunk(row),
+    semanticScore: Number(row.semantic_score),
+  }));
+}
+
+export async function getEmbeddingCoverage(): Promise<EmbeddingCoverage> {
+  await ensureSchema();
+
+  if (!vectorExtensionReady) {
+    const totals = await getPool().query<{ policies_total: string; chunks_total: string }>(
+      `
+      SELECT
+        (SELECT COUNT(*) FROM policies) AS policies_total,
+        (SELECT COUNT(*) FROM handbook_chunks) AS chunks_total
+      `,
+    );
+    return {
+      policiesTotal: Number(totals.rows[0]?.policies_total ?? 0),
+      policiesEmbedded: 0,
+      handbookChunksTotal: Number(totals.rows[0]?.chunks_total ?? 0),
+      handbookChunksEmbedded: 0,
+    };
+  }
+
+  const result = await getPool().query<{
+    policies_total: string;
+    policies_embedded: string;
+    chunks_total: string;
+    chunks_embedded: string;
+  }>(
+    `
+    SELECT
+      (SELECT COUNT(*) FROM policies) AS policies_total,
+      (SELECT COUNT(*) FROM policies WHERE embedding IS NOT NULL) AS policies_embedded,
+      (SELECT COUNT(*) FROM handbook_chunks) AS chunks_total,
+      (SELECT COUNT(*) FROM handbook_chunks WHERE embedding IS NOT NULL) AS chunks_embedded
+    `,
+  );
+
+  return {
+    policiesTotal: Number(result.rows[0]?.policies_total ?? 0),
+    policiesEmbedded: Number(result.rows[0]?.policies_embedded ?? 0),
+    handbookChunksTotal: Number(result.rows[0]?.chunks_total ?? 0),
+    handbookChunksEmbedded: Number(result.rows[0]?.chunks_embedded ?? 0),
+  };
 }

@@ -53,6 +53,32 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). The home route redirects to `/policy-assistant`.
 
+## Semantic retrieval (hybrid search)
+
+The assistant supports three retrieval modes, set with `POLICY_ASSISTANT_RETRIEVAL_MODE`:
+
+- `lexical` — the original keyword scoring pipeline
+- `semantic` — meaning-based vector search using OpenAI embeddings and pgvector
+- `hybrid` (default) — runs both and fuses the rankings with Reciprocal Rank Fusion
+
+Embeddings are generated automatically when policies or handbooks are uploaded.
+For data uploaded before this feature existed, run the one-time backfill:
+
+```bash
+npm run backfill-embeddings
+```
+
+To benchmark retrieval quality across all three modes on a fixed scenario set
+(useful before/after comparisons):
+
+```bash
+npm run retrieval-eval
+```
+
+Reports are written to `eval-results/`. If embeddings are unavailable (missing
+pgvector, no API key, or `POLICY_ASSISTANT_EMBEDDINGS_DISABLED=1`), the app
+automatically falls back to lexical retrieval, so chat never breaks.
+
 ## Account access
 
 - Users create an account and sign in at `/policy-assistant`.

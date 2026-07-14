@@ -13,10 +13,11 @@ import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-ass
 import { generatePolicyGuidance } from "@/lib/policy-assistant/openai";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 import {
-  retrievePostgresCandidateComparison,
-  retrieveRelevantHandbookGuidance,
-  retrieveRelevantPolicies,
-} from "@/lib/policy-assistant/retrieval";
+  prepareRetrievalContext,
+  retrieveHandbookGuidanceWithMode,
+  retrievePoliciesWithMode,
+} from "@/lib/policy-assistant/hybrid-retrieval";
+import { retrievePostgresCandidateComparison } from "@/lib/policy-assistant/retrieval";
 import type {
   HandbookRetrievalResult,
   PolicyAnswerEvidenceSnapshot,
@@ -110,11 +111,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const policyLimit = scenarioFocus === "handbook" ? 0 : detailedIntent.multiIssueScenario ? 8 : 4;
     const handbookLimit = scenarioFocus === "policy" ? (detailedIntent.multiIssueScenario ? 4 : 2) : detailedIntent.multiIssueScenario ? 8 : 4;
 
+    const retrievalContext = await prepareRetrievalContext(scenario);
+
     const [retrieval, handbookRetrieval, postgresComparison] = await Promise.all([
       policyLimit > 0
-        ? retrieveRelevantPolicies(user.id, dataset.id, scenario, { limit: policyLimit })
-        : Promise.resolve({ terms: [] as string[], policies: [] as RetrievalResult[] }),
-      retrieveRelevantHandbookGuidance(user.id, scenario, { limit: handbookLimit }),
+        ? retrievePoliciesWithMode(user.id, dataset.id, scenario, retrievalContext, {
+            limit: policyLimit,
+          })
+        : Promise.resolve({
+            terms: [] as string[],
+            policies: [] as RetrievalResult[],
+            mode: retrievalContext.mode,
+            semanticCandidates: [],
+          }),
+      retrieveHandbookGuidanceWithMode(user.id, scenario, retrievalContext, {
+        limit: handbookLimit,
+      }),
       retrievePostgresCandidateComparison(user.id, dataset.id, scenario, {
         policyLimit: 8,
         handbookLimit: 8,
@@ -187,6 +199,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         answerEvidence,
         conversation: refreshedConversation ?? activeConversation,
         retrieval: {
+          retrievalMode: retrievalContext.mode,
           policyCount: refinedPolicyMatches.length,
           handbookCount: refinedHandbookMatches.length,
           matchedTerms: Array.from(new Set([...retrieval.terms, ...handbookRetrieval.terms])),

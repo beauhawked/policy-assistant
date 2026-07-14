@@ -142,3 +142,18 @@ export interface HandbookSearchCandidate extends StoredHandbookChunk {
   trigramScore: number;
   combinedRank: number;
 }
+
+export interface PolicySemanticCandidate extends StoredPolicy {
+  semanticScore: number;
+}
+
+export interface HandbookSemanticCandidate extends StoredHandbookChunk {
+  semanticScore: number;
+}
+
+export interface EmbeddingCoverage {
+  policiesTotal: number;
+  policiesEmbedded: number;
+  handbookChunksTotal: number;
+  handbookChunksEmbedded: number;
+}

@@ -1,0 +1,1253 @@
+{
+  "generatedAt": "2026-07-14T22-22-37",
+  "coverage": {
+    "policiesTotal": 4720,
+    "policiesEmbedded": 0,
+    "handbookChunksTotal": 295,
+    "handbookChunksEmbedded": 0
+  },
+  "account": "beau.scott@me.com",
+  "dataset": "Tippecanoe School Corporation Board Policies",
+  "reports": [
+    {
+      "id": "fight-video",
+      "title": "Hallway fight recorded and shared",
+      "scenario": "Two eighth grade students got into a physical fight in the hallway during passing period. Several students recorded the fight on their phones and one clip is circulating on social media. One student has a bloody nose and the school nurse is treating him. What should I do as the building administrator?",
+      "results": [
+        {
+          "mode": "lexical",
+          "effectiveMode": "lexical",
+          "policies": [
+            {
+              "id": 6816,
+              "code": "po8330",
+              "title": "STUDENT RECORDS",
+              "score": 45
+            },
+            {
+              "id": 6663,
+              "code": "po2416",
+              "title": "STUDENT PRIVACY AND PARENTAL ACCESS TO INFORMATION",
+              "score": 34
+            },
+            {
+              "id": 6814,
+              "code": "po8310",
+              "title": "PUBLIC RECORDS",
+              "score": 31
+            },
+            {
+              "id": 6538,
+              "code": "ag5410",
+              "title": "PROMOTION, PLACEMENT. RETENTION",
+              "score": 8
+            },
+            {
+              "id": 6745,
+              "code": "po5410",
+              "title": "PROMOTION, PLACEMENT, AND RETENTION",
+              "score": 8
+            }
+          ],
+          "handbook": [
+            {
+              "id": 527,
+              "type": "student",
+              "section": "Discipline Complaint Procedure (DCP)",
+              "score": 37
+            },
+            {
+              "id": 598,
+              "type": "student",
+              "section": "Area Learning Center (ALC)",
+              "score": 30
+            },
+            {
+              "id": 575,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 28
+            },
+            {
+              "id": 525,
+              "type": "student",
+              "section": "Visitors in District Buildings",
+              "score": 27
+            }
+          ],
+          "durationMs": 1475
+        },
+        {
+          "mode": "semantic",
+          "effectiveMode": "semantic",
+          "policies": [],
+          "handbook": [],
+          "durationMs": 1763
+        },
+        {
+          "mode": "hybrid",
+          "effectiveMode": "hybrid",
+          "policies": [
+            {
+              "id": 6816,
+              "code": "po8330",
+              "title": "STUDENT RECORDS",
+              "score": 45
+            },
+            {
+              "id": 6663,
+              "code": "po2416",
+              "title": "STUDENT PRIVACY AND PARENTAL ACCESS TO INFORMATION",
+              "score": 34
+            },
+            {
+              "id": 6814,
+              "code": "po8310",
+              "title": "PUBLIC RECORDS",
+              "score": 31
+            },
+            {
+              "id": 6538,
+              "code": "ag5410",
+              "title": "PROMOTION, PLACEMENT. RETENTION",
+              "score": 8
+            },
+            {
+              "id": 6745,
+              "code": "po5410",
+              "title": "PROMOTION, PLACEMENT, AND RETENTION",
+              "score": 8
+            }
+          ],
+          "handbook": [
+            {
+              "id": 527,
+              "type": "student",
+              "section": "Discipline Complaint Procedure (DCP)",
+              "score": 37
+            },
+            {
+              "id": 598,
+              "type": "student",
+              "section": "Area Learning Center (ALC)",
+              "score": 30
+            },
+            {
+              "id": 575,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 28
+            },
+            {
+              "id": 525,
+              "type": "student",
+              "section": "Visitors in District Buildings",
+              "score": 27
+            }
+          ],
+          "durationMs": 2046
+        }
+      ]
+    },
+    {
+      "id": "dress-code",
+      "title": "Repeated dress code violation",
+      "scenario": "A high school student has come to school three days in a row wearing a shirt with profanity on it. The teacher sent the student to my office. The parent says we are violating the student's free speech rights. What do our policies say and what steps should I take?",
+      "results": [
+        {
+          "mode": "lexical",
+          "effectiveMode": "lexical",
+          "policies": [
+            {
+              "id": 6646,
+              "code": "po1662",
+              "title": "ANTI-HARASSMENT",
+              "score": 31
+            },
+            {
+              "id": 6702,
+              "code": "po3362",
+              "title": "ANTI-HARASSMENT",
+              "score": 31
+            },
+            {
+              "id": 6722,
+              "code": "po4362",
+              "title": "ANTI-HARASSMENT",
+              "score": 31
+            },
+            {
+              "id": 6757,
+              "code": "po5517",
+              "title": "ANTI-HARASSMENT",
+              "score": 31
+            },
+            {
+              "id": 6652,
+              "code": "po2260",
+              "title": "NONDISCRIMINATION AND ACCESS TO EQUAL EDUCATIONAL OPPORTUNITY",
+              "score": 26
+            }
+          ],
+          "handbook": [
+            {
+              "id": 511,
+              "type": "student",
+              "section": "Drug-Free School and Workplace",
+              "score": 25
+            },
+            {
+              "id": 572,
+              "type": "student",
+              "section": "Arrival and Dismissal Hours",
+              "score": 21
+            },
+            {
+              "id": 464,
+              "type": "student",
+              "section": "ISD #186, PEQUOT LAKES NON-DISCRIMINATION STATEMENT",
+              "score": 20
+            },
+            {
+              "id": 556,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 19
+            }
+          ],
+          "durationMs": 1179
+        },
+        {
+          "mode": "semantic",
+          "effectiveMode": "semantic",
+          "policies": [],
+          "handbook": [],
+          "durationMs": 400
+        },
+        {
+          "mode": "hybrid",
+          "effectiveMode": "hybrid",
+          "policies": [
+            {
+              "id": 6646,
+              "code": "po1662",
+              "title": "ANTI-HARASSMENT",
+              "score": 31
+            },
+            {
+              "id": 6702,
+              "code": "po3362",
+              "title": "ANTI-HARASSMENT",
+              "score": 31
+            },
+            {
+              "id": 6722,
+              "code": "po4362",
+              "title": "ANTI-HARASSMENT",
+              "score": 31
+            },
+            {
+              "id": 6757,
+              "code": "po5517",
+              "title": "ANTI-HARASSMENT",
+              "score": 31
+            },
+            {
+              "id": 6652,
+              "code": "po2260",
+              "title": "NONDISCRIMINATION AND ACCESS TO EQUAL EDUCATIONAL OPPORTUNITY",
+              "score": 26
+            }
+          ],
+          "handbook": [
+            {
+              "id": 511,
+              "type": "student",
+              "section": "Drug-Free School and Workplace",
+              "score": 25
+            },
+            {
+              "id": 572,
+              "type": "student",
+              "section": "Arrival and Dismissal Hours",
+              "score": 21
+            },
+            {
+              "id": 464,
+              "type": "student",
+              "section": "ISD #186, PEQUOT LAKES NON-DISCRIMINATION STATEMENT",
+              "score": 20
+            },
+            {
+              "id": 556,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 19
+            }
+          ],
+          "durationMs": 2408
+        }
+      ]
+    },
+    {
+      "id": "truancy",
+      "title": "Chronic absence and truancy",
+      "scenario": "A seventh grader has missed 14 days of school this semester and many are unexcused. Mom says the absences are because of a custody dispute. At what point are we required to act on truancy and what does the attendance policy require?",
+      "results": [
+        {
+          "mode": "lexical",
+          "effectiveMode": "lexical",
+          "policies": [
+            {
+              "id": 6735,
+              "code": "po5200",
+              "title": "ATTENDANCE",
+              "score": 46
+            },
+            {
+              "id": 6536,
+              "code": "ag5200",
+              "title": "STUDENT ATTENDANCE",
+              "score": 45
+            },
+            {
+              "id": 6573,
+              "code": "po0114",
+              "title": "SCHOOL ATTENDANCE AREA BOUNDARIES",
+              "score": 21
+            },
+            {
+              "id": 6841,
+              "code": "po9160",
+              "title": "PUBLIC ATTENDANCE AT SCHOOL EVENTS",
+              "score": 15
+            },
+            {
+              "id": 6590,
+              "code": "po0142.4",
+              "title": "BOARD MEMBER LEAVE OF ABSENCE FOR MILITARY SERVICE",
+              "score": 15
+            }
+          ],
+          "handbook": [
+            {
+              "id": 572,
+              "type": "student",
+              "section": "Arrival and Dismissal Hours",
+              "score": 41
+            },
+            {
+              "id": 594,
+              "type": "student",
+              "section": "Visitors in District Buildings",
+              "score": 37
+            },
+            {
+              "id": 554,
+              "type": "student",
+              "section": "Grading - Standards Based",
+              "score": 34
+            },
+            {
+              "id": 556,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 30
+            }
+          ],
+          "durationMs": 1334
+        },
+        {
+          "mode": "semantic",
+          "effectiveMode": "semantic",
+          "policies": [],
+          "handbook": [],
+          "durationMs": 579
+        },
+        {
+          "mode": "hybrid",
+          "effectiveMode": "hybrid",
+          "policies": [
+            {
+              "id": 6735,
+              "code": "po5200",
+              "title": "ATTENDANCE",
+              "score": 46
+            },
+            {
+              "id": 6536,
+              "code": "ag5200",
+              "title": "STUDENT ATTENDANCE",
+              "score": 45
+            },
+            {
+              "id": 6573,
+              "code": "po0114",
+              "title": "SCHOOL ATTENDANCE AREA BOUNDARIES",
+              "score": 21
+            },
+            {
+              "id": 6841,
+              "code": "po9160",
+              "title": "PUBLIC ATTENDANCE AT SCHOOL EVENTS",
+              "score": 15
+            },
+            {
+              "id": 6590,
+              "code": "po0142.4",
+              "title": "BOARD MEMBER LEAVE OF ABSENCE FOR MILITARY SERVICE",
+              "score": 15
+            }
+          ],
+          "handbook": [
+            {
+              "id": 572,
+              "type": "student",
+              "section": "Arrival and Dismissal Hours",
+              "score": 41
+            },
+            {
+              "id": 594,
+              "type": "student",
+              "section": "Visitors in District Buildings",
+              "score": 37
+            },
+            {
+              "id": 554,
+              "type": "student",
+              "section": "Grading - Standards Based",
+              "score": 34
+            },
+            {
+              "id": 556,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 30
+            }
+          ],
+          "durationMs": 1849
+        }
+      ]
+    },
+    {
+      "id": "iep-discipline",
+      "title": "Discipline of a student with an IEP",
+      "scenario": "A student with an IEP for emotional disability threw a chair at a teacher and we are considering suspension. He has already been suspended 8 days this year. What do our policies require before we can suspend him again?",
+      "results": [
+        {
+          "mode": "lexical",
+          "effectiveMode": "lexical",
+          "policies": [
+            {
+              "id": 6767,
+              "code": "po5610",
+              "title": "SUSPENSION AND EXPULSION OF STUDENTS",
+              "score": 71
+            },
+            {
+              "id": 6766,
+              "code": "po5605",
+              "title": "SUSPENSION AND EXPULSION OF STUDENTS WITH DISABILITIES",
+              "score": 60
+            },
+            {
+              "id": 6667,
+              "code": "po2460",
+              "title": "CHILD FIND AND SPECIAL EDUCATION",
+              "score": 53
+            },
+            {
+              "id": 6550,
+              "code": "ag5610",
+              "title": "SUSPENSION AND EXPULSION OF STUDENTS",
+              "score": 48
+            },
+            {
+              "id": 6758,
+              "code": "po5517.01",
+              "title": "BULLYING",
+              "score": 47
+            }
+          ],
+          "handbook": [
+            {
+              "id": 527,
+              "type": "student",
+              "section": "Discipline Complaint Procedure (DCP)",
+              "score": 51
+            },
+            {
+              "id": 508,
+              "type": "student",
+              "section": "PART III — RULES AND DISCIPLINE",
+              "score": 40
+            },
+            {
+              "id": 529,
+              "type": "student",
+              "section": "Pequot Lakes School District Discipline Complaint Form",
+              "score": 38
+            },
+            {
+              "id": 509,
+              "type": "student",
+              "section": "Cell Phones and Other Electronic Communication Devices",
+              "score": 34
+            }
+          ],
+          "durationMs": 1333
+        },
+        {
+          "mode": "semantic",
+          "effectiveMode": "semantic",
+          "policies": [],
+          "handbook": [],
+          "durationMs": 346
+        },
+        {
+          "mode": "hybrid",
+          "effectiveMode": "hybrid",
+          "policies": [
+            {
+              "id": 6767,
+              "code": "po5610",
+              "title": "SUSPENSION AND EXPULSION OF STUDENTS",
+              "score": 71
+            },
+            {
+              "id": 6766,
+              "code": "po5605",
+              "title": "SUSPENSION AND EXPULSION OF STUDENTS WITH DISABILITIES",
+              "score": 60
+            },
+            {
+              "id": 6667,
+              "code": "po2460",
+              "title": "CHILD FIND AND SPECIAL EDUCATION",
+              "score": 53
+            },
+            {
+              "id": 6550,
+              "code": "ag5610",
+              "title": "SUSPENSION AND EXPULSION OF STUDENTS",
+              "score": 48
+            },
+            {
+              "id": 6758,
+              "code": "po5517.01",
+              "title": "BULLYING",
+              "score": 47
+            }
+          ],
+          "handbook": [
+            {
+              "id": 527,
+              "type": "student",
+              "section": "Discipline Complaint Procedure (DCP)",
+              "score": 51
+            },
+            {
+              "id": 508,
+              "type": "student",
+              "section": "PART III — RULES AND DISCIPLINE",
+              "score": 40
+            },
+            {
+              "id": 529,
+              "type": "student",
+              "section": "Pequot Lakes School District Discipline Complaint Form",
+              "score": 38
+            },
+            {
+              "id": 509,
+              "type": "student",
+              "section": "Cell Phones and Other Electronic Communication Devices",
+              "score": 34
+            }
+          ],
+          "durationMs": 1411
+        }
+      ]
+    },
+    {
+      "id": "records-request",
+      "title": "Non-custodial parent records request",
+      "scenario": "A non-custodial parent is demanding copies of his daughter's report cards, discipline records, and counseling notes. The custodial parent told the front office not to release anything to him. Who is entitled to student records in this situation?",
+      "results": [
+        {
+          "mode": "lexical",
+          "effectiveMode": "lexical",
+          "policies": [
+            {
+              "id": 6816,
+              "code": "po8330",
+              "title": "STUDENT RECORDS",
+              "score": 46
+            }
+          ],
+          "handbook": [
+            {
+              "id": 527,
+              "type": "student",
+              "section": "Discipline Complaint Procedure (DCP)",
+              "score": 62
+            },
+            {
+              "id": 494,
+              "type": "student",
+              "section": "Student Publications and Materials",
+              "score": 29
+            },
+            {
+              "id": 575,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 25
+            },
+            {
+              "id": 525,
+              "type": "student",
+              "section": "Visitors in District Buildings",
+              "score": 25
+            }
+          ],
+          "durationMs": 1102
+        },
+        {
+          "mode": "semantic",
+          "effectiveMode": "semantic",
+          "policies": [],
+          "handbook": [],
+          "durationMs": 232
+        },
+        {
+          "mode": "hybrid",
+          "effectiveMode": "hybrid",
+          "policies": [
+            {
+              "id": 6816,
+              "code": "po8330",
+              "title": "STUDENT RECORDS",
+              "score": 46
+            }
+          ],
+          "handbook": [
+            {
+              "id": 527,
+              "type": "student",
+              "section": "Discipline Complaint Procedure (DCP)",
+              "score": 62
+            },
+            {
+              "id": 494,
+              "type": "student",
+              "section": "Student Publications and Materials",
+              "score": 29
+            },
+            {
+              "id": 575,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 25
+            },
+            {
+              "id": 525,
+              "type": "student",
+              "section": "Visitors in District Buildings",
+              "score": 25
+            }
+          ],
+          "durationMs": 1263
+        }
+      ]
+    },
+    {
+      "id": "staff-leave",
+      "title": "Staff member subpoenaed during school day",
+      "scenario": "One of my teachers received a subpoena to appear in court next Tuesday as a witness. She wants to know if this counts against her personal days and whether the district pays for court appearances. What leave applies?",
+      "results": [
+        {
+          "mode": "lexical",
+          "effectiveMode": "lexical",
+          "policies": [],
+          "handbook": [],
+          "durationMs": 1208
+        },
+        {
+          "mode": "semantic",
+          "effectiveMode": "semantic",
+          "policies": [],
+          "handbook": [],
+          "durationMs": 555
+        },
+        {
+          "mode": "hybrid",
+          "effectiveMode": "hybrid",
+          "policies": [],
+          "handbook": [],
+          "durationMs": 1681
+        }
+      ]
+    },
+    {
+      "id": "phone-search",
+      "title": "Searching a confiscated phone",
+      "scenario": "A teacher confiscated a phone because a student was texting during a test. Another student claims there are photos on that phone taken in the locker room. Am I allowed to search the phone, and what is the process?",
+      "results": [
+        {
+          "mode": "lexical",
+          "effectiveMode": "lexical",
+          "policies": [
+            {
+              "id": 6646,
+              "code": "po1662",
+              "title": "ANTI-HARASSMENT",
+              "score": 29
+            },
+            {
+              "id": 6702,
+              "code": "po3362",
+              "title": "ANTI-HARASSMENT",
+              "score": 29
+            },
+            {
+              "id": 6722,
+              "code": "po4362",
+              "title": "ANTI-HARASSMENT",
+              "score": 29
+            },
+            {
+              "id": 6757,
+              "code": "po5517",
+              "title": "ANTI-HARASSMENT",
+              "score": 29
+            },
+            {
+              "id": 6639,
+              "code": "po1422",
+              "title": "NONDISCRIMINATION AND EQUAL EMPLOYMENT OPPORTUNITY",
+              "score": 28
+            }
+          ],
+          "handbook": [
+            {
+              "id": 509,
+              "type": "student",
+              "section": "Cell Phones and Other Electronic Communication Devices",
+              "score": 33
+            },
+            {
+              "id": 599,
+              "type": "student",
+              "section": "Area Learning Center (ALC)",
+              "score": 31
+            },
+            {
+              "id": 576,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 29
+            },
+            {
+              "id": 540,
+              "type": "student",
+              "section": "Dismissal Change/Early Pickup",
+              "score": 26
+            }
+          ],
+          "durationMs": 1075
+        },
+        {
+          "mode": "semantic",
+          "effectiveMode": "semantic",
+          "policies": [],
+          "handbook": [],
+          "durationMs": 281
+        },
+        {
+          "mode": "hybrid",
+          "effectiveMode": "hybrid",
+          "policies": [
+            {
+              "id": 6646,
+              "code": "po1662",
+              "title": "ANTI-HARASSMENT",
+              "score": 29
+            },
+            {
+              "id": 6702,
+              "code": "po3362",
+              "title": "ANTI-HARASSMENT",
+              "score": 29
+            },
+            {
+              "id": 6722,
+              "code": "po4362",
+              "title": "ANTI-HARASSMENT",
+              "score": 29
+            },
+            {
+              "id": 6757,
+              "code": "po5517",
+              "title": "ANTI-HARASSMENT",
+              "score": 29
+            },
+            {
+              "id": 6639,
+              "code": "po1422",
+              "title": "NONDISCRIMINATION AND EQUAL EMPLOYMENT OPPORTUNITY",
+              "score": 28
+            }
+          ],
+          "handbook": [
+            {
+              "id": 509,
+              "type": "student",
+              "section": "Cell Phones and Other Electronic Communication Devices",
+              "score": 33
+            },
+            {
+              "id": 599,
+              "type": "student",
+              "section": "Area Learning Center (ALC)",
+              "score": 31
+            },
+            {
+              "id": 576,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 29
+            },
+            {
+              "id": 540,
+              "type": "student",
+              "section": "Dismissal Change/Early Pickup",
+              "score": 26
+            }
+          ],
+          "durationMs": 1351
+        }
+      ]
+    },
+    {
+      "id": "social-media-threat",
+      "title": "Off-campus social media threat",
+      "scenario": "Over the weekend a student posted a photo of an airsoft gun with a caption naming our school and saying 'Monday is going to be interesting.' Parents are calling. The post was made off campus and outside school hours. What authority do we have and what steps should we take?",
+      "results": [
+        {
+          "mode": "lexical",
+          "effectiveMode": "lexical",
+          "policies": [
+            {
+              "id": 6657,
+              "code": "po2266",
+              "title": "NONDISCRIMINATION ON THE BASIS OF SEX IN EDUCATION PROGRAMS OR ACTIVITIES",
+              "score": 32
+            },
+            {
+              "id": 6520,
+              "code": "ag2266",
+              "title": "NONDISCRIMINATION ON THE BASIS OF SEX IN EDUCATION PROGRAMS OR ACTIVITIES",
+              "score": 27
+            },
+            {
+              "id": 6646,
+              "code": "po1662",
+              "title": "ANTI-HARASSMENT",
+              "score": 22
+            },
+            {
+              "id": 6702,
+              "code": "po3362",
+              "title": "ANTI-HARASSMENT",
+              "score": 22
+            },
+            {
+              "id": 6722,
+              "code": "po4362",
+              "title": "ANTI-HARASSMENT",
+              "score": 22
+            }
+          ],
+          "handbook": [
+            {
+              "id": 571,
+              "type": "student",
+              "section": "Arrival and Dismissal Hours",
+              "score": 28
+            },
+            {
+              "id": 545,
+              "type": "student",
+              "section": "Parent/Guardian and Teacher Conferences",
+              "score": 17
+            },
+            {
+              "id": 575,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 16
+            },
+            {
+              "id": 599,
+              "type": "student",
+              "section": "Area Learning Center (ALC)",
+              "score": 16
+            }
+          ],
+          "durationMs": 1201
+        },
+        {
+          "mode": "semantic",
+          "effectiveMode": "semantic",
+          "policies": [],
+          "handbook": [],
+          "durationMs": 247
+        },
+        {
+          "mode": "hybrid",
+          "effectiveMode": "hybrid",
+          "policies": [
+            {
+              "id": 6657,
+              "code": "po2266",
+              "title": "NONDISCRIMINATION ON THE BASIS OF SEX IN EDUCATION PROGRAMS OR ACTIVITIES",
+              "score": 32
+            },
+            {
+              "id": 6520,
+              "code": "ag2266",
+              "title": "NONDISCRIMINATION ON THE BASIS OF SEX IN EDUCATION PROGRAMS OR ACTIVITIES",
+              "score": 27
+            },
+            {
+              "id": 6646,
+              "code": "po1662",
+              "title": "ANTI-HARASSMENT",
+              "score": 22
+            },
+            {
+              "id": 6702,
+              "code": "po3362",
+              "title": "ANTI-HARASSMENT",
+              "score": 22
+            },
+            {
+              "id": 6722,
+              "code": "po4362",
+              "title": "ANTI-HARASSMENT",
+              "score": 22
+            }
+          ],
+          "handbook": [
+            {
+              "id": 571,
+              "type": "student",
+              "section": "Arrival and Dismissal Hours",
+              "score": 28
+            },
+            {
+              "id": 545,
+              "type": "student",
+              "section": "Parent/Guardian and Teacher Conferences",
+              "score": 17
+            },
+            {
+              "id": 575,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 16
+            },
+            {
+              "id": 599,
+              "type": "student",
+              "section": "Area Learning Center (ALC)",
+              "score": 16
+            }
+          ],
+          "durationMs": 1222
+        }
+      ]
+    },
+    {
+      "id": "medication-field-trip",
+      "title": "Medication on a field trip",
+      "scenario": "A fourth grade class is going on an overnight field trip and one student needs insulin injections and another carries an EpiPen. The parent volunteer chaperone is a nurse but not employed by the district. Who can administer medication on the trip and what does policy require?",
+      "results": [
+        {
+          "mode": "lexical",
+          "effectiveMode": "lexical",
+          "policies": [
+            {
+              "id": 6661,
+              "code": "po2340",
+              "title": "FIELD AND OTHER CORPORATION-SPONSORED TRIPS",
+              "score": 37
+            },
+            {
+              "id": 6740,
+              "code": "po5330",
+              "title": "USE OF MEDICATION",
+              "score": 26
+            },
+            {
+              "id": 6816,
+              "code": "po8330",
+              "title": "STUDENT RECORDS",
+              "score": 21
+            },
+            {
+              "id": 6704,
+              "code": "po3430.01",
+              "title": "FAMILY & MEDICAL LEAVES OF ABSENCE (\"FMLA\")",
+              "score": 17
+            },
+            {
+              "id": 6657,
+              "code": "po2266",
+              "title": "NONDISCRIMINATION ON THE BASIS OF SEX IN EDUCATION PROGRAMS OR ACTIVITIES",
+              "score": 16
+            }
+          ],
+          "handbook": [
+            {
+              "id": 591,
+              "type": "student",
+              "section": "Medication Administration",
+              "score": 26
+            },
+            {
+              "id": 551,
+              "type": "student",
+              "section": "Eagle View Elementary’s School-Parent Compact Dear Parent,",
+              "score": 26
+            },
+            {
+              "id": 604,
+              "type": "student",
+              "section": "Grading Scale & Weighted Grades",
+              "score": 22
+            },
+            {
+              "id": 521,
+              "type": "student",
+              "section": "Health Information First Aid",
+              "score": 19
+            }
+          ],
+          "durationMs": 1151
+        },
+        {
+          "mode": "semantic",
+          "effectiveMode": "semantic",
+          "policies": [],
+          "handbook": [],
+          "durationMs": 271
+        },
+        {
+          "mode": "hybrid",
+          "effectiveMode": "hybrid",
+          "policies": [
+            {
+              "id": 6661,
+              "code": "po2340",
+              "title": "FIELD AND OTHER CORPORATION-SPONSORED TRIPS",
+              "score": 37
+            },
+            {
+              "id": 6740,
+              "code": "po5330",
+              "title": "USE OF MEDICATION",
+              "score": 26
+            },
+            {
+              "id": 6816,
+              "code": "po8330",
+              "title": "STUDENT RECORDS",
+              "score": 21
+            },
+            {
+              "id": 6704,
+              "code": "po3430.01",
+              "title": "FAMILY & MEDICAL LEAVES OF ABSENCE (\"FMLA\")",
+              "score": 17
+            },
+            {
+              "id": 6657,
+              "code": "po2266",
+              "title": "NONDISCRIMINATION ON THE BASIS OF SEX IN EDUCATION PROGRAMS OR ACTIVITIES",
+              "score": 16
+            }
+          ],
+          "handbook": [
+            {
+              "id": 591,
+              "type": "student",
+              "section": "Medication Administration",
+              "score": 26
+            },
+            {
+              "id": 551,
+              "type": "student",
+              "section": "Eagle View Elementary’s School-Parent Compact Dear Parent,",
+              "score": 26
+            },
+            {
+              "id": 604,
+              "type": "student",
+              "section": "Grading Scale & Weighted Grades",
+              "score": 22
+            },
+            {
+              "id": 521,
+              "type": "student",
+              "section": "Health Information First Aid",
+              "score": 19
+            }
+          ],
+          "durationMs": 1245
+        }
+      ]
+    },
+    {
+      "id": "bus-bullying",
+      "title": "Bullying on the school bus",
+      "scenario": "A parent reports her sixth grade son is being called slurs and shoved every day on the bus by the same group of students. The bus driver says he hasn't seen anything. The boy is now refusing to ride the bus. What are we required to do under our bullying policy?",
+      "results": [
+        {
+          "mode": "lexical",
+          "effectiveMode": "lexical",
+          "policies": [
+            {
+              "id": 6646,
+              "code": "po1662",
+              "title": "ANTI-HARASSMENT",
+              "score": 39
+            },
+            {
+              "id": 6702,
+              "code": "po3362",
+              "title": "ANTI-HARASSMENT",
+              "score": 39
+            },
+            {
+              "id": 6722,
+              "code": "po4362",
+              "title": "ANTI-HARASSMENT",
+              "score": 39
+            },
+            {
+              "id": 6757,
+              "code": "po5517",
+              "title": "ANTI-HARASSMENT",
+              "score": 39
+            },
+            {
+              "id": 6758,
+              "code": "po5517.01",
+              "title": "BULLYING",
+              "score": 33
+            }
+          ],
+          "handbook": [
+            {
+              "id": 508,
+              "type": "student",
+              "section": "PART III — RULES AND DISCIPLINE",
+              "score": 34
+            },
+            {
+              "id": 604,
+              "type": "student",
+              "section": "Grading Scale & Weighted Grades",
+              "score": 25
+            },
+            {
+              "id": 557,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 23
+            },
+            {
+              "id": 510,
+              "type": "student",
+              "section": "Cell Phones and Other Electronic Communication Devices",
+              "score": 23
+            }
+          ],
+          "durationMs": 1072
+        },
+        {
+          "mode": "semantic",
+          "effectiveMode": "semantic",
+          "policies": [],
+          "handbook": [],
+          "durationMs": 216
+        },
+        {
+          "mode": "hybrid",
+          "effectiveMode": "hybrid",
+          "policies": [
+            {
+              "id": 6646,
+              "code": "po1662",
+              "title": "ANTI-HARASSMENT",
+              "score": 39
+            },
+            {
+              "id": 6702,
+              "code": "po3362",
+              "title": "ANTI-HARASSMENT",
+              "score": 39
+            },
+            {
+              "id": 6722,
+              "code": "po4362",
+              "title": "ANTI-HARASSMENT",
+              "score": 39
+            },
+            {
+              "id": 6757,
+              "code": "po5517",
+              "title": "ANTI-HARASSMENT",
+              "score": 39
+            },
+            {
+              "id": 6758,
+              "code": "po5517.01",
+              "title": "BULLYING",
+              "score": 33
+            }
+          ],
+          "handbook": [
+            {
+              "id": 508,
+              "type": "student",
+              "section": "PART III — RULES AND DISCIPLINE",
+              "score": 34
+            },
+            {
+              "id": 604,
+              "type": "student",
+              "section": "Grading Scale & Weighted Grades",
+              "score": 25
+            },
+            {
+              "id": 557,
+              "type": "student",
+              "section": "ABSENCE WORK EXPECTATION",
+              "score": 23
+            },
+            {
+              "id": 510,
+              "type": "student",
+              "section": "Cell Phones and Other Electronic Communication Devices",
+              "score": 23
+            }
+          ],
+          "durationMs": 1402
+        }
+      ]
+    }
+  ]
+}
