@@ -23,7 +23,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const datasets = await listPolicyDatasets(user.id, 30);
+  const datasets = await listPolicyDatasets(user.id, 60, { includeArchived: true });
   return NextResponse.json({ datasets }, { status: 200 });
 }
 
@@ -56,6 +56,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const form = await request.formData();
     const fileField = form.get("file");
+    const title = readFormText(form.get("title"));
     if (!isMultipartFile(fileField)) {
       return NextResponse.json({ error: "Please upload a CSV file." }, { status: 400 });
     }
@@ -83,7 +84,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const dataset = await createPolicyDataset({
       userId: user.id,
       districtName: accountDistrictName,
+      title,
       filename,
+      sourceType: "csv_upload",
       headers: parsed.headers,
       rows: parsed.rows,
     });
@@ -109,4 +112,13 @@ function isMultipartFile(value: FormDataEntryValue | null): value is File {
   }
 
   return typeof value.arrayBuffer === "function" && typeof value.name === "string";
+}
+
+function readFormText(value: FormDataEntryValue | null): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  return normalized || undefined;
 }

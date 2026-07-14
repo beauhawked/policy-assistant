@@ -4,6 +4,7 @@ import { getAuthenticatedUserFromRequest, isUserEmailVerified } from "@/lib/poli
 import { createHandbookDocument, listHandbookDocuments } from "@/lib/policy-assistant/db";
 import { extractHandbookText, chunkHandbookText } from "@/lib/policy-assistant/handbook";
 import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
+import type { HandbookType } from "@/lib/policy-assistant/types";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
 export const runtime = "nodejs";
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const documents = await listHandbookDocuments(user.id, 30);
+  const documents = await listHandbookDocuments(user.id, 60, { includeArchived: true });
   return NextResponse.json({ documents }, { status: 200 });
 }
 
@@ -57,11 +58,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const form = await request.formData();
     const fileField = form.get("file");
+    const handbookType = parseHandbookType(form.get("handbookType"));
+    const title = readFormText(form.get("title"));
     if (!isMultipartFile(fileField)) {
-      return NextResponse.json({ error: "Please upload a handbook file." }, { status: 400 });
+      return NextResponse.json(
+        { error: `Please upload a ${describeHandbookType(handbookType)} file.` },
+        { status: 400 },
+      );
     }
 
-    const filename = fileField.name || "student-handbook.pdf";
+    const filename = fileField.name || `${handbookType}-handbook.pdf`;
     const extension = getExtension(filename);
     if (!ALLOWED_EXTENSIONS.has(extension)) {
       return NextResponse.json(
@@ -98,7 +104,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const document = await createHandbookDocument({
       userId: user.id,
       districtName: accountDistrictName,
+      title,
       filename,
+      handbookType,
       chunks,
     });
 
@@ -130,4 +138,25 @@ function getExtension(filename: string): string {
     return "";
   }
   return filename.slice(index).toLowerCase();
+}
+
+function parseHandbookType(value: FormDataEntryValue | null): HandbookType {
+  if (typeof value === "string" && value.trim().toLowerCase() === "staff") {
+    return "staff";
+  }
+
+  return "student";
+}
+
+function describeHandbookType(handbookType: HandbookType): string {
+  return handbookType === "staff" ? "staff handbook" : "student handbook";
+}
+
+function readFormText(value: FormDataEntryValue | null): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  return normalized || undefined;
 }

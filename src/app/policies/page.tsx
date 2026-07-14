@@ -11,14 +11,16 @@ export default function PolicyScraperPage() {
       <section className="hero">
         <div className="scraper-hero-head">
           <div className="scraper-hero-title-group">
-            <Image
-              src="/logo.png"
-              alt="PolicyIQ logo"
-              width={480}
-              height={180}
-              className="scraper-hero-logo"
-              priority
-            />
+            <div className="hero-logo-wrap">
+              <Image
+                src="/logo.png"
+                alt="Policy to Action logo"
+                width={1536}
+                height={1024}
+                className="scraper-hero-logo"
+                priority
+              />
+            </div>
             <h1>Policy Scraper</h1>
           </div>
           <Link href="/policy-assistant" className="action-button nav-action-link hero-nav-button">
