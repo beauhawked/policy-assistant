@@ -184,7 +184,38 @@ interface RetrievalPostgresComparison {
   handbookCandidates?: RetrievalPostgresHandbookCandidate[];
 }
 
+interface RetrievalSemanticPolicyCandidate {
+  id: number;
+  policySection: string;
+  policyCode: string;
+  policyTitle: string;
+  semanticScore: number;
+  subIssues: string[];
+  selectedByCurrentRetrieval: boolean;
+  excerpt: string;
+}
+
+interface RetrievalSemanticHandbookCandidate {
+  id: number;
+  handbookType: "student" | "staff";
+  sectionTitle: string;
+  semanticScore: number;
+  subIssues: string[];
+  selectedByCurrentRetrieval: boolean;
+  excerpt: string;
+}
+
+interface RetrievalSemanticComparison {
+  policyCandidateCount: number;
+  handbookCandidateCount: number;
+  policyCandidates?: RetrievalSemanticPolicyCandidate[];
+  handbookCandidates?: RetrievalSemanticHandbookCandidate[];
+}
+
 interface RetrievalDebugData {
+  retrievalMode?: string;
+  subIssues?: string[];
+  semanticComparison?: RetrievalSemanticComparison;
   policyCount: number;
   handbookCount: number;
   matchedTerms: string[];
@@ -2932,6 +2963,24 @@ export function PolicyAssistantApp() {
           <details className="assistant-debug-panel">
             <summary>Retrieval Debug</summary>
             <p className="small-muted">
+              Retrieval mode:{" "}
+              <strong>{retrievalDebug.retrievalMode || "lexical (legacy response)"}</strong>
+            </p>
+            {retrievalDebug.subIssues && retrievalDebug.subIssues.length > 0 ? (
+              <div className="assistant-debug-section">
+                <p className="policy-label">Detected Sub-Issues</p>
+                <ul className="assistant-uploaded-list">
+                  {retrievalDebug.subIssues.map((subIssue, index) => (
+                    <li key={`sub-issue-${index}`}>{subIssue}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="small-muted">
+                Sub-issues: none detected (single-issue scenario or decomposition unavailable)
+              </p>
+            )}
+            <p className="small-muted">
               Matched terms:{" "}
               {retrievalDebug.matchedTerms.length > 0
                 ? retrievalDebug.matchedTerms.join(", ")
@@ -2979,6 +3028,78 @@ export function PolicyAssistantApp() {
                 <p className="small-muted">No handbook matches returned.</p>
               )}
             </div>
+
+            {retrievalDebug.semanticComparison ? (
+              <div className="assistant-debug-section">
+                <p className="policy-label">Semantic Candidates</p>
+                <p className="small-muted">
+                  Policy candidates: {retrievalDebug.semanticComparison.policyCandidateCount} |
+                  Handbook candidates: {retrievalDebug.semanticComparison.handbookCandidateCount}
+                </p>
+
+                <div className="assistant-debug-subsection">
+                  <p className="policy-label">Semantic Policy Candidates</p>
+                  {retrievalDebug.semanticComparison.policyCandidates &&
+                  retrievalDebug.semanticComparison.policyCandidates.length > 0 ? (
+                    <ul className="assistant-uploaded-list">
+                      {retrievalDebug.semanticComparison.policyCandidates.map((candidate) => (
+                        <li key={`semantic-policy-${candidate.id}`}>
+                          [{formatDebugRank(candidate.semanticScore)}]{" "}
+                          {candidate.selectedByCurrentRetrieval ? "selected | " : ""}
+                          {candidate.policySection || "Section ?"} {candidate.policyCode || ""} -{" "}
+                          {candidate.policyTitle || "Untitled"}
+                          {candidate.subIssues.length > 0 ? (
+                            <span className="assistant-debug-score-detail">
+                              {" "}
+                              via: {candidate.subIssues.join(" | ")}
+                            </span>
+                          ) : null}
+                          {candidate.excerpt ? (
+                            <span className="assistant-debug-excerpt">
+                              {" "}
+                              - {candidate.excerpt}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="small-muted">No semantic policy candidates returned.</p>
+                  )}
+                </div>
+
+                <div className="assistant-debug-subsection">
+                  <p className="policy-label">Semantic Handbook Candidates</p>
+                  {retrievalDebug.semanticComparison.handbookCandidates &&
+                  retrievalDebug.semanticComparison.handbookCandidates.length > 0 ? (
+                    <ul className="assistant-uploaded-list">
+                      {retrievalDebug.semanticComparison.handbookCandidates.map((candidate) => (
+                        <li key={`semantic-handbook-${candidate.id}`}>
+                          [{formatDebugRank(candidate.semanticScore)}]{" "}
+                          {candidate.selectedByCurrentRetrieval ? "selected | " : ""}
+                          {formatHandbookTypeLabel(candidate.handbookType)}:{" "}
+                          {candidate.sectionTitle || "General Guidance"}
+                          {candidate.subIssues.length > 0 ? (
+                            <span className="assistant-debug-score-detail">
+                              {" "}
+                              via: {candidate.subIssues.join(" | ")}
+                            </span>
+                          ) : null}
+                          {candidate.excerpt ? (
+                            <span className="assistant-debug-excerpt">
+                              {" "}
+                              - {candidate.excerpt}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="small-muted">No semantic handbook candidates returned.</p>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             {retrievalDebug.postgresComparison ? (
               <div className="assistant-debug-section">

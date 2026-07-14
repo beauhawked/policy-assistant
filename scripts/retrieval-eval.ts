@@ -88,6 +88,7 @@ type Mode = (typeof MODES)[number];
 interface ModeResult {
   mode: Mode;
   effectiveMode: string;
+  subIssues: string[];
   policies: Array<{ id: number; code: string; title: string; score: number }>;
   handbook: Array<{ id: number; type: string; section: string; score: number }>;
   durationMs: number;
@@ -198,6 +199,7 @@ async function main(): Promise<void> {
       results.push({
         mode,
         effectiveMode: context.mode,
+        subIssues: context.subQueries.map((subQuery) => subQuery.query),
         policies: policyBundle.policies.map((policy) => ({
           id: policy.id,
           code: policy.policyCode,
@@ -277,6 +279,10 @@ function buildMarkdownReport(
           : `${result.mode} (fell back to ${result.effectiveMode})`;
       lines.push(`### Mode: ${modeLabel} (${result.durationMs} ms)`);
       lines.push("");
+      if (result.subIssues.length > 0) {
+        lines.push(`Detected sub-issues: ${result.subIssues.join(" | ")}`);
+        lines.push("");
+      }
       lines.push(`Policies:`);
       lines.push("");
       if (result.policies.length === 0) {
