@@ -3193,3 +3193,22 @@ export async function listHandbookDocumentChunks(
 
   return result.rows.map(mapStoredHandbookChunk);
 }
+
+/** Permanently delete one conversation and its messages (cascade). */
+export async function deletePolicyConversation(
+  userId: string,
+  conversationId: string,
+): Promise<boolean> {
+  await ensureSchema();
+
+  const result = await getPool().query<{ id: string }>(
+    `
+    DELETE FROM policy_conversations
+    WHERE id = $1 AND user_id = $2
+    RETURNING id
+    `,
+    [conversationId, userId],
+  );
+
+  return (result.rowCount ?? 0) > 0;
+}

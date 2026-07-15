@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthenticatedUserFromRequest, isUserEmailVerified } from "@/lib/policy-assistant/auth";
 import {
+  deletePolicyConversation,
   getPolicyConversation,
   listPolicyConversationMessages,
 } from "@/lib/policy-assistant/db";
@@ -64,5 +65,57 @@ export async function GET(
     return NextResponse.json({ conversation, messages }, { status: 200 });
   } catch (error) {
     return serverErrorResponse(error, "Could not load conversation.", "policy_conversation_detail");
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: RouteContext,
+): Promise<NextResponse> {
+  try {
+    const user = await getAuthenticatedUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+    }
+    if (!isUserEmailVerified(user)) {
+      return NextResponse.json(
+        { error: "Please verify your email before managing conversation history." },
+        { status: 403 },
+      );
+    }
+
+    const rateLimit = await checkRateLimit({
+      scope: "policy_conversation_delete",
+      identifier: buildRateLimitIdentifier(request, { userId: user.id, email: user.email }),
+      maxRequests: 30,
+      windowSeconds: 60,
+    });
+
+    if (!rateLimit.allowed) {
+      return rateLimitExceededResponse(
+        rateLimit.retryAfterSeconds,
+        "Too many deletion requests. Please wait and try again.",
+      );
+    }
+
+    const params = await context.params;
+    const conversationId = params.conversationId?.trim() ?? "";
+
+    if (!conversationId) {
+      return NextResponse.json({ error: "conversationId is required." }, { status: 400 });
+    }
+
+    const deleted = await deletePolicyConversation(user.id, conversationId);
+    if (!deleted) {
+      return NextResponse.json({ error: "Conversation not found." }, { status: 404 });
+    }
+
+    return NextResponse.json({ deleted: true }, { status: 200 });
+  } catch (error) {
+    return serverErrorResponse(
+      error,
+      "Could not delete conversation.",
+      "policy_conversation_delete",
+    );
   }
 }

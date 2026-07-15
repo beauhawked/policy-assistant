@@ -1628,6 +1628,45 @@ export function PolicyAssistantApp() {
     setRetrievalDebug(null);
   };
 
+  const handleConversationDelete = async (): Promise<void> => {
+    const conversation = conversations.find((item) => item.id === selectedConversationId);
+    if (!conversation) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete the conversation "${conversation.title}" permanently? Its questions and answers will be removed and cannot be recovered.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setConversationError("");
+
+    try {
+      const response = await fetch(
+        `/api/policy-assistant/conversations/${encodeURIComponent(conversation.id)}`,
+        { method: "DELETE" },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          typeof payload.error === "string" ? payload.error : "Could not delete conversation.",
+        );
+      }
+
+      setConversations((previous) => previous.filter((item) => item.id !== conversation.id));
+      setSelectedConversationId("");
+      setMessages([]);
+      setChatError("");
+      setRetrievalDebug(null);
+    } catch (error) {
+      setConversationError(
+        error instanceof Error ? error.message : "Could not delete conversation.",
+      );
+    }
+  };
+
   const handleExamplePrompt = (text: string): void => {
     setScenario(text);
     setChatError("");
@@ -2733,6 +2772,15 @@ export function PolicyAssistantApp() {
             disabled={!selectedDatasetId || isSending}
           >
             New Conversation
+          </button>
+
+          <button
+            type="button"
+            className="assistant-danger-button"
+            onClick={() => void handleConversationDelete()}
+            disabled={!selectedConversationId || isSending || isConversationLoading}
+          >
+            Delete Conversation
           </button>
         </div>
 
