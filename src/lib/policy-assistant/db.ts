@@ -3127,3 +3127,69 @@ export async function getEmbeddingCoverage(): Promise<EmbeddingCoverage> {
     handbookChunksEmbedded: Number(result.rows[0]?.chunks_embedded ?? 0),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Full-content library views
+// ---------------------------------------------------------------------------
+
+/** All policies in one dataset, ordered for reading (section, then code). */
+export async function listDatasetPolicies(
+  userId: string,
+  datasetId: string,
+): Promise<StoredPolicy[]> {
+  await ensureSchema();
+
+  const result = await getPool().query<RawStoredPolicy>(
+    `
+    SELECT
+      p.id,
+      p.dataset_id,
+      p.policy_section,
+      p.policy_code,
+      p.adopted_date,
+      p.revised_date,
+      p.policy_status,
+      p.policy_title,
+      p.policy_wording,
+      p.source_row_index
+    FROM policies p
+    JOIN policy_datasets d ON d.id = p.dataset_id
+    WHERE p.dataset_id = $1
+    AND d.user_id = $2
+    ORDER BY p.policy_section ASC, p.policy_code ASC, p.id ASC
+    LIMIT 10000
+    `,
+    [datasetId, userId],
+  );
+
+  return result.rows.map(mapStoredPolicy);
+}
+
+/** One handbook document's full content, chunks in original order. */
+export async function listHandbookDocumentChunks(
+  userId: string,
+  documentId: string,
+): Promise<StoredHandbookChunk[]> {
+  await ensureSchema();
+
+  const result = await getPool().query<RawStoredHandbookChunk>(
+    `
+    SELECT
+      c.id,
+      c.document_id,
+      d.handbook_type,
+      c.section_title,
+      c.content,
+      c.source_index
+    FROM handbook_chunks c
+    JOIN handbook_documents d ON d.id = c.document_id
+    WHERE c.document_id = $1
+    AND d.user_id = $2
+    ORDER BY c.source_index ASC, c.id ASC
+    LIMIT 5000
+    `,
+    [documentId, userId],
+  );
+
+  return result.rows.map(mapStoredHandbookChunk);
+}

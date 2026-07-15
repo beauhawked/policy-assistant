@@ -28,6 +28,8 @@ import type {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const MAX_SCENARIO_LENGTH = 8000;
+
 interface PolicyAssistantChatPayload {
   datasetId?: string;
   scenario?: string;
@@ -74,6 +76,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!scenario) {
       return NextResponse.json({ error: "Please describe the scenario to evaluate." }, { status: 400 });
+    }
+
+    if (scenario.length > MAX_SCENARIO_LENGTH) {
+      return NextResponse.json(
+        {
+          error: `Scenario descriptions are limited to ${MAX_SCENARIO_LENGTH.toLocaleString()} characters. Please shorten the description or split it into separate questions.`,
+        },
+        { status: 400 },
+      );
     }
 
     const dataset = await getPolicyDataset(user.id, datasetId);

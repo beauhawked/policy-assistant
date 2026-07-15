@@ -14,3 +14,7 @@ coverage
 *.tsbuildinfo
 
 .cache
+.env.local.save
+.env.*.save
+.env.local.bak*
+_to_delete/

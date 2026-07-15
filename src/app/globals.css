@@ -2563,3 +2563,253 @@ html[data-contrast="high"] :focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+/* --- Full-content library pages (policies & handbooks) --- */
+
+.library-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 20px 80px;
+  color: var(--text);
+  background: var(--bg-main);
+  min-height: 100vh;
+}
+
+.library-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  border-bottom: 2px solid var(--line-strong);
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+}
+
+.library-header h1 {
+  margin: 6px 0 4px;
+  font-size: 1.65rem;
+  color: var(--primary-navy);
+}
+
+.library-back-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.library-back-link:hover {
+  text-decoration: underline;
+}
+
+.library-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.library-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.library-actions button {
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  color: var(--accent-strong);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.library-actions button:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.library-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.library-status {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.library-error {
+  border: 1px solid #dc2626;
+  background: #fdf2f2;
+  border-radius: 10px;
+  padding: 14px 18px;
+  color: #7f1d1d;
+}
+
+.library-error a {
+  color: var(--accent-strong);
+}
+
+.library-body {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.library-toc {
+  position: sticky;
+  top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+.library-filter-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.library-toc input[type="search"] {
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  margin-bottom: 14px;
+  box-sizing: border-box;
+}
+
+.library-toc-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+.library-toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.library-toc li {
+  margin-bottom: 6px;
+}
+
+.library-toc a {
+  color: var(--accent-strong);
+  text-decoration: none;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.library-toc a:hover {
+  text-decoration: underline;
+}
+
+.library-section {
+  margin-bottom: 34px;
+  scroll-margin-top: 16px;
+}
+
+.library-section h2 {
+  color: var(--primary-navy);
+  font-size: 1.25rem;
+  border-bottom: 1px solid var(--line-strong);
+  padding-bottom: 8px;
+  margin: 0 0 16px;
+}
+
+.library-policy {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+
+.library-policy h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  color: var(--secondary-navy);
+}
+
+.library-policy h3 span {
+  display: inline-block;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+.library-policy-meta {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin: 0 0 12px;
+}
+
+.library-policy-text p {
+  margin: 0 0 10px;
+  line-height: 1.6;
+  font-size: 0.94rem;
+  color: var(--text-soft);
+  white-space: pre-wrap;
+}
+
+.assistant-view-library-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-width: 860px) {
+  .library-body {
+    grid-template-columns: 1fr;
+  }
+
+  .library-toc {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media print {
+  .library-toc,
+  .library-actions,
+  .library-back-link {
+    display: none !important;
+  }
+
+  .library-page {
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .library-policy {
+    border: none;
+    padding: 0 0 14px;
+    break-inside: avoid;
+  }
+}
+
+.assistant-privacy-notice {
+  margin: 2px 0 8px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}

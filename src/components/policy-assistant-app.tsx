@@ -2382,6 +2382,14 @@ export function PolicyAssistantApp() {
             </form>
 
             <div className="assistant-dataset-actions">
+              <a
+                className="assistant-auth-toggle assistant-view-library-link"
+                href={`/policy-assistant/library/policies/${selectedDataset.id}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                View Full Policies
+              </a>
               <button
                 type="button"
                 className="assistant-auth-toggle"
@@ -2496,6 +2504,14 @@ export function PolicyAssistantApp() {
                     </div>
                   </form>
                   <div className="assistant-handbook-version-actions">
+                    <a
+                      className="assistant-auth-toggle assistant-view-library-link"
+                      href={`/policy-assistant/library/handbooks/${document.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View Handbook
+                    </a>
                     <button
                       type="button"
                       className="assistant-auth-toggle"
@@ -2576,6 +2592,14 @@ export function PolicyAssistantApp() {
                     </div>
                   </form>
                   <div className="assistant-handbook-version-actions">
+                    <a
+                      className="assistant-auth-toggle assistant-view-library-link"
+                      href={`/policy-assistant/library/handbooks/${document.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View Handbook
+                    </a>
                     <button
                       type="button"
                       className="assistant-auth-toggle"
@@ -2938,6 +2962,10 @@ export function PolicyAssistantApp() {
           <label htmlFor="scenario" className="policy-label">
             Describe The Situation
           </label>
+          <p id="scenario-privacy-note" className="small-muted assistant-privacy-notice">
+            Protect student and staff privacy: do not include real names or other identifying
+            details. Use placeholders such as Student A, Student B, or Teacher C instead.
+          </p>
           <textarea
             id="scenario"
             ref={scenarioInputRef}
@@ -2945,6 +2973,8 @@ export function PolicyAssistantApp() {
             onChange={(event) => setScenario(event.target.value)}
             placeholder="Example: A parent has filed a formal complaint alleging their child with special needs is not receiving services required by the IEP."
             rows={5}
+            maxLength={8000}
+            aria-describedby="scenario-privacy-note"
           />
           <button
             className="action-button policy-button assistant-guidance-button"
