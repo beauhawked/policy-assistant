@@ -1,38 +1,63 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 type ContrastMode = "default" | "high";
 
 const STORAGE_KEY = "a11y-contrast";
 
-export function AccessibilityToggle() {
-  const [mode, setMode] = useState<ContrastMode>("default");
+/**
+ * The saved contrast preference lives in localStorage (an external system),
+ * so we subscribe to it with useSyncExternalStore: the server snapshot is
+ * always "default" (matching the server-rendered HTML), and the client
+ * snapshot reads the stored preference after hydration.
+ */
 
-  useEffect(() => {
-    let saved: ContrastMode = "default";
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "high") {
-        saved = "high";
-      }
-    } catch {
-      // localStorage unavailable; keep default.
-    }
-    setMode(saved);
-    document.documentElement.dataset.contrast = saved;
-  }, []);
+let contrastListeners: Array<() => void> = [];
 
-  const toggle = () => {
-    const next: ContrastMode = mode === "high" ? "default" : "high";
-    setMode(next);
-    document.documentElement.dataset.contrast = next;
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Ignore persistence failures.
-    }
+function readStoredMode(): ContrastMode {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "high" ? "high" : "default";
+  } catch {
+    return "default";
+  }
+}
+
+function subscribeToContrast(listener: () => void): () => void {
+  contrastListeners.push(listener);
+  return () => {
+    contrastListeners = contrastListeners.filter((item) => item !== listener);
   };
+}
+
+function writeStoredMode(next: ContrastMode): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, next);
+  } catch {
+    // Ignore persistence failures.
+  }
+  document.documentElement.dataset.contrast = next;
+  for (const listener of contrastListeners) {
+    listener();
+  }
+}
+
+export function AccessibilityToggle() {
+  const mode = useSyncExternalStore<ContrastMode>(
+    subscribeToContrast,
+    readStoredMode,
+    () => "default",
+  );
+
+  // Keep the document attribute in sync with the resolved mode. Updating an
+  // external system (the DOM) from an effect is exactly what effects are for.
+  useEffect(() => {
+    document.documentElement.dataset.contrast = mode;
+  }, [mode]);
+
+  const toggle = useCallback(() => {
+    writeStoredMode(readStoredMode() === "high" ? "default" : "high");
+  }, []);
 
   const isOn = mode === "high";
 

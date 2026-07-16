@@ -18,3 +18,4 @@ coverage
 .env.*.save
 .env.local.bak*
 _to_delete/
+.vercel
