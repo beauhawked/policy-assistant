@@ -2881,7 +2881,7 @@ export function PolicyAssistantApp() {
                   key={message.id}
                   className="assistant-message assistant-message-assistant assistant-answer-card"
                 >
-                  <p className="assistant-message-role">Policy IQ</p>
+                  <p className="assistant-message-role">Policy to Action</p>
 
                   {generalItems.map((item) => (
                     <div key={item.id} className="assistant-message-body answer-lead">
