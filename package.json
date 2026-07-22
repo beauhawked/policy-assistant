@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "sync": "tsx scripts/sync.ts",
     "backfill-embeddings": "tsx scripts/backfill-embeddings.ts",
     "retrieval-eval": "tsx scripts/retrieval-eval.ts",
     "check": "npm run lint && npm run typecheck"
