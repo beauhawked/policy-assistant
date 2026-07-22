@@ -7,6 +7,30 @@ Platform state at audit: local development, commit 6dfc7d0, pre-deployment
 
 ---
 
+## Remediation Addendum - July 22, 2026
+
+Beau confirmed that the Indiana General Assembly API integration and its key
+are no longer needed as part of Policy-to-Action.
+
+- `.env.local.save` was removed from every reachable local branch and from
+  both GitHub branches through a guarded history rewrite and force push.
+- A local Codex checkpoint tree that retained the obsolete file was removed,
+  followed by reflog expiration and unreachable-object pruning.
+- The ignored copy under `_to_delete/` was permanently deleted.
+- All current local and remote refs were verified to contain zero reachable
+  versions of `.env.local.save`.
+- The repository is public. Because historical clones, caches, or detached
+  GitHub objects may outlive a branch rewrite, the old key must still be
+  treated as compromised and disabled if it has not already been revoked.
+  No replacement key is required unless the integration is deliberately
+  restored.
+
+Dormant General Assembly source files and example settings remain in the
+current tree. Removing that legacy feature code is a separate cleanup decision
+and was not included in the credential-history rewrite.
+
+---
+
 ## Executive Summary
 
 The platform's engineering fundamentals are stronger than typical for a pre-deployment product. Password storage, session management, tenant isolation, SQL injection defense, and citation-grounded auditability are all professionally implemented. The overall posture is sound for the current single-developer, local-only stage.
