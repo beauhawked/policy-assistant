@@ -1,6 +1,17 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  DragEvent,
+  FormEvent,
+  KeyboardEvent,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 interface PolicyDataset {
   id: string;
@@ -283,20 +294,119 @@ interface LoadedReferenceDetail {
   bodyText: string;
 }
 
-interface ReferenceDetailState {
-  status: "idle" | "loading" | "loaded" | "error";
-  detail?: LoadedReferenceDetail;
-  error?: string;
+interface LibraryPolicyRecord {
+  id: number;
+  policySection: string;
+  policyCode: string;
+  adoptedDate: string;
+  revisedDate: string;
+  policyStatus: string;
+  policyTitle: string;
+  policyWording: string;
+}
+
+interface EvidenceItem {
+  id: string;
+  messageId: string;
+  label: string;
+  title: string;
+  quote: string;
+  meta: string;
+  lookup?: ReferenceLookup;
+}
+
+interface PinnedAnswer {
+  id: string;
+  title: string;
+  body: string;
+  meta: string;
+  pinnedAt: string;
+  conversationId: string;
+}
+
+interface DetailView {
+  kind: "policy" | "handbook";
+  code: string;
+  title: string;
+  metadata: ReferenceField[];
+  bodyText: string;
+  relatedText: string;
 }
 
 type AuthMode = "login" | "signup" | "forgot" | "reset";
-type KnowledgeBaseTab = "policies" | "student" | "staff";
+type AppView = "assistant" | "history" | "pinned" | "library" | "policy" | "source";
+type SourceTab = "import" | "csv" | "handbook";
+type LibraryFilter = "all" | "policies" | "student" | "staff";
+
 const MESSAGE_LIST_NEAR_BOTTOM_PX = 120;
+const HIGH_CONTRAST_STORAGE_KEY = "piq-hc";
+
+// Retrieval debug is developer instrumentation: visible in local development,
+// hidden in production unless explicitly enabled via env flag.
+const SHOW_RETRIEVAL_DEBUG =
+  process.env.NODE_ENV === "development" ||
+  process.env.NEXT_PUBLIC_RETRIEVAL_DEBUG === "1";
+const LEGACY_CONTRAST_STORAGE_KEY = "a11y-contrast";
 
 const EXAMPLE_SCENARIOS = [
   "A student is being bullied online by classmates. What does our policy require us to do?",
   "A parent requested their child's education records. What are we required to provide, and how quickly?",
   "A teacher needs extended medical leave mid-semester. What does our staff handbook allow?",
+];
+
+const STARTER_PROMPTS = [
+  "A student is being bullied online — what must we do?",
+  "A parent requested education records — what's the deadline?",
+  "A teacher needs extended medical leave mid-semester.",
+];
+
+const NAV_ITEMS: Array<{
+  key: AppView;
+  label: string;
+  shortLabel: string;
+  paths: string[];
+}> = [
+  {
+    key: "assistant",
+    label: "Assistant",
+    shortLabel: "Assistant",
+    paths: ["M12 20h9", "M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"],
+  },
+  {
+    key: "history",
+    label: "History",
+    shortLabel: "History",
+    paths: ["M12 8v4l3 2", "M3.05 11a9 9 0 1 1 .5 4"],
+  },
+  {
+    key: "pinned",
+    label: "Pinned",
+    shortLabel: "Pinned",
+    paths: [
+      "M12 17l-5.878 3.09 1.123-6.545L2.49 8.91l6.572-.955L12 2l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545Z",
+    ],
+  },
+  {
+    key: "library",
+    label: "Library",
+    shortLabel: "Library",
+    paths: [
+      "M4 19.5A2.5 2.5 0 0 1 6.5 17H20",
+      "M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z",
+    ],
+  },
+  {
+    key: "source",
+    label: "Add source",
+    shortLabel: "Add",
+    paths: ["M12 5v14", "M5 12h14"],
+  },
+];
+
+const SOURCE_TABS: Array<{ key: SourceTab; label: string }> = [
+  { key: "import", label: "Import from district website" },
+  { key: "csv", label: "Upload CSV" },
+  { key: "handbook", label: "Upload handbook PDF" },
 ];
 
 function isMessageListNearBottom(
@@ -305,6 +415,89 @@ function isMessageListNearBottom(
 ): boolean {
   const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
   return distanceFromBottom <= thresholdPx;
+}
+
+function RailIcon({ paths }: { paths: string[] }): ReactNode {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {paths.map((path) => (
+        <path key={path} d={path} />
+      ))}
+    </svg>
+  );
+}
+
+function HealthMark({ good }: { good: boolean }): ReactNode {
+  return <span className={`piq-health-mark${good ? " is-good" : " is-warn"}`} aria-hidden="true" />;
+}
+
+function FileDropzone({
+  id,
+  title,
+  hint,
+  accept,
+  glyph,
+  file,
+  onFile,
+}: {
+  id: string;
+  title: string;
+  hint: string;
+  accept: string;
+  glyph: string;
+  file: File | null;
+  onFile: (file: File | null) => void;
+}): ReactNode {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDrop = (event: DragEvent<HTMLLabelElement>): void => {
+    event.preventDefault();
+    setIsDragging(false);
+    const dropped = event.dataTransfer.files?.[0] ?? null;
+    if (dropped) {
+      onFile(dropped);
+    }
+  };
+
+  return (
+    <label
+      htmlFor={id}
+      className={`piq-dropzone${isDragging ? " is-dragging" : ""}${file ? " is-filled" : ""}`}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={handleDrop}
+    >
+      <span className="piq-dropzone-glyph" aria-hidden="true">
+        {glyph}
+      </span>
+      <span className="piq-dropzone-title">{title}</span>
+      <span className="piq-dropzone-hint">{file ? file.name : hint}</span>
+      <input
+        id={id}
+        name="file"
+        type="file"
+        accept={accept}
+        className="piq-dropzone-input"
+        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+          onFile(event.target.files?.[0] ?? null)
+        }
+      />
+    </label>
+  );
 }
 
 export function PolicyAssistantApp() {
@@ -339,9 +532,6 @@ export function PolicyAssistantApp() {
   const [datasets, setDatasets] = useState<PolicyDataset[]>([]);
   const [handbookDocuments, setHandbookDocuments] = useState<HandbookDocument[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState("");
-  const [kbTab, setKbTab] = useState<KnowledgeBaseTab>("policies");
-  const [mobileView, setMobileView] = useState<"knowledge" | "assistant">("assistant");
-  const [selectedDatasetTitleDraft, setSelectedDatasetTitleDraft] = useState("");
   const [scenario, setScenario] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -355,7 +545,6 @@ export function PolicyAssistantApp() {
   const [uploadError, setUploadError] = useState("");
   const [datasetStatus, setDatasetStatus] = useState("");
   const [datasetError, setDatasetError] = useState("");
-  const [isDatasetTitleSaving, setIsDatasetTitleSaving] = useState(false);
   const [busyDatasetId, setBusyDatasetId] = useState("");
   const [studentHandbookStatus, setStudentHandbookStatus] = useState("");
   const [studentHandbookError, setStudentHandbookError] = useState("");
@@ -363,19 +552,35 @@ export function PolicyAssistantApp() {
   const [staffHandbookError, setStaffHandbookError] = useState("");
   const [handbookManagementStatus, setHandbookManagementStatus] = useState("");
   const [handbookManagementError, setHandbookManagementError] = useState("");
-  const [handbookTitleDrafts, setHandbookTitleDrafts] = useState<Record<string, string>>({});
   const [busyHandbookDocumentId, setBusyHandbookDocumentId] = useState("");
   const [chatError, setChatError] = useState("");
   const [conversationError, setConversationError] = useState("");
   const [retrievalDebug, setRetrievalDebug] = useState<RetrievalDebugData | null>(null);
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
-  const [expandedReferenceIds, setExpandedReferenceIds] = useState<Record<string, boolean>>({});
-  const [referenceDetailStates, setReferenceDetailStates] = useState<
-    Record<string, ReferenceDetailState>
-  >({});
+
+  const [view, setView] = useState<AppView>("assistant");
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [activeEvidence, setActiveEvidence] = useState<EvidenceItem | null>(null);
+  const [isEvidenceLoading, setIsEvidenceLoading] = useState(false);
+  const [pinnedAnswers, setPinnedAnswers] = useState<PinnedAnswer[]>([]);
+  const [highContrast, setHighContrast] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const [librarySearchQuery, setLibrarySearchQuery] = useState("");
+  const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>("all");
+  const [showArchived, setShowArchived] = useState(false);
+  const [sourceTab, setSourceTab] = useState<SourceTab>("import");
+  const [setupStep, setSetupStep] = useState(1);
+  const [isSetupDismissed, setIsSetupDismissed] = useState(false);
+  const [datasetPolicies, setDatasetPolicies] = useState<Record<string, LibraryPolicyRecord[]>>({});
+  const [isPolicyIndexLoading, setIsPolicyIndexLoading] = useState(false);
+  const [policyIndexError, setPolicyIndexError] = useState("");
+  const [detailView, setDetailView] = useState<DetailView | null>(null);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState("");
+
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const nearBottomRef = useRef(true);
-  const scenarioInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const activeDatasets = useMemo(
     () => datasets.filter((dataset) => !dataset.archivedAt),
@@ -432,6 +637,33 @@ export function PolicyAssistantApp() {
     [handbookDocuments],
   );
 
+  const librarySources = useMemo(
+    () => buildLibrarySources(datasets, handbookDocuments, busyDatasetId, busyHandbookDocumentId),
+    [datasets, handbookDocuments, busyDatasetId, busyHandbookDocumentId],
+  );
+
+  const activeSourceCount =
+    activeDatasets.length +
+    activeStudentHandbookDocuments.length +
+    activeStaffHandbookDocuments.length;
+
+  const policyIndex = selectedDatasetId ? datasetPolicies[selectedDatasetId] : undefined;
+
+  const librarySearchResults = useMemo(() => {
+    const query = librarySearchQuery.trim().toLowerCase();
+    if (!query || !policyIndex) {
+      return [];
+    }
+
+    return policyIndex
+      .filter((policy) =>
+        `${policy.policyCode} ${policy.policyTitle} ${policy.policySection} ${policy.policyWording}`
+          .toLowerCase()
+          .includes(query),
+      )
+      .slice(0, 40);
+  }, [librarySearchQuery, policyIndex]);
+
   const syncMessageListScrollState = useCallback(() => {
     const messageList = messageListRef.current;
     if (!messageList) {
@@ -446,98 +678,62 @@ export function PolicyAssistantApp() {
     setShowScrollToLatest(hasOverflow && !nearBottom);
   }, []);
 
-  const scrollToLatestMessage = useCallback(
-    (behavior: ScrollBehavior = "smooth") => {
-      const messageList = messageListRef.current;
-      if (!messageList) {
-        return;
-      }
-
-      messageList.scrollTo({ top: messageList.scrollHeight, behavior });
-      nearBottomRef.current = true;
-      setShowScrollToLatest(false);
-    },
-    [],
-  );
-
-  const toggleReferenceDetails = useCallback(async (bubble: RenderedChatBubble) => {
-    if (!bubble.referenceCard) {
+  const scrollToLatestMessage = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const messageList = messageListRef.current;
+    if (!messageList) {
       return;
     }
 
-    let shouldExpand = false;
-    setExpandedReferenceIds((previous) => {
-      const nextExpanded = !previous[bubble.id];
-      shouldExpand = nextExpanded;
-      return {
-        ...previous,
-        [bubble.id]: nextExpanded,
-      };
-    });
-
-    if (!shouldExpand || !bubble.referenceCard.lookup) {
-      return;
-    }
-
-    const existingState = referenceDetailStates[bubble.id];
-    if (existingState?.status === "loading" || existingState?.status === "loaded") {
-      return;
-    }
-
-    setReferenceDetailStates((previous) => ({
-      ...previous,
-      [bubble.id]: {
-        status: "loading",
-      },
-    }));
-
-    try {
-      const query = new URLSearchParams();
-      if (bubble.referenceCard.lookup.kind === "policy") {
-        query.set("kind", "policy");
-        query.set("datasetId", bubble.referenceCard.lookup.datasetId);
-        query.set("policyCode", bubble.referenceCard.lookup.policyCode);
-        query.set("policyTitle", bubble.referenceCard.lookup.policyTitle);
-      } else {
-        query.set("kind", "handbook");
-        query.set("handbookType", bubble.referenceCard.lookup.handbookType);
-        query.set("sectionTitle", bubble.referenceCard.lookup.sectionTitle);
-      }
-
-      const response = await fetch(`/api/policy-assistant/reference?${query.toString()}`, {
-        cache: "no-store",
-      });
-      const payload = (await response.json().catch(() => ({}))) as {
-        detail?: LoadedReferenceDetail;
-        error?: string;
-      };
-
-      if (!response.ok || !payload.detail) {
-        throw new Error(payload.error ?? "Could not load full details.");
-      }
-
-      setReferenceDetailStates((previous) => ({
-        ...previous,
-        [bubble.id]: {
-          status: "loaded",
-          detail: payload.detail,
-        },
-      }));
-    } catch (error) {
-      setReferenceDetailStates((previous) => ({
-        ...previous,
-        [bubble.id]: {
-          status: "error",
-          error: error instanceof Error ? error.message : "Could not load full details.",
-        },
-      }));
-    }
-  }, [referenceDetailStates]);
+    messageList.scrollTo({ top: messageList.scrollHeight, behavior });
+    nearBottomRef.current = true;
+    setShowScrollToLatest(false);
+  }, []);
 
   useEffect(() => {
     void bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    let stored: string | null = null;
+    try {
+      stored = window.localStorage.getItem(HIGH_CONTRAST_STORAGE_KEY);
+      if (stored === null) {
+        stored = window.localStorage.getItem(LEGACY_CONTRAST_STORAGE_KEY) === "high" ? "1" : null;
+      }
+    } catch {
+      stored = null;
+    }
+
+    if (stored === "1") {
+      setHighContrast(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("hc", highContrast);
+    document.documentElement.dataset.contrast = highContrast ? "high" : "default";
+  }, [highContrast]);
+
+  useEffect(() => {
+    const updateOnlineState = (): void => setIsOffline(!window.navigator.onLine);
+    updateOnlineState();
+    window.addEventListener("online", updateOnlineState);
+    window.addEventListener("offline", updateOnlineState);
+    return () => {
+      window.removeEventListener("online", updateOnlineState);
+      window.removeEventListener("offline", updateOnlineState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authUser) {
+      setPinnedAnswers([]);
+      return;
+    }
+
+    setPinnedAnswers(readStoredPins(authUser.id));
+  }, [authUser]);
 
   useEffect(() => {
     if (activeDatasets.length === 0) {
@@ -551,10 +747,6 @@ export function PolicyAssistantApp() {
       setSelectedDatasetId(activeDatasets[0].id);
     }
   }, [activeDatasets, selectedDatasetId]);
-
-  useEffect(() => {
-    setSelectedDatasetTitleDraft(selectedDataset?.title ?? "");
-  }, [selectedDataset?.id, selectedDataset?.title]);
 
   useEffect(() => {
     if (!authUser?.emailVerifiedAt || !selectedDatasetId) {
@@ -587,7 +779,7 @@ export function PolicyAssistantApp() {
       return;
     }
 
-    const handleMessageListScroll = () => {
+    const handleMessageListScroll = (): void => {
       syncMessageListScrollState();
     };
 
@@ -596,11 +788,11 @@ export function PolicyAssistantApp() {
     return () => {
       messageList.removeEventListener("scroll", handleMessageListScroll);
     };
-  }, [syncMessageListScrollState]);
+  }, [syncMessageListScrollState, view]);
 
   useEffect(() => {
-    setExpandedReferenceIds({});
-    setReferenceDetailStates({});
+    setEvidenceOpen(false);
+    setActiveEvidence(null);
   }, [selectedConversationId, selectedDatasetId]);
 
   useEffect(() => {
@@ -616,6 +808,32 @@ export function PolicyAssistantApp() {
 
     syncMessageListScrollState();
   }, [messages, selectedConversationId, scrollToLatestMessage, syncMessageListScrollState]);
+
+  useEffect(() => {
+    if (view !== "library" || !selectedDatasetId || datasetPolicies[selectedDatasetId]) {
+      return;
+    }
+
+    void loadDatasetPolicies(selectedDatasetId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, selectedDatasetId]);
+
+  useEffect(() => {
+    if (activeDatasets.length > 0 && setupStep === 1) {
+      setSetupStep(2);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDatasets.length]);
+
+  useEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) {
+      return;
+    }
+
+    composer.style.height = "auto";
+    composer.style.height = `${Math.min(composer.scrollHeight, 180)}px`;
+  }, [scenario, view]);
 
   async function bootstrap(): Promise<void> {
     setIsAuthLoading(true);
@@ -771,16 +989,17 @@ export function PolicyAssistantApp() {
       setUploadError("");
       setDatasetStatus("");
       setDatasetError("");
-      setSelectedDatasetTitleDraft("");
       setStudentHandbookError("");
       setStudentHandbookStatus("");
       setStaffHandbookError("");
       setStaffHandbookStatus("");
       setHandbookManagementStatus("");
       setHandbookManagementError("");
-      setHandbookTitleDrafts({});
       setChatError("");
       setConversationError("");
+      setView("assistant");
+      setSetupStep(1);
+      setIsSetupDismissed(false);
 
       if (payload.user.emailVerifiedAt) {
         await loadWorkspaceData();
@@ -987,7 +1206,7 @@ export function PolicyAssistantApp() {
     }
 
     setIsImportingPolicies(true);
-    setPolicyImportStatus("Scraping policies and building an import preview...");
+    setPolicyImportStatus("Scanning the district site and building an import preview...");
 
     try {
       const response = await fetch("/api/policy-assistant/import-policies", {
@@ -1039,7 +1258,7 @@ export function PolicyAssistantApp() {
     }
 
     setPolicyImportError("");
-    setPolicyImportStatus("Importing previewed policies into your workspace...");
+    setPolicyImportStatus("Importing previewed policies into your Library...");
     setIsCommittingPolicyImport(true);
 
     try {
@@ -1085,6 +1304,10 @@ export function PolicyAssistantApp() {
       setPolicyImportStatus(
         `Imported ${payload.dataset.policyCount} policies for ${payload.dataset.districtName}.`,
       );
+
+      if (!isSetupActive) {
+        setView("library");
+      }
     } catch (error) {
       setPolicyImportStatus("");
       setPolicyImportError(error instanceof Error ? error.message : "Policy import failed.");
@@ -1097,6 +1320,26 @@ export function PolicyAssistantApp() {
     setPolicyImportPreview(null);
     setPolicyImportStatus("");
     setPolicyImportError("");
+  };
+
+  const handlePolicyPreviewDownload = (): void => {
+    if (!policyImportPreview) {
+      return;
+    }
+
+    const rows = policyImportPreview.sampleRows.map((row) =>
+      [row.policySection, row.policyCode, row.policyTitle, row.policyWordingPreview]
+        .map((value) => `"${(value ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = ["Section,Code,Policy Title,Policy Wording", ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = policyImportPreview.filename || "policy-preview.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleUpload = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -1169,41 +1412,30 @@ export function PolicyAssistantApp() {
     }
   };
 
-  const handleDatasetTitleSave = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-
-    if (!selectedDataset) {
-      setDatasetError("Select an active dataset before saving a title.");
-      return;
-    }
-
-    const title = selectedDatasetTitleDraft.trim();
-    if (!title) {
-      setDatasetError("Dataset title is required.");
+  const handleDatasetRename = async (dataset: PolicyDataset): Promise<void> => {
+    const nextTitle = window.prompt("Rename this source", dataset.title)?.trim();
+    if (!nextTitle || nextTitle === dataset.title) {
       return;
     }
 
     setDatasetError("");
     setDatasetStatus("");
-    setIsDatasetTitleSaving(true);
+    setBusyDatasetId(dataset.id);
 
     try {
-      const dataset = await patchDataset(selectedDataset.id, { title });
+      const updatedDataset = await patchDataset(dataset.id, { title: nextTitle });
       setDatasets((previous) =>
-        previous.map((item) => (item.id === dataset.id ? dataset : item)),
+        previous.map((item) => (item.id === updatedDataset.id ? updatedDataset : item)),
       );
-      setDatasetStatus(`Saved title for ${dataset.title}.`);
+      setDatasetStatus(`Saved title for ${updatedDataset.title}.`);
     } catch (error) {
       setDatasetError(error instanceof Error ? error.message : "Could not save dataset title.");
     } finally {
-      setIsDatasetTitleSaving(false);
+      setBusyDatasetId("");
     }
   };
 
-  const handleDatasetArchive = async (
-    dataset: PolicyDataset,
-    archived: boolean,
-  ): Promise<void> => {
+  const handleDatasetArchive = async (dataset: PolicyDataset, archived: boolean): Promise<void> => {
     setDatasetError("");
     setDatasetStatus("");
     setBusyDatasetId(dataset.id);
@@ -1215,8 +1447,8 @@ export function PolicyAssistantApp() {
       );
       setDatasetStatus(
         archived
-          ? `Archived ${updatedDataset.title}.`
-          : `Restored ${updatedDataset.title} to active datasets.`,
+          ? `Archived ${updatedDataset.title}. It is excluded from answers until restored.`
+          : `Restored ${updatedDataset.title} to active sources.`,
       );
     } catch (error) {
       setDatasetError(error instanceof Error ? error.message : "Could not update dataset archive.");
@@ -1227,7 +1459,7 @@ export function PolicyAssistantApp() {
 
   const handleDatasetDelete = async (dataset: PolicyDataset): Promise<void> => {
     const confirmed = window.confirm(
-      `Delete "${dataset.title}" permanently? Its policies and saved conversations will be removed.`,
+      `Delete "${dataset.title}" permanently? Its policies, embeddings, and saved conversations will be removed and cannot be recovered.`,
     );
     if (!confirmed) {
       return;
@@ -1258,6 +1490,11 @@ export function PolicyAssistantApp() {
       }
 
       setDatasets((previous) => previous.filter((item) => item.id !== dataset.id));
+      setDatasetPolicies((previous) => {
+        const next = { ...previous };
+        delete next[dataset.id];
+        return next;
+      });
       setDatasetStatus(`Deleted ${dataset.title}.`);
     } catch (error) {
       setDatasetError(error instanceof Error ? error.message : "Could not delete dataset.");
@@ -1270,16 +1507,13 @@ export function PolicyAssistantApp() {
     datasetId: string,
     updates: { title?: string; archived?: boolean },
   ): Promise<PolicyDataset> => {
-    const response = await fetch(
-      `/api/policy-assistant/datasets/${encodeURIComponent(datasetId)}`,
-      {
-        method: "PATCH",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(updates),
+    const response = await fetch(`/api/policy-assistant/datasets/${encodeURIComponent(datasetId)}`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
       },
-    );
+      body: JSON.stringify(updates),
+    });
 
     const payload = (await response.json().catch(() => ({}))) as {
       dataset?: PolicyDataset;
@@ -1305,20 +1539,13 @@ export function PolicyAssistantApp() {
 
       const selectedFile = handbookType === "staff" ? staffHandbookFile : studentHandbookFile;
       const handbookLabel = handbookType === "staff" ? "staff handbook" : "student handbook";
-      const setError =
-        handbookType === "staff" ? setStaffHandbookError : setStudentHandbookError;
-      const setStatus =
-        handbookType === "staff" ? setStaffHandbookStatus : setStudentHandbookStatus;
-      const setFile =
-        handbookType === "staff" ? setStaffHandbookFile : setStudentHandbookFile;
-      const handbookTitle =
-        handbookType === "staff" ? staffHandbookTitle : studentHandbookTitle;
-      const setTitle =
-        handbookType === "staff" ? setStaffHandbookTitle : setStudentHandbookTitle;
+      const setError = handbookType === "staff" ? setStaffHandbookError : setStudentHandbookError;
+      const setStatus = handbookType === "staff" ? setStaffHandbookStatus : setStudentHandbookStatus;
+      const setFile = handbookType === "staff" ? setStaffHandbookFile : setStudentHandbookFile;
+      const handbookTitle = handbookType === "staff" ? staffHandbookTitle : studentHandbookTitle;
+      const setTitle = handbookType === "staff" ? setStaffHandbookTitle : setStudentHandbookTitle;
       const setUploading =
-        handbookType === "staff"
-          ? setIsStaffHandbookUploading
-          : setIsStudentHandbookUploading;
+        handbookType === "staff" ? setIsStaffHandbookUploading : setIsStudentHandbookUploading;
 
       setError("");
       setStatus("");
@@ -1385,15 +1612,9 @@ export function PolicyAssistantApp() {
       }
     };
 
-  const handleHandbookTitleSave = async (
-    event: FormEvent<HTMLFormElement>,
-    document: HandbookDocument,
-  ): Promise<void> => {
-    event.preventDefault();
-
-    const title = (handbookTitleDrafts[document.id] ?? document.title).trim();
-    if (!title) {
-      setHandbookManagementError("Handbook title is required.");
+  const handleHandbookRename = async (document: HandbookDocument): Promise<void> => {
+    const nextTitle = window.prompt("Rename this source", document.title)?.trim();
+    if (!nextTitle || nextTitle === document.title) {
       return;
     }
 
@@ -1402,14 +1623,10 @@ export function PolicyAssistantApp() {
     setBusyHandbookDocumentId(document.id);
 
     try {
-      const updatedDocument = await patchHandbookDocument(document.id, { title });
+      const updatedDocument = await patchHandbookDocument(document.id, { title: nextTitle });
       setHandbookDocuments((previous) =>
         previous.map((item) => (item.id === updatedDocument.id ? updatedDocument : item)),
       );
-      setHandbookTitleDrafts((previous) => ({
-        ...previous,
-        [updatedDocument.id]: updatedDocument.title,
-      }));
       setHandbookManagementStatus(`Saved title for ${updatedDocument.title}.`);
     } catch (error) {
       setHandbookManagementError(
@@ -1449,7 +1666,7 @@ export function PolicyAssistantApp() {
 
   const handleHandbookDelete = async (document: HandbookDocument): Promise<void> => {
     const confirmed = window.confirm(
-      `Delete "${document.title}" permanently? Its extracted handbook excerpts will be removed.`,
+      `Delete "${document.title}" permanently? Its extracted excerpts and embeddings will be removed and cannot be recovered.`,
     );
     if (!confirmed) {
       return;
@@ -1522,8 +1739,7 @@ export function PolicyAssistantApp() {
     return payload.document;
   };
 
-  const handleScenarioSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
+  const sendScenario = async (text: string): Promise<void> => {
     setChatError("");
 
     if (!authUser) {
@@ -1537,13 +1753,17 @@ export function PolicyAssistantApp() {
     }
 
     if (!selectedDatasetId) {
-      setChatError("Upload a CSV and select a dataset first.");
+      setChatError("Add a policy source in the Library before asking a question.");
       return;
     }
 
-    const trimmedScenario = scenario.trim();
+    const trimmedScenario = text.trim();
     if (!trimmedScenario) {
       setChatError("Describe a scenario before sending.");
+      return;
+    }
+
+    if (isSending) {
       return;
     }
 
@@ -1620,20 +1840,36 @@ export function PolicyAssistantApp() {
     }
   };
 
+  const handleScenarioSubmit = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    void sendScenario(scenario);
+  };
+
+  const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void sendScenario(scenario);
+    }
+  };
+
   const handleStartNewConversation = (): void => {
     setSelectedConversationId("");
     setMessages([]);
+    setScenario("");
     setChatError("");
     setConversationError("");
     setRetrievalDebug(null);
+    setEvidenceOpen(false);
+    setActiveEvidence(null);
+    composerRef.current?.focus();
   };
 
-  const handleConversationDelete = async (): Promise<void> => {
-    const conversation = conversations.find((item) => item.id === selectedConversationId);
-    if (!conversation) {
-      return;
-    }
+  const handleConversationOpen = (conversationId: string): void => {
+    setSelectedConversationId(conversationId);
+    setView("assistant");
+  };
 
+  const handleConversationDelete = async (conversation: ConversationSummary): Promise<void> => {
     const confirmed = window.confirm(
       `Delete the conversation "${conversation.title}" permanently? Its questions and answers will be removed and cannot be recovered.`,
     );
@@ -1648,7 +1884,7 @@ export function PolicyAssistantApp() {
         `/api/policy-assistant/conversations/${encodeURIComponent(conversation.id)}`,
         { method: "DELETE" },
       );
-      const payload = await response.json().catch(() => ({}));
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         throw new Error(
           typeof payload.error === "string" ? payload.error : "Could not delete conversation.",
@@ -1656,10 +1892,12 @@ export function PolicyAssistantApp() {
       }
 
       setConversations((previous) => previous.filter((item) => item.id !== conversation.id));
-      setSelectedConversationId("");
-      setMessages([]);
-      setChatError("");
-      setRetrievalDebug(null);
+      if (selectedConversationId === conversation.id) {
+        setSelectedConversationId("");
+        setMessages([]);
+        setChatError("");
+        setRetrievalDebug(null);
+      }
     } catch (error) {
       setConversationError(
         error instanceof Error ? error.message : "Could not delete conversation.",
@@ -1667,382 +1905,492 @@ export function PolicyAssistantApp() {
     }
   };
 
-  const handleExamplePrompt = (text: string): void => {
-    setScenario(text);
-    setChatError("");
-    scenarioInputRef.current?.focus();
+  const handleNavigate = (nextView: AppView): void => {
+    if (nextView === "assistant" && view === "assistant") {
+      handleStartNewConversation();
+      return;
+    }
+
+    setView(nextView);
   };
+
+  const toggleHighContrast = (): void => {
+    setHighContrast((previous) => {
+      const next = !previous;
+      try {
+        window.localStorage.setItem(HIGH_CONTRAST_STORAGE_KEY, next ? "1" : "0");
+        window.localStorage.setItem(LEGACY_CONTRAST_STORAGE_KEY, next ? "high" : "default");
+      } catch {
+        // Ignore persistence failures.
+      }
+      return next;
+    });
+  };
+
+  const openEvidence = async (evidence: EvidenceItem): Promise<void> => {
+    setActiveEvidence(evidence);
+    setEvidenceOpen(true);
+
+    if (evidence.quote || !evidence.lookup) {
+      return;
+    }
+
+    setIsEvidenceLoading(true);
+    try {
+      const detail = await fetchReferenceDetail(evidence.lookup);
+      setActiveEvidence((previous) =>
+        previous && previous.id === evidence.id
+          ? {
+              ...previous,
+              quote: truncateReferenceSummary(detail.bodyText, 320),
+              meta: previous.meta || detail.metadata.map((field) => field.value).join(" · "),
+            }
+          : previous,
+      );
+    } catch (error) {
+      setActiveEvidence((previous) =>
+        previous && previous.id === evidence.id
+          ? {
+              ...previous,
+              quote:
+                error instanceof Error
+                  ? error.message
+                  : "The source text could not be loaded right now.",
+            }
+          : previous,
+      );
+    } finally {
+      setIsEvidenceLoading(false);
+    }
+  };
+
+  const openReferenceDetail = async (lookup: ReferenceLookup): Promise<void> => {
+    setIsEvidenceLoading(true);
+    try {
+      const detail = await fetchReferenceDetail(lookup);
+      const metadata = detail.metadata;
+      setDetailView({
+        kind: lookup.kind,
+        code:
+          lookup.kind === "policy"
+            ? lookup.policyCode || findMetadataValue(metadata, "Policy Code")
+            : formatHandbookTypeLabel(lookup.handbookType),
+        title:
+          lookup.kind === "policy"
+            ? findMetadataValue(metadata, "Policy Title") || lookup.policyTitle
+            : lookup.sectionTitle,
+        metadata,
+        bodyText: detail.bodyText,
+        relatedText:
+          lookup.kind === "policy"
+            ? selectedDataset?.title ?? ""
+            : "Handbook guidance excerpt from your uploaded document.",
+      });
+      setView("policy");
+    } catch (error) {
+      setChatError(
+        error instanceof Error ? error.message : "Could not open the full source right now.",
+      );
+    } finally {
+      setIsEvidenceLoading(false);
+    }
+  };
+
+  const openLibraryPolicy = (policy: LibraryPolicyRecord): void => {
+    setDetailView({
+      kind: "policy",
+      code: policy.policyCode,
+      title: policy.policyTitle || "Untitled policy",
+      metadata: [
+        buildReferenceField("Section", policy.policySection),
+        buildReferenceField("Adopted", policy.adoptedDate),
+        buildReferenceField("Revised", policy.revisedDate),
+        buildReferenceField("Status", policy.policyStatus),
+        buildReferenceField("Dataset", selectedDataset?.title),
+      ].filter(isReferenceField),
+      bodyText: policy.policyWording,
+      relatedText: selectedDataset?.title ?? "",
+    });
+    setView("policy");
+  };
+
+  const handleCopyAnswer = async (message: ChatMessage): Promise<void> => {
+    try {
+      await window.navigator.clipboard.writeText(message.content);
+      setCopiedMessageId(message.id);
+      window.setTimeout(() => setCopiedMessageId(""), 2000);
+    } catch {
+      setChatError("Your browser blocked clipboard access.");
+    }
+  };
+
+  const handleTogglePin = (
+    message: ChatMessage,
+    question: string,
+    summary: string,
+    chips: EvidenceItem[],
+  ): void => {
+    if (!authUser) {
+      return;
+    }
+
+    setPinnedAnswers((previous) => {
+      const isPinned = previous.some((pin) => pin.id === message.id);
+      const next = isPinned
+        ? previous.filter((pin) => pin.id !== message.id)
+        : [
+            {
+              id: message.id,
+              title: truncateReferenceSummary(question || summary, 90),
+              body: truncateReferenceSummary(summary, 200),
+              meta: [
+                chips
+                  .slice(0, 2)
+                  .map((chip) => chip.title)
+                  .join(" + "),
+                `pinned ${formatShortDate(new Date().toISOString())}`,
+              ]
+                .filter(Boolean)
+                .join(" · "),
+              pinnedAt: new Date().toISOString(),
+              conversationId: selectedConversationId,
+            },
+            ...previous,
+          ];
+
+      writeStoredPins(authUser.id, next);
+      return next;
+    });
+  };
+
+  const handleUnpin = (pinId: string): void => {
+    if (!authUser) {
+      return;
+    }
+
+    setPinnedAnswers((previous) => {
+      const next = previous.filter((pin) => pin.id !== pinId);
+      writeStoredPins(authUser.id, next);
+      return next;
+    });
+  };
+
+  async function fetchReferenceDetail(lookup: ReferenceLookup): Promise<LoadedReferenceDetail> {
+    const query = new URLSearchParams();
+    if (lookup.kind === "policy") {
+      query.set("kind", "policy");
+      query.set("datasetId", lookup.datasetId);
+      query.set("policyCode", lookup.policyCode);
+      query.set("policyTitle", lookup.policyTitle);
+    } else {
+      query.set("kind", "handbook");
+      query.set("handbookType", lookup.handbookType);
+      query.set("sectionTitle", lookup.sectionTitle);
+    }
+
+    const response = await fetch(`/api/policy-assistant/reference?${query.toString()}`, {
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      detail?: LoadedReferenceDetail;
+      error?: string;
+    };
+
+    if (!response.ok || !payload.detail) {
+      throw new Error(payload.error ?? "Could not load the full source.");
+    }
+
+    return payload.detail;
+  }
+
+  async function loadDatasetPolicies(datasetId: string): Promise<void> {
+    setIsPolicyIndexLoading(true);
+    setPolicyIndexError("");
+
+    try {
+      const response = await fetch(
+        `/api/policy-assistant/datasets/${encodeURIComponent(datasetId)}/policies`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        policies?: LibraryPolicyRecord[];
+        error?: string;
+      };
+
+      if (response.status === 401) {
+        clearSessionState();
+        return;
+      }
+
+      if (!response.ok || !Array.isArray(payload.policies)) {
+        throw new Error(payload.error ?? "Could not load policies for search.");
+      }
+
+      setDatasetPolicies((previous) => ({ ...previous, [datasetId]: payload.policies ?? [] }));
+    } catch (error) {
+      setPolicyIndexError(
+        error instanceof Error ? error.message : "Could not load policies for search.",
+      );
+    } finally {
+      setIsPolicyIndexLoading(false);
+    }
+  }
+
+  const districtName = authUser?.districtName?.trim() || "your district";
+  const firstName = deriveFirstName(authUser?.email ?? "");
+  const initials = deriveInitials(authUser?.email ?? "", authUser?.districtName ?? "");
+  const isSetupActive =
+    Boolean(authUser?.emailVerifiedAt) && activeDatasets.length === 0 && !isSetupDismissed;
 
   if (isAuthLoading) {
     return (
-      <section
-        className="panel assistant-auth-panel assistant-panel assistant-panel-centered assistant-loading-panel"
-        role="status"
-        aria-live="polite"
-      >
-        <span className="assistant-spinner" aria-hidden="true" />
-        <h2 className="section-title">Loading workspace</h2>
-        <p className="small-muted">Checking your account session&hellip;</p>
-      </section>
+      <div className="piq-boot" role="status" aria-live="polite">
+        <span className="piq-boot-mark" aria-hidden="true">
+          P
+        </span>
+        <span className="piq-spinner" aria-hidden="true" />
+        <p>Checking your workspace session&hellip;</p>
+      </div>
     );
   }
 
+  /* ---------------------------------------------------------------- Auth */
+
   if (!authUser) {
+    const authTitle = authTitleForMode(authMode);
+    const showPassword = authMode !== "forgot";
+    const showEmail = authMode !== "reset";
+
     return (
-      <section className="panel assistant-auth-panel assistant-panel assistant-panel-centered">
-        <div className="assistant-panel-header">
-          <div>
-            <h2 className="section-title">{authTitleForMode(authMode)}</h2>
-            <p className="assistant-panel-kicker">
-              Secure workspace access with account-level data isolation.
+      <div className="piq-split">
+        <aside className="piq-split-brand">
+          <span className="piq-brand">
+            <span className="piq-brand-mark" aria-hidden="true">
+              P
+            </span>
+            <span className="piq-brand-word">Policy to Action</span>
+          </span>
+          <div className="piq-split-pitch">
+            <h1>Every answer, grounded in your district&rsquo;s own policies.</h1>
+            <p>
+              Add your board policies and handbooks once, then ask scenario questions and get cited,
+              actionable guidance.
             </p>
           </div>
-        </div>
+          <p className="piq-split-footnote">
+            Private to your district · Sources cited on every answer
+          </p>
+        </aside>
 
-        <form className="assistant-auth-form" onSubmit={handleAuthSubmit}>
-          {authMode !== "reset" ? (
-            <>
-              <label htmlFor="auth-email" className="policy-label">
-                Email
-              </label>
-              <input
-                id="auth-email"
-                type="email"
-                autoComplete="email"
-                value={authEmail}
-                onChange={(event) => setAuthEmail(event.target.value)}
-                required
-              />
-            </>
-          ) : (
-            <p className="small-muted">Reset token detected. Enter a new password below.</p>
-          )}
+        <div className="piq-split-body">
+          <section className="piq-auth-card">
+            <h2>{authTitle}</h2>
 
-          {authMode !== "forgot" ? (
-            <>
+            <form className="piq-form" onSubmit={handleAuthSubmit}>
               {authMode === "signup" ? (
-                <>
-                  <label htmlFor="auth-district-name" className="policy-label">
-                    District Name
-                  </label>
+                <div className="piq-field">
+                  <label htmlFor="auth-district-name">District name</label>
                   <input
                     id="auth-district-name"
                     type="text"
                     autoComplete="organization"
                     value={authDistrictName}
                     onChange={(event) => setAuthDistrictName(event.target.value)}
-                    required
                     placeholder="Example: West Lafayette Community School Corporation"
+                    required
                   />
-                </>
+                </div>
               ) : null}
 
-              <label htmlFor="auth-password" className="policy-label">
-                Password
-              </label>
-              <input
-                id="auth-password"
-                type="password"
-                autoComplete={authMode === "signup" ? "new-password" : "current-password"}
-                value={authPassword}
-                onChange={(event) => setAuthPassword(event.target.value)}
-                required
-                placeholder={
-                  authMode === "reset" ? "Enter your new password" : "Enter your password"
-                }
-              />
-            </>
-          ) : null}
+              {showEmail ? (
+                <div className="piq-field">
+                  <label htmlFor="auth-email">Work email</label>
+                  <input
+                    id="auth-email"
+                    type="email"
+                    autoComplete="email"
+                    value={authEmail}
+                    onChange={(event) => setAuthEmail(event.target.value)}
+                    placeholder="you@district.org"
+                    required
+                  />
+                </div>
+              ) : (
+                <p className="piq-note">Reset link verified. Choose a new password below.</p>
+              )}
 
-          <button className="action-button policy-button" type="submit" disabled={isAuthenticating}>
-            {isAuthenticating ? "Please wait..." : authButtonLabel(authMode)}
-          </button>
-        </form>
+              {showPassword ? (
+                <div className="piq-field">
+                  <label htmlFor="auth-password">Password</label>
+                  <input
+                    id="auth-password"
+                    type="password"
+                    autoComplete={
+                      authMode === "signup" || authMode === "reset"
+                        ? "new-password"
+                        : "current-password"
+                    }
+                    value={authPassword}
+                    onChange={(event) => setAuthPassword(event.target.value)}
+                    placeholder={
+                      authMode === "reset" ? "Enter your new password" : "Enter your password"
+                    }
+                    required
+                  />
+                </div>
+              ) : null}
 
-        <div className="assistant-auth-links">
-          {authMode !== "signup" ? (
-            <button
-              type="button"
-              className="assistant-auth-toggle"
-              onClick={() => {
-                setAuthMode("signup");
-                setAuthError("");
-                setAuthInfo("");
-                setAuthDistrictName("");
-              }}
-            >
-              Need an account? Create one
-            </button>
-          ) : null}
+              {authMode === "forgot" ? (
+                <p className="piq-note">
+                  We&rsquo;ll email a one-time reset link. It expires in 60 minutes.
+                </p>
+              ) : null}
 
-          {authMode !== "login" ? (
-            <button
-              type="button"
-              className="assistant-auth-toggle"
-              onClick={() => {
-                setAuthMode("login");
-                setAuthError("");
-                setAuthInfo("");
-                setAuthDistrictName("");
-              }}
-            >
-              Back to Sign In
-            </button>
-          ) : null}
+              <button
+                type="submit"
+                className="piq-button piq-button-primary piq-button-block"
+                data-tip={authButtonLabel(authMode)}
+                disabled={isAuthenticating}
+              >
+                {isAuthenticating ? "Please wait..." : authButtonLabel(authMode)}
+              </button>
+            </form>
 
-          {authMode === "login" ? (
-            <button
-              type="button"
-              className="assistant-auth-toggle"
-              onClick={() => {
-                setAuthMode("forgot");
-                setAuthPassword("");
-                setAuthError("");
-                setAuthInfo("");
-              }}
-            >
-              Forgot your password?
-            </button>
-          ) : null}
+            {authMode === "signup" ? (
+              <p className="piq-note piq-note-tight">
+                You&rsquo;ll verify your email before uploading data — your district&rsquo;s dataset
+                stays private to your account.
+              </p>
+            ) : null}
 
-          {authMode === "login" ? (
-            <button
-              type="button"
-              className="assistant-auth-toggle"
-              onClick={handleResendVerificationForEnteredEmail}
-              disabled={isResendingVerification}
-            >
-              {isResendingVerification ? "Sending..." : "Resend Verification"}
-            </button>
-          ) : null}
+            <p className="piq-auth-links">
+              {authMode !== "forgot" ? (
+                <button
+                  type="button"
+                  className="piq-link"
+                  onClick={() => {
+                    setAuthMode("forgot");
+                    setAuthPassword("");
+                    setAuthError("");
+                    setAuthInfo("");
+                  }}
+                >
+                  Forgot password?
+                </button>
+              ) : null}
+              {authMode !== "signup" ? (
+                <button
+                  type="button"
+                  className="piq-link"
+                  onClick={() => {
+                    setAuthMode("signup");
+                    setAuthError("");
+                    setAuthInfo("");
+                    setAuthDistrictName("");
+                  }}
+                >
+                  Create a workspace
+                </button>
+              ) : null}
+              {authMode !== "login" ? (
+                <button
+                  type="button"
+                  className="piq-link"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setAuthError("");
+                    setAuthInfo("");
+                    setAuthDistrictName("");
+                  }}
+                >
+                  Sign in
+                </button>
+              ) : null}
+              {authMode === "login" ? (
+                <button
+                  type="button"
+                  className="piq-link"
+                  onClick={() => void handleResendVerificationForEnteredEmail()}
+                  disabled={isResendingVerification}
+                >
+                  {isResendingVerification ? "Sending..." : "Resend verification"}
+                </button>
+              ) : null}
+            </p>
+
+            <div className="piq-feedback" aria-live="polite">
+              {authInfo ? <p className="piq-status">{authInfo}</p> : null}
+              {authError ? <p className="piq-error">{authError}</p> : null}
+            </div>
+          </section>
         </div>
-
-        <div className="assistant-feedback-stack" aria-live="polite">
-          {authInfo ? <p className="policy-status">{authInfo}</p> : null}
-          {authError ? <p className="policy-error">{authError}</p> : null}
-        </div>
-      </section>
+      </div>
     );
   }
 
   if (!authUser.emailVerifiedAt) {
     return (
-      <section className="panel assistant-auth-panel assistant-panel assistant-panel-centered">
-        <div className="assistant-panel-header">
-          <div>
-            <h2 className="section-title">Verify Your Email</h2>
-            <p className="assistant-panel-kicker">
-              Confirm your address to activate uploads, chat, and saved history.
+      <div className="piq-split">
+        <aside className="piq-split-brand">
+          <span className="piq-brand">
+            <span className="piq-brand-mark" aria-hidden="true">
+              P
+            </span>
+            <span className="piq-brand-word">Policy to Action</span>
+          </span>
+          <div className="piq-split-pitch">
+            <h1>One more step before your workspace opens.</h1>
+            <p>
+              Verifying your address keeps your district&rsquo;s policy data scoped to your account
+              alone.
             </p>
           </div>
-          <button type="button" className="assistant-logout-button" onClick={handleLogout}>
-            Sign Out
-          </button>
+          <p className="piq-split-footnote">
+            Private to your district · Sources cited on every answer
+          </p>
+        </aside>
+
+        <div className="piq-split-body">
+          <section className="piq-auth-card">
+            <h2>Verify your email</h2>
+            <p className="piq-note">
+              We sent a verification link to <strong>{authUser.email}</strong>. Open it to activate
+              uploads, the assistant, and saved history.
+            </p>
+            <button
+              type="button"
+              className="piq-button piq-button-primary piq-button-block"
+              onClick={() => void handleResendVerification()}
+              disabled={isResendingVerification}
+              data-tip="Resend verification email"
+            >
+              {isResendingVerification ? "Sending..." : "Resend verification email"}
+            </button>
+            <p className="piq-auth-links">
+              <button type="button" className="piq-link" onClick={() => void handleLogout()}>
+                Sign out
+              </button>
+            </p>
+            <div className="piq-feedback" aria-live="polite">
+              {authInfo ? <p className="piq-status">{authInfo}</p> : null}
+              {authError ? <p className="piq-error">{authError}</p> : null}
+            </div>
+          </section>
         </div>
-        <p className="small-muted assistant-identity">Signed in as {authUser.email}</p>
-        <button
-          type="button"
-          className="action-button policy-button"
-          onClick={handleResendVerification}
-          disabled={isResendingVerification}
-        >
-          {isResendingVerification ? "Sending..." : "Resend Verification Email"}
-        </button>
-        <div className="assistant-feedback-stack" aria-live="polite">
-          {authInfo ? <p className="policy-status">{authInfo}</p> : null}
-          {authError ? <p className="policy-error">{authError}</p> : null}
-        </div>
-      </section>
+      </div>
     );
   }
 
-  const renderReferenceOrBody = (bubble: RenderedChatBubble) => {
-    if (!bubble.referenceCard) {
-      return <div className="assistant-message-body">{bubble.content}</div>;
-    }
+  /* ------------------------------------------------------- Shared blocks */
 
-    const referenceCard = bubble.referenceCard;
-    const detailState = referenceDetailStates[bubble.id];
-    const detailMetadata =
-      detailState?.status === "loaded" && detailState.detail
-        ? detailState.detail.metadata.filter(
-            (field) =>
-              !referenceCard.metadata.some(
-                (existingField) =>
-                  existingField.label === field.label &&
-                  existingField.value === field.value,
-              ),
-          )
-        : [];
-
-    return (
-      <div className="assistant-reference-card">
-        <h3 className="assistant-reference-title">{referenceCard.title}</h3>
-        <p className="assistant-reference-summary">{referenceCard.compactSummary}</p>
-        {referenceCard.lookup ? (
-          <button
-            type="button"
-            className="assistant-reference-toggle"
-            onClick={() => {
-              void toggleReferenceDetails(bubble);
-            }}
-          >
-            {expandedReferenceIds[bubble.id] ? "Hide details" : referenceCard.detailButtonLabel}
-          </button>
-        ) : null}
-
-        {expandedReferenceIds[bubble.id] ? (
-          <div className="assistant-reference-details">
-            <div className="assistant-reference-meta-grid">
-              {referenceCard.metadata.map((field) => (
-                <div key={`${bubble.id}-${field.label}`} className="assistant-reference-meta-item">
-                  <p className="assistant-reference-meta-label">{field.label}</p>
-                  <p className="assistant-reference-meta-value">{field.value}</p>
-                </div>
-              ))}
-              {detailMetadata.map((field) => (
-                <div
-                  key={`${bubble.id}-detail-${field.label}`}
-                  className="assistant-reference-meta-item"
-                >
-                  <p className="assistant-reference-meta-label">{field.label}</p>
-                  <p className="assistant-reference-meta-value">{field.value}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="assistant-reference-detail-block">
-              <p className="assistant-reference-detail-label">{referenceCard.summaryLabel}</p>
-              <p className="assistant-reference-detail-text">{referenceCard.summary}</p>
-            </div>
-
-            {detailState?.status === "loading" ? (
-              <p className="assistant-reference-loading">Loading full text...</p>
-            ) : null}
-
-            {detailState?.status === "error" ? (
-              <p className="assistant-reference-error">
-                {detailState.error ?? "Could not load the full text right now."}
-              </p>
-            ) : null}
-
-            {detailState?.status === "loaded" && detailState.detail ? (
-              <div className="assistant-reference-detail-block">
-                <p className="assistant-reference-detail-label">
-                  {detailState.detail.bodyLabel ?? referenceCard.fullTextLabel}
-                </p>
-                <div className="assistant-reference-detail-copy">{detailState.detail.bodyText}</div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    );
-  };
-
-  const knowledgeBaseHint =
-    activeDatasets.length === 0
-      ? "Start by adding your district policies."
-      : activeStudentHandbookDocuments.length === 0
-        ? "Next: add your student handbook so guidance reflects student rules."
-        : activeStaffHandbookDocuments.length === 0
-          ? "Next: add your staff handbook to cover employee scenarios."
-          : "Your knowledge base is ready — ask a scenario question in the Policy Assistant.";
-
-  return (
-    <section className="assistant-layout assistant-layout-pro" data-mobile-view={mobileView}>
-      <div className="workspace-bar">
-        <div className="workspace-bar-identity">
-          <strong>{authUser.email}</strong>
-          <span>District: {authUser.districtName || "Not set"}</span>
-        </div>
-        <button type="button" className="assistant-logout-button" onClick={handleLogout}>
-          Sign Out
-        </button>
-      </div>
-
-      <div className="mobile-view-switch" role="group" aria-label="Choose panel">
-        <button
-          type="button"
-          className={`mobile-view-btn${mobileView === "knowledge" ? " is-active" : ""}`}
-          aria-pressed={mobileView === "knowledge"}
-          onClick={() => setMobileView("knowledge")}
-        >
-          Knowledge Base
-        </button>
-        <button
-          type="button"
-          className={`mobile-view-btn${mobileView === "assistant" ? " is-active" : ""}`}
-          aria-pressed={mobileView === "assistant"}
-          onClick={() => setMobileView("assistant")}
-        >
-          Assistant
-        </button>
-      </div>
-
-      <section className="panel assistant-upload-panel assistant-panel">
-        <div className="assistant-panel-header">
-          <div>
-            <h2 className="section-title">District Knowledge Base</h2>
-            <p className="assistant-panel-kicker">
-              Upload and manage district policies plus student and staff handbook guidance.
-            </p>
-          </div>
-        </div>
-
-        <div className="kb-tabs" role="tablist" aria-label="Knowledge base sections">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={kbTab === "policies"}
-            className={`kb-tab${kbTab === "policies" ? " is-active" : ""}`}
-            onClick={() => setKbTab("policies")}
-          >
-            <span
-              className={`kb-tab-status${activeDatasets.length > 0 ? " is-done" : ""}`}
-              aria-hidden="true"
-            />
-            Policies
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={kbTab === "student"}
-            className={`kb-tab${kbTab === "student" ? " is-active" : ""}`}
-            onClick={() => setKbTab("student")}
-          >
-            <span
-              className={`kb-tab-status${activeStudentHandbookDocuments.length > 0 ? " is-done" : ""}`}
-              aria-hidden="true"
-            />
-            Student Handbook
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={kbTab === "staff"}
-            className={`kb-tab${kbTab === "staff" ? " is-active" : ""}`}
-            onClick={() => setKbTab("staff")}
-          >
-            <span
-              className={`kb-tab-status${activeStaffHandbookDocuments.length > 0 ? " is-done" : ""}`}
-              aria-hidden="true"
-            />
-            Staff Handbook
-          </button>
-        </div>
-
-        <p className="kb-hint">{knowledgeBaseHint}</p>
-
-        {kbTab === "policies" ? (
-          <>
-        <form className="assistant-upload-form" onSubmit={handlePolicyImport}>
-          <label htmlFor="policy-import-url" className="policy-label">
-            District Policy URL
-          </label>
+  const importPanel = (
+    <>
+      <form className="piq-import-form" onSubmit={handlePolicyImport}>
+        <div className="piq-import-row">
           <input
             id="policy-import-url"
             type="url"
+            className="piq-input piq-input-grow"
             value={policyImportUrl}
             onChange={(event) => {
               setPolicyImportUrl(event.target.value);
@@ -2052,43 +2400,44 @@ export function PolicyAssistantApp() {
               setPolicyImportError("");
             }}
             placeholder="https://go.boarddocs.com/in/blm/Board.nsf/Public"
+            aria-label="District policy URL"
             required
           />
-
-          <label htmlFor="policy-import-title" className="policy-label">
-            Dataset Title
-          </label>
-          <input
-            id="policy-import-title"
-            type="text"
-            value={policyImportDatasetTitle}
-            onChange={(event) => setPolicyImportDatasetTitle(event.target.value)}
-            placeholder="Current district policies"
-            maxLength={160}
-          />
-
-          <label htmlFor="policy-import-platform" className="policy-label">
-            Policy Platform
-          </label>
-          <select
-            id="policy-import-platform"
-            value={policyImportPlatform}
-            onChange={(event) => {
-              setPolicyImportPlatform(event.target.value as PolicyPlatform);
-              setPolicyImportPreview(null);
-              setPolicyImportSummary(null);
-              setPolicyImportStatus("");
-              setPolicyImportError("");
-            }}
+          <button
+            type="submit"
+            className="piq-button piq-button-primary"
+            data-tip="Scan"
+            disabled={isImportingPolicies || isCommittingPolicyImport}
           >
-            <option value="auto">Auto-detect</option>
-            <option value="boarddocs">BoardDocs</option>
-            <option value="table-link">Table-based</option>
-            <option value="accordion-pdf">Accordion + PDF</option>
-          </select>
+            {isImportingPolicies ? "Scanning..." : "Scan"}
+          </button>
+        </div>
+
+        <div className="piq-import-options">
+          <span className="piq-detect">
+            <span className="piq-dot" aria-hidden="true" />
+            Platform:
+            <select
+              className="piq-select"
+              value={policyImportPlatform}
+              aria-label="Policy platform"
+              onChange={(event) => {
+                setPolicyImportPlatform(event.target.value as PolicyPlatform);
+                setPolicyImportPreview(null);
+                setPolicyImportSummary(null);
+                setPolicyImportStatus("");
+                setPolicyImportError("");
+              }}
+            >
+              <option value="auto">Auto-detect</option>
+              <option value="boarddocs">BoardDocs</option>
+              <option value="table-link">Table-based</option>
+              <option value="accordion-pdf">Accordion + PDF</option>
+            </select>
+          </span>
 
           {policyImportPlatform === "boarddocs" || policyImportPlatform === "auto" ? (
-            <label className="policy-checkbox">
+            <label className="piq-checkbox">
               <input
                 type="checkbox"
                 checked={policyImportIncludeAllBooks}
@@ -2104,1157 +2453,1284 @@ export function PolicyAssistantApp() {
             </label>
           ) : null}
 
-          <button
-            className="action-button policy-button"
-            type="submit"
-            disabled={isImportingPolicies || isCommittingPolicyImport}
-          >
-            {isImportingPolicies ? "Building Preview..." : "Preview Policies"}
-          </button>
-        </form>
+          <input
+            type="text"
+            className="piq-input piq-input-compact"
+            value={policyImportDatasetTitle}
+            onChange={(event) => setPolicyImportDatasetTitle(event.target.value)}
+            placeholder="Source name (optional)"
+            aria-label="Dataset title"
+            maxLength={160}
+          />
+        </div>
+      </form>
 
-        {policyImportPreview ? (
-          <section className="policy-import-preview" aria-labelledby="policy-import-preview-title">
-            <div className="policy-import-preview-header">
-              <div>
-                <p className="policy-import-preview-eyebrow">Import Preview</p>
-                <h3 id="policy-import-preview-title">Review Before Import</h3>
-              </div>
-              <span className="policy-import-preview-count">
-                {policyImportPreview.policyCount} policies
+      {policyImportPreview ? (
+        <div className="piq-preview">
+          <div className="piq-preview-head">
+            <span className="piq-preview-title">
+              Preview — {policyImportPreview.policyCount} policies found
+            </span>
+            <span className="piq-spacer" />
+            {policyImportQualityMessages.length > 0 ? (
+              <span className="piq-quality-pill is-warn">
+                <span className="piq-quality-dot" aria-hidden="true" />
+                {policyImportPreview.quality.missingWordingCount} missing text
+              </span>
+            ) : null}
+            <span
+              className={`piq-quality-pill${
+                policyImportPreview.quality.duplicateCodeCount > 0 ? " is-warn" : " is-good"
+              }`}
+            >
+              <span className="piq-quality-dot" aria-hidden="true" />
+              {policyImportPreview.quality.duplicateCodeCount} duplicates
+            </span>
+          </div>
+
+          {policyImportPreview.sampleRows.map((row, index) => (
+            <div className="piq-preview-row" key={`${row.policyCode || "policy"}-${index}`}>
+              <span className="piq-preview-code">{row.policyCode || "—"}</span>
+              <span className="piq-preview-name">{row.policyTitle || "Untitled policy"}</span>
+              <span className="piq-preview-text">
+                {row.policyWordingPreview || "No wording preview available."}
               </span>
             </div>
+          ))}
 
-            <div className="policy-import-preview-meta">
-              <div>
-                <span>Platform</span>
-                <strong>{policyImportPreview.platformLabel}</strong>
-              </div>
-              <div>
-                <span>Source</span>
-                <strong>
-                  {policyImportPreview.sourceCount} {policyImportPreview.sourceLabel}
-                </strong>
-              </div>
-              <div>
-                <span>File Name</span>
-                <strong>{policyImportPreview.filename}</strong>
-              </div>
-              <div>
-                <span>Preview Expires</span>
-                <strong>{new Date(policyImportPreview.expiresAt).toLocaleTimeString()}</strong>
-              </div>
-            </div>
-
-            {policyImportQualityMessages.length > 0 ? (
-              <div className="policy-import-preview-warning">
-                <p className="policy-label">Review Flags</p>
-                <ul className="assistant-uploaded-list">
-                  {policyImportQualityMessages.map((message) => (
-                    <li key={message}>{message}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <p className="policy-import-preview-clear">
-                No missing titles, policy text, or policy codes detected in this preview.
-              </p>
-            )}
-
-            {policyImportPreview.failedCount > 0 ? (
-              <p className="policy-import-preview-note">
-                {policyImportPreview.failedCount} source item(s) were skipped during scraping.
-              </p>
-            ) : null}
-
-            <div className="policy-import-preview-sample">
-              <p className="policy-label">Sample Policies</p>
-              {policyImportPreview.sampleRows.map((row, index) => (
-                <article
-                  className="policy-import-preview-row"
-                  key={`${row.policyCode || "policy"}-${index}`}
-                >
-                  <p className="policy-import-preview-row-title">
-                    {[row.policyCode, row.policyTitle || "Untitled policy"]
-                      .filter(Boolean)
-                      .join(" - ")}
-                  </p>
-                  {row.policySection ? (
-                    <p className="policy-import-preview-row-meta">{row.policySection}</p>
-                  ) : null}
-                  <p className="policy-import-preview-row-copy">
-                    {row.policyWordingPreview || "No wording preview available."}
-                  </p>
-                </article>
-              ))}
-            </div>
-
-            <div className="policy-import-preview-actions">
-              <button
-                type="button"
-                className="action-button policy-button"
-                onClick={handlePolicyImportCommit}
-                disabled={isCommittingPolicyImport || isImportingPolicies}
-              >
-                {isCommittingPolicyImport ? "Importing..." : "Import Previewed Policies"}
-              </button>
-              <button
-                type="button"
-                className="assistant-auth-toggle"
-                onClick={handlePolicyImportDiscard}
-                disabled={isCommittingPolicyImport}
-              >
-                Discard Preview
-              </button>
-            </div>
-          </section>
-        ) : null}
-
-        <form
-          className="assistant-upload-form assistant-handbook-form"
-          method="post"
-          action="/api/policy-assistant/upload"
-          encType="multipart/form-data"
-          onSubmit={handleUpload}
-        >
-          <label htmlFor="policy-csv-title" className="policy-label">
-            Dataset Title
-          </label>
-          <input
-            id="policy-csv-title"
-            name="title"
-            type="text"
-            value={uploadDatasetTitle}
-            onChange={(event) => setUploadDatasetTitle(event.target.value)}
-            placeholder="Policy CSV import"
-            maxLength={160}
-          />
-
-          <label htmlFor="policy-csv" className="policy-label">
-            Policy CSV
-          </label>
-          <input
-            id="policy-csv"
-            name="file"
-            type="file"
-            accept=".csv,text/csv"
-            onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
-            required
-          />
-
-          <button className="action-button policy-button" type="submit" disabled={isUploading}>
-            {isUploading ? "Uploading..." : "Upload CSV to Database"}
-          </button>
-        </form>
-          </>
-        ) : null}
-
-        {kbTab === "student" ? (
-          <>
-        <form
-          className="assistant-upload-form assistant-handbook-form"
-          method="post"
-          action="/api/policy-assistant/handbooks"
-          encType="multipart/form-data"
-          onSubmit={handleHandbookUpload("student")}
-        >
-          <label htmlFor="student-handbook-title" className="policy-label">
-            Student Handbook Title
-          </label>
-          <input
-            id="student-handbook-title"
-            name="title"
-            type="text"
-            value={studentHandbookTitle}
-            onChange={(event) => setStudentHandbookTitle(event.target.value)}
-            placeholder="2026-2027 student handbook"
-            maxLength={160}
-          />
-
-          <label htmlFor="student-handbook-file" className="policy-label">
-            Student Handbook
-          </label>
-          <input
-            id="student-handbook-file"
-            name="file"
-            type="file"
-            accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain,text/markdown"
-            onChange={(event) => setStudentHandbookFile(event.target.files?.[0] ?? null)}
-            required
-          />
-
-          <button
-            className="action-button policy-button"
-            type="submit"
-            disabled={isStudentHandbookUploading}
-          >
-            {isStudentHandbookUploading ? "Uploading..." : "Upload Student Handbook"}
-          </button>
-        </form>
-          </>
-        ) : null}
-
-        {kbTab === "staff" ? (
-          <>
-        <form
-          className="assistant-upload-form assistant-handbook-form"
-          method="post"
-          action="/api/policy-assistant/handbooks"
-          encType="multipart/form-data"
-          onSubmit={handleHandbookUpload("staff")}
-        >
-          <label htmlFor="staff-handbook-title" className="policy-label">
-            Staff Handbook Title
-          </label>
-          <input
-            id="staff-handbook-title"
-            name="title"
-            type="text"
-            value={staffHandbookTitle}
-            onChange={(event) => setStaffHandbookTitle(event.target.value)}
-            placeholder="2026-2027 staff handbook"
-            maxLength={160}
-          />
-
-          <label htmlFor="staff-handbook-file" className="policy-label">
-            Staff Handbook
-          </label>
-          <input
-            id="staff-handbook-file"
-            name="file"
-            type="file"
-            accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain,text/markdown"
-            onChange={(event) => setStaffHandbookFile(event.target.files?.[0] ?? null)}
-            required
-          />
-
-          <button
-            className="action-button policy-button"
-            type="submit"
-            disabled={isStaffHandbookUploading}
-          >
-            {isStaffHandbookUploading ? "Uploading..." : "Upload Staff Handbook"}
-          </button>
-        </form>
-          </>
-        ) : null}
-
-        {kbTab === "policies" ? (
-          <>
-        <div className="assistant-dataset-picker">
-          <label htmlFor="dataset-select" className="policy-label">
-            Active Dataset
-          </label>
-          <select
-            id="dataset-select"
-            value={selectedDatasetId}
-            onChange={(event) => setSelectedDatasetId(event.target.value)}
-            disabled={activeDatasets.length === 0}
-          >
-            {activeDatasets.length === 0 ? (
-              <option value="">No active datasets yet</option>
-            ) : (
-              activeDatasets.map((dataset) => (
-                <option key={dataset.id} value={dataset.id}>
-                  {formatDatasetOption(dataset)}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-
-        {selectedDataset ? (
-          <section className="assistant-dataset-manager" aria-label="Active dataset details">
-            <div className="assistant-dataset-summary">
-              <div>
-                <p className="policy-label">Active Dataset Details</p>
-                <h3>{selectedDataset.title}</h3>
-              </div>
-              <span>{selectedDataset.policyCount} policies</span>
-            </div>
-
-            <dl className="assistant-dataset-meta">
-              <div>
-                <dt>Source</dt>
-                <dd>{formatDatasetSource(selectedDataset)}</dd>
-              </div>
-              {selectedDataset.sourceUrl ? (
-                <div>
-                  <dt>URL</dt>
-                  <dd>{selectedDataset.sourceUrl}</dd>
-                </div>
-              ) : null}
-              <div>
-                <dt>Imported</dt>
-                <dd>{new Date(selectedDataset.uploadedAt).toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt>File</dt>
-                <dd>{selectedDataset.filename}</dd>
-              </div>
-            </dl>
-
-            <form className="assistant-dataset-title-form" onSubmit={handleDatasetTitleSave}>
-              <label htmlFor="active-dataset-title" className="policy-label">
-                Rename Dataset
-              </label>
-              <div>
-                <input
-                  id="active-dataset-title"
-                  type="text"
-                  value={selectedDatasetTitleDraft}
-                  onChange={(event) => setSelectedDatasetTitleDraft(event.target.value)}
-                  maxLength={160}
-                  required
-                />
-                <button
-                  type="submit"
-                  className="assistant-auth-toggle"
-                  disabled={
-                    isDatasetTitleSaving ||
-                    selectedDatasetTitleDraft.trim() === selectedDataset.title
-                  }
-                >
-                  {isDatasetTitleSaving ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </form>
-
-            <div className="assistant-dataset-actions">
-              <a
-                className="assistant-auth-toggle assistant-view-library-link"
-                href={`/policy-assistant/library/policies/${selectedDataset.id}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                View Full Policies
-              </a>
-              <button
-                type="button"
-                className="assistant-auth-toggle"
-                onClick={() => handleDatasetArchive(selectedDataset, true)}
-                disabled={busyDatasetId === selectedDataset.id}
-              >
-                Archive Dataset
-              </button>
-              <button
-                type="button"
-                className="assistant-danger-button"
-                onClick={() => handleDatasetDelete(selectedDataset)}
-                disabled={busyDatasetId === selectedDataset.id}
-              >
-                Delete Permanently
-              </button>
-            </div>
-          </section>
-        ) : null}
-
-        {archivedDatasets.length > 0 ? (
-          <details className="assistant-archived-datasets">
-            <summary>Archived Datasets ({archivedDatasets.length})</summary>
-            <ul>
-              {archivedDatasets.map((dataset) => (
-                <li key={dataset.id}>
-                  <div>
-                    <strong>{dataset.title}</strong>
-                    <span>
-                      {dataset.policyCount} policies | Archived{" "}
-                      {new Date(dataset.archivedAt ?? dataset.uploadedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div>
-                    <button
-                      type="button"
-                      className="assistant-auth-toggle"
-                      onClick={() => handleDatasetArchive(dataset, false)}
-                      disabled={busyDatasetId === dataset.id}
-                    >
-                      Restore
-                    </button>
-                    <button
-                      type="button"
-                      className="assistant-danger-button"
-                      onClick={() => handleDatasetDelete(dataset)}
-                      disabled={busyDatasetId === dataset.id}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
+          {policyImportQualityMessages.length > 0 ? (
+            <ul className="piq-preview-flags">
+              {policyImportQualityMessages.map((message) => (
+                <li key={message}>{message}</li>
               ))}
             </ul>
-          </details>
-        ) : null}
-          </>
-        ) : null}
+          ) : null}
 
-        {kbTab === "student" ? (
-          <>
-        <section className="assistant-handbook-list" aria-label="Student handbook versions">
-          <p className="policy-label">Active Student Handbook Versions</p>
-          {activeStudentHandbookDocuments.length === 0 ? (
-            <p className="small-muted">No active student handbook versions uploaded yet.</p>
-          ) : (
-            <div className="assistant-handbook-versions">
-              {activeStudentHandbookDocuments.map((document) => (
-                <article className="assistant-handbook-version" key={document.id}>
-                  <div className="assistant-handbook-version-summary">
-                    <div>
-                      <h3>{document.title}</h3>
-                      <p>{document.filename}</p>
-                    </div>
-                    <span>{document.chunkCount} excerpts</span>
-                  </div>
-                  <p className="assistant-handbook-version-meta">
-                    Uploaded {new Date(document.uploadedAt).toLocaleString()}
-                  </p>
-                  <form
-                    className="assistant-handbook-title-form"
-                    onSubmit={(event) => handleHandbookTitleSave(event, document)}
-                  >
-                    <label htmlFor={`handbook-title-${document.id}`} className="policy-label">
-                      Rename Version
-                    </label>
-                    <div>
-                      <input
-                        id={`handbook-title-${document.id}`}
-                        type="text"
-                        value={handbookTitleDrafts[document.id] ?? document.title}
-                        onChange={(event) =>
-                          setHandbookTitleDrafts((previous) => ({
-                            ...previous,
-                            [document.id]: event.target.value,
-                          }))
-                        }
-                        maxLength={160}
-                        required
-                      />
-                      <button
-                        type="submit"
-                        className="assistant-auth-toggle"
-                        disabled={
-                          busyHandbookDocumentId === document.id ||
-                          (handbookTitleDrafts[document.id] ?? document.title).trim() ===
-                            document.title
-                        }
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </form>
-                  <div className="assistant-handbook-version-actions">
-                    <a
-                      className="assistant-auth-toggle assistant-view-library-link"
-                      href={`/policy-assistant/library/handbooks/${document.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      View Handbook
-                    </a>
-                    <button
-                      type="button"
-                      className="assistant-auth-toggle"
-                      onClick={() => handleHandbookArchive(document, true)}
-                      disabled={busyHandbookDocumentId === document.id}
-                    >
-                      Archive Version
-                    </button>
-                    <button
-                      type="button"
-                      className="assistant-danger-button"
-                      onClick={() => handleHandbookDelete(document)}
-                      disabled={busyHandbookDocumentId === document.id}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-          </>
-        ) : null}
-
-        {kbTab === "staff" ? (
-          <>
-        <section className="assistant-handbook-list" aria-label="Staff handbook versions">
-          <p className="policy-label">Active Staff Handbook Versions</p>
-          {activeStaffHandbookDocuments.length === 0 ? (
-            <p className="small-muted">No active staff handbook versions uploaded yet.</p>
-          ) : (
-            <div className="assistant-handbook-versions">
-              {activeStaffHandbookDocuments.map((document) => (
-                <article className="assistant-handbook-version" key={document.id}>
-                  <div className="assistant-handbook-version-summary">
-                    <div>
-                      <h3>{document.title}</h3>
-                      <p>{document.filename}</p>
-                    </div>
-                    <span>{document.chunkCount} excerpts</span>
-                  </div>
-                  <p className="assistant-handbook-version-meta">
-                    Uploaded {new Date(document.uploadedAt).toLocaleString()}
-                  </p>
-                  <form
-                    className="assistant-handbook-title-form"
-                    onSubmit={(event) => handleHandbookTitleSave(event, document)}
-                  >
-                    <label htmlFor={`handbook-title-${document.id}`} className="policy-label">
-                      Rename Version
-                    </label>
-                    <div>
-                      <input
-                        id={`handbook-title-${document.id}`}
-                        type="text"
-                        value={handbookTitleDrafts[document.id] ?? document.title}
-                        onChange={(event) =>
-                          setHandbookTitleDrafts((previous) => ({
-                            ...previous,
-                            [document.id]: event.target.value,
-                          }))
-                        }
-                        maxLength={160}
-                        required
-                      />
-                      <button
-                        type="submit"
-                        className="assistant-auth-toggle"
-                        disabled={
-                          busyHandbookDocumentId === document.id ||
-                          (handbookTitleDrafts[document.id] ?? document.title).trim() ===
-                            document.title
-                        }
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </form>
-                  <div className="assistant-handbook-version-actions">
-                    <a
-                      className="assistant-auth-toggle assistant-view-library-link"
-                      href={`/policy-assistant/library/handbooks/${document.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      View Handbook
-                    </a>
-                    <button
-                      type="button"
-                      className="assistant-auth-toggle"
-                      onClick={() => handleHandbookArchive(document, true)}
-                      disabled={busyHandbookDocumentId === document.id}
-                    >
-                      Archive Version
-                    </button>
-                    <button
-                      type="button"
-                      className="assistant-danger-button"
-                      onClick={() => handleHandbookDelete(document)}
-                      disabled={busyHandbookDocumentId === document.id}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-          </>
-        ) : null}
-
-        {archivedHandbookDocuments.length > 0 ? (
-          <details className="assistant-archived-handbooks">
-            <summary>Archived Handbook Versions ({archivedHandbookDocuments.length})</summary>
-            <ul>
-              {archivedHandbookDocuments.map((document) => (
-                <li key={document.id}>
-                  <div>
-                    <strong>{document.title}</strong>
-                    <span>
-                      {formatHandbookTypeLabel(document.handbookType)} | {document.chunkCount} excerpts
-                    </span>
-                  </div>
-                  <div>
-                    <span>
-                      Archived{" "}
-                      {new Date(document.archivedAt ?? document.uploadedAt).toLocaleDateString()}
-                    </span>
-                    <button
-                      type="button"
-                      className="assistant-auth-toggle"
-                      onClick={() => handleHandbookArchive(document, false)}
-                      disabled={busyHandbookDocumentId === document.id}
-                    >
-                      Restore
-                    </button>
-                    <button
-                      type="button"
-                      className="assistant-danger-button"
-                      onClick={() => handleHandbookDelete(document)}
-                      disabled={busyHandbookDocumentId === document.id}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </details>
-        ) : null}
-
-        <div className="assistant-feedback-stack" aria-live="polite">
-          {policyImportStatus ? <p className="policy-status">{policyImportStatus}</p> : null}
-          {policyImportError ? <p className="policy-error">{policyImportError}</p> : null}
-          {policyImportSummary ? (
-            <p className="small-muted">
-              Source: {policyImportSummary.platformLabel} | {policyImportSummary.sourceCount}{" "}
-              {policyImportSummary.sourceLabel}
-              {policyImportSummary.failedCount > 0
-                ? ` | ${policyImportSummary.failedCount} skipped`
-                : ""}
+          {policyImportPreview.failedCount > 0 ? (
+            <p className="piq-preview-note">
+              {policyImportPreview.failedCount} source item(s) were skipped during scraping.
             </p>
           ) : null}
-          {uploadStatus ? <p className="policy-status">{uploadStatus}</p> : null}
-          {uploadError ? <p className="policy-error">{uploadError}</p> : null}
-          {datasetStatus ? <p className="policy-status">{datasetStatus}</p> : null}
-          {datasetError ? <p className="policy-error">{datasetError}</p> : null}
-          {studentHandbookStatus ? <p className="policy-status">{studentHandbookStatus}</p> : null}
-          {studentHandbookError ? <p className="policy-error">{studentHandbookError}</p> : null}
-          {staffHandbookStatus ? <p className="policy-status">{staffHandbookStatus}</p> : null}
-          {staffHandbookError ? <p className="policy-error">{staffHandbookError}</p> : null}
-          {handbookManagementStatus ? (
-            <p className="policy-status">{handbookManagementStatus}</p>
-          ) : null}
-          {handbookManagementError ? <p className="policy-error">{handbookManagementError}</p> : null}
         </div>
-      </section>
+      ) : null}
 
-      <section className="panel assistant-chat-panel assistant-panel">
-        <div className="assistant-panel-header assistant-panel-header-tight">
-          <div>
-            <h2 className="section-title">Policy Assistant</h2>
-            <p className="assistant-panel-kicker">
-              Confidential, account-scoped guidance aligned to your uploaded policies, student handbooks, and staff handbooks.
-            </p>
-          </div>
-        </div>
-
-        <label htmlFor="conversation-select" className="policy-label assistant-conversation-label">
-          Conversation History
-        </label>
-
-        <div className="assistant-conversation-row">
-          <div className="assistant-conversation-picker">
-            <select
-              id="conversation-select"
-              value={selectedConversationId}
-              onChange={(event) => setSelectedConversationId(event.target.value)}
-              disabled={conversations.length === 0 || isConversationLoading}
-            >
-              {conversations.length === 0 ? (
-                <option value="">No saved conversations yet</option>
-              ) : (
-                conversations.map((conversation) => (
-                  <option key={conversation.id} value={conversation.id}>
-                    {formatConversationOption(conversation)}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-
+      {policyImportPreview ? (
+        <div className="piq-actions-right">
           <button
             type="button"
-            className="assistant-auth-toggle assistant-secondary-button"
-            onClick={handleStartNewConversation}
-            disabled={!selectedDatasetId || isSending}
+            className="piq-button piq-button-ghost"
+            onClick={handlePolicyImportDiscard}
+            data-tip="Discard preview"
+            disabled={isCommittingPolicyImport}
           >
-            New Conversation
+            Discard
           </button>
-
           <button
             type="button"
-            className="assistant-danger-button"
-            onClick={() => void handleConversationDelete()}
-            disabled={!selectedConversationId || isSending || isConversationLoading}
+            className="piq-button piq-button-ghost"
+            onClick={handlePolicyPreviewDownload}
+            data-tip="Download CSV"
           >
-            Delete Conversation
+            Download CSV
+          </button>
+          <button
+            type="button"
+            className="piq-button piq-button-primary"
+            onClick={() => void handlePolicyImportCommit()}
+            data-tip="Import to Library"
+            disabled={isCommittingPolicyImport || isImportingPolicies}
+          >
+            {isCommittingPolicyImport ? "Importing..." : "Import to Library"}
           </button>
         </div>
+      ) : null}
+    </>
+  );
 
-        {selectedConversation ? (
-          <p className="small-muted">
-            Continuing: {selectedConversation.title} ({selectedConversation.messageCount} messages)
-          </p>
-        ) : (
-          <p className="small-muted">Describe a situation to start a new saved conversation.</p>
-        )}
+  const csvPanel = (
+    <form className="piq-stack" onSubmit={handleUpload}>
+      <FileDropzone
+        id="policy-csv"
+        title="Drop your policy CSV here"
+        hint="or browse — headers like Section, Code, Policy Title and Policy Wording are mapped automatically"
+        accept=".csv,text/csv"
+        glyph="⇪"
+        file={uploadFile}
+        onFile={setUploadFile}
+      />
+      <p className="piq-note">
+        Rows with no policy text and no title are skipped. You&rsquo;ll see a quality preview before
+        anything is saved.
+      </p>
+      <div className="piq-import-options">
+        <input
+          type="text"
+          className="piq-input piq-input-compact"
+          value={uploadDatasetTitle}
+          onChange={(event) => setUploadDatasetTitle(event.target.value)}
+          placeholder="Source name (optional)"
+          aria-label="Dataset title"
+          maxLength={160}
+        />
+        <span className="piq-spacer" />
+        <button
+          type="submit"
+          className="piq-button piq-button-primary"
+          data-tip="Upload CSV"
+          disabled={isUploading}
+        >
+          {isUploading ? "Uploading..." : "Upload CSV"}
+        </button>
+      </div>
+    </form>
+  );
 
-        <div className="assistant-feedback-stack" aria-live="polite">
-          {isConversationLoading ? <p className="small-muted">Loading conversation history...</p> : null}
-          {conversationError ? <p className="policy-error">{conversationError}</p> : null}
-        </div>
+  const handbookPanel = (
+    <div className="piq-grid-2">
+      <form className="piq-stack" onSubmit={handleHandbookUpload("student")}>
+        <FileDropzone
+          id="student-handbook-file"
+          title="Student handbook"
+          hint="PDF, TXT or MD"
+          accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain,text/markdown"
+          glyph="📄"
+          file={studentHandbookFile}
+          onFile={setStudentHandbookFile}
+        />
+        <input
+          type="text"
+          className="piq-input"
+          value={studentHandbookTitle}
+          onChange={(event) => setStudentHandbookTitle(event.target.value)}
+          placeholder="2026-2027 student handbook"
+          aria-label="Student handbook title"
+          maxLength={160}
+        />
+        <button
+          type="submit"
+          className="piq-button piq-button-primary piq-button-block"
+          data-tip="Upload student handbook"
+          disabled={isStudentHandbookUploading}
+        >
+          {isStudentHandbookUploading ? "Uploading..." : "Upload student handbook"}
+        </button>
+      </form>
 
-        <div className="assistant-message-shell">
-          <div className="assistant-message-list" ref={messageListRef}>
-            {isConversationLoading ? (
-              <div className="assistant-loading-list" aria-hidden="true">
-                <div className="assistant-skeleton skeleton-bubble skeleton-bubble-user" />
-                <div className="assistant-skeleton skeleton-bubble skeleton-bubble-assistant" />
-                <div className="assistant-skeleton skeleton-bubble skeleton-bubble-assistant skeleton-short" />
-              </div>
-            ) : conversationGroups.length === 0 ? (
-              <div className="assistant-empty-state">
-                <span className="assistant-empty-icon" aria-hidden="true">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="26"
-                    height="26"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.45L3 21l2.05-5.4A8.5 8.5 0 1 1 21 11.5z" />
-                  </svg>
-                </span>
-                {activeDatasets.length === 0 ? (
-                  <>
-                    <h3 className="assistant-empty-title">Add your district policies to begin</h3>
-                    <p className="assistant-empty-text">
-                      Use the District Knowledge Base on the left to add a policy set and your
-                      student and staff handbooks. Once they&rsquo;re in, ask a scenario question
-                      here.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="assistant-empty-title">How can I help today?</h3>
-                    <p className="assistant-empty-text">
-                      Describe a real situation and I&rsquo;ll ground the guidance in your uploaded
-                      policies and handbooks. Try one to start:
-                    </p>
-                    <div className="assistant-empty-prompts">
-                      {EXAMPLE_SCENARIOS.map((text) => (
-                        <button
-                          type="button"
-                          key={text}
-                          className="assistant-empty-prompt"
-                          onClick={() => handleExamplePrompt(text)}
-                        >
-                          {text}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : null}
+      <form className="piq-stack" onSubmit={handleHandbookUpload("staff")}>
+        <FileDropzone
+          id="staff-handbook-file"
+          title="Staff handbook"
+          hint="PDF, TXT or MD"
+          accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain,text/markdown"
+          glyph="📄"
+          file={staffHandbookFile}
+          onFile={setStaffHandbookFile}
+        />
+        <input
+          type="text"
+          className="piq-input"
+          value={staffHandbookTitle}
+          onChange={(event) => setStaffHandbookTitle(event.target.value)}
+          placeholder="2026-2027 staff handbook"
+          aria-label="Staff handbook title"
+          maxLength={160}
+        />
+        <button
+          type="submit"
+          className="piq-button piq-button-primary piq-button-block"
+          data-tip="Upload staff handbook"
+          disabled={isStaffHandbookUploading}
+        >
+          {isStaffHandbookUploading ? "Uploading..." : "Upload staff handbook"}
+        </button>
+      </form>
+    </div>
+  );
 
-            {!isConversationLoading &&
-              conversationGroups.map(({ message, items }) => {
-              if (message.role === "user") {
-                return (
-                  <article
-                    key={message.id}
-                    className="assistant-message assistant-message-user"
-                  >
-                    <div className="assistant-message-body">{message.content.trim()}</div>
-                  </article>
-                );
-              }
+  const sourceFeedback = (
+    <div className="piq-feedback" aria-live="polite">
+      {policyImportStatus ? <p className="piq-status">{policyImportStatus}</p> : null}
+      {policyImportError ? <p className="piq-error">{policyImportError}</p> : null}
+      {policyImportSummary ? (
+        <p className="piq-note">
+          Source: {policyImportSummary.platformLabel} · {policyImportSummary.sourceCount}{" "}
+          {policyImportSummary.sourceLabel}
+          {policyImportSummary.failedCount > 0
+            ? ` · ${policyImportSummary.failedCount} skipped`
+            : ""}
+        </p>
+      ) : null}
+      {uploadStatus ? <p className="piq-status">{uploadStatus}</p> : null}
+      {uploadError ? <p className="piq-error">{uploadError}</p> : null}
+      {studentHandbookStatus ? <p className="piq-status">{studentHandbookStatus}</p> : null}
+      {studentHandbookError ? <p className="piq-error">{studentHandbookError}</p> : null}
+      {staffHandbookStatus ? <p className="piq-status">{staffHandbookStatus}</p> : null}
+      {staffHandbookError ? <p className="piq-error">{staffHandbookError}</p> : null}
+    </div>
+  );
 
-              const generalItems = items.filter((item) => item.kind === "general");
-              const policyItems = items.filter((item) => item.kind === "policy");
-              const handbookItems = items.filter((item) => item.kind === "handbook");
-              const actionItems = items.filter((item) => item.kind === "action");
-              const implicationItems = items.filter((item) => item.kind === "implications");
-              const disclaimerItems = items.filter((item) => item.kind === "disclaimer");
-              const evidence = message.answerEvidence;
-              const handbookExcerptCount = evidence ? countHandbookEvidenceExcerpts(evidence) : 0;
+  /* ------------------------------------------------- First-run setup */
 
+  if (isSetupActive) {
+    const steps = [
+      {
+        title: "Board policies",
+        hint:
+          activeDatasets.length > 0
+            ? `${activeDatasets[0].policyCount} imported`
+            : "Import or upload your policy set",
+        done: activeDatasets.length > 0,
+      },
+      {
+        title: "Handbooks",
+        hint: "Student & staff PDFs",
+        done:
+          activeStudentHandbookDocuments.length > 0 || activeStaffHandbookDocuments.length > 0,
+      },
+      { title: "Try a question", hint: "See a cited answer", done: false },
+    ];
+
+    return (
+      <div className="piq-setup">
+        <header className="piq-setup-bar">
+          <span className="piq-brand-mark is-small" aria-hidden="true">
+            P
+          </span>
+          <span className="piq-setup-title">Set up your workspace</span>
+          <span className="piq-spacer" />
+          <span className="piq-setup-progress">
+            {districtName} · Step {setupStep} of 3
+          </span>
+        </header>
+
+        <div className="piq-setup-body">
+          <ol className="piq-stepper">
+            {steps.map((step, index) => {
+              const stepNumber = index + 1;
+              const isCurrent = stepNumber === setupStep;
               return (
-                <article
-                  key={message.id}
-                  className="assistant-message assistant-message-assistant assistant-answer-card"
-                >
-                  <p className="assistant-message-role">Policy to Action</p>
-
-                  {generalItems.map((item) => (
-                    <div key={item.id} className="assistant-message-body answer-lead">
-                      {item.content}
-                    </div>
-                  ))}
-
-                  {policyItems.length > 0 ? (
-                    <section className="answer-section">
-                      <h4 className="answer-section-title">Relevant Policies</h4>
-                      <div className="answer-section-items">
-                        {policyItems.map((item) => (
-                          <div key={item.id} className="answer-item">
-                            {renderReferenceOrBody(item)}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
+                <li key={step.title}>
+                  <button
+                    type="button"
+                    className={`piq-step${isCurrent ? " is-current" : ""}`}
+                    onClick={() => setSetupStep(stepNumber)}
+                  >
+                    <span
+                      className={`piq-step-marker${step.done ? " is-done" : ""}${
+                        isCurrent ? " is-current" : ""
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {step.done ? "✓" : stepNumber}
+                    </span>
+                    <span className="piq-step-copy">
+                      <strong>{step.title}</strong>
+                      <span>{step.hint}</span>
+                    </span>
+                  </button>
+                  {stepNumber < steps.length ? (
+                    <span className="piq-step-connector" aria-hidden="true" />
                   ) : null}
-
-                  {handbookItems.length > 0 ? (
-                    <section className="answer-section">
-                      <h4 className="answer-section-title">Handbook Guidance</h4>
-                      <div className="answer-section-items">
-                        {handbookItems.map((item) => (
-                          <div key={item.id} className="answer-item">
-                            {renderReferenceOrBody(item)}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  ) : null}
-
-                  {actionItems.map((item) => (
-                    <section key={item.id} className="answer-section">
-                      <h4 className="answer-section-title">Action Steps</h4>
-                      <div className="assistant-message-body">
-                        {stripLeadingSectionLabel(item.content)}
-                      </div>
-                    </section>
-                  ))}
-
-                  {implicationItems.map((item) => (
-                    <section key={item.id} className="answer-section">
-                      <h4 className="answer-section-title">Implications</h4>
-                      <div className="assistant-message-body">
-                        {stripLeadingSectionLabel(item.content)}
-                      </div>
-                    </section>
-                  ))}
-
-                  {disclaimerItems.map((item) => (
-                    <p key={item.id} className="answer-disclaimer">
-                      {item.content}
-                    </p>
-                  ))}
-
-                  {evidence ? (
-                    <details className="answer-sources">
-                      <summary>
-                        Sources used
-                        <span>
-                          {evidence.policyMatches.length} policy{" "}
-                          {evidence.policyMatches.length === 1 ? "match" : "matches"}
-                          {" · "}
-                          {handbookExcerptCount} handbook{" "}
-                          {handbookExcerptCount === 1 ? "excerpt" : "excerpts"}
-                        </span>
-                      </summary>
-                      {evidence.policyMatches.length > 0 ? (
-                        <div className="answer-sources-group">
-                          <p className="answer-sources-group-label">
-                            Policies — {evidence.policyDataset.title}
-                          </p>
-                          <ul>
-                            {evidence.policyMatches.map((match) => (
-                              <li key={`${message.id}-src-policy-${match.id}`}>
-                                {[match.policyCode, match.policyTitle]
-                                  .filter(Boolean)
-                                  .join(" — ") || "Policy"}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-                      {evidence.handbookVersions.length > 0 ? (
-                        <div className="answer-sources-group">
-                          <p className="answer-sources-group-label">Handbooks</p>
-                          <ul>
-                            {evidence.handbookVersions.map((version) => (
-                              <li key={`${message.id}-src-hb-${version.id}`}>
-                                {version.title}{" "}
-                                <span>
-                                  {formatHandbookTypeLabel(version.handbookType)} {"·"}{" "}
-                                  {version.matchedExcerpts.length}{" "}
-                                  {version.matchedExcerpts.length === 1 ? "excerpt" : "excerpts"}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-                    </details>
-                  ) : null}
-                </article>
+                </li>
               );
             })}
+          </ol>
+
+          <section className="piq-setup-card">
+            {setupStep === 1 ? (
+              <>
+                <h2>Add your board policies</h2>
+                <p className="piq-lead">
+                  Import them straight from your district&rsquo;s policy site, or upload a CSV
+                  export. Everything is previewed before it is saved.
+                </p>
+                <div className="piq-tabs">
+                  {SOURCE_TABS.filter((tab) => tab.key !== "handbook").map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      className={`piq-tab${sourceTab === tab.key ? " is-active" : ""}`}
+                      onClick={() => setSourceTab(tab.key)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                {sourceTab === "csv" ? csvPanel : importPanel}
+                {sourceFeedback}
+              </>
+            ) : null}
+
+            {setupStep === 2 ? (
+              <>
+                <h2>Add your handbooks</h2>
+                <p className="piq-lead">
+                  Handbooks let the assistant answer day-to-day questions your board policies
+                  don&rsquo;t cover — leave, dress code, devices, discipline procedures.
+                </p>
+                {handbookPanel}
+                {sourceFeedback}
+              </>
+            ) : null}
+
+            {setupStep === 3 ? (
+              <>
+                <h2>Try your first question</h2>
+                <p className="piq-lead">
+                  Describe a real situation. Every claim comes back with the exact source text behind
+                  it.
+                </p>
+                <div className="piq-starters">
+                  {STARTER_PROMPTS.map((prompt, index) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      className="piq-starter"
+                      onClick={() => {
+                        setIsSetupDismissed(true);
+                        setView("assistant");
+                        void sendScenario(EXAMPLE_SCENARIOS[index] ?? prompt);
+                      }}
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+
+            <div className="piq-actions-right piq-setup-actions">
+              <button
+                type="button"
+                className="piq-button piq-button-ghost"
+                data-tip="Skip for now"
+                onClick={() => {
+                  setIsSetupDismissed(true);
+                  setView("assistant");
+                }}
+              >
+                Skip for now
+              </button>
+              <button
+                type="button"
+                className="piq-button piq-button-primary"
+                data-tip="Continue"
+                onClick={() => {
+                  if (setupStep < 3) {
+                    setSetupStep(setupStep + 1);
+                    return;
+                  }
+                  setIsSetupDismissed(true);
+                  setView("assistant");
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  /* ------------------------------------------------------------ App shell */
+
+  const rail = (
+    <nav className="piq-rail" aria-label="Primary">
+      <span className="piq-brand-mark piq-rail-mark" aria-hidden="true">
+        P
+      </span>
+      <div className="piq-rail-nav">
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={`piq-rail-button${view === item.key ? " is-active" : ""}`}
+            data-tip={item.label}
+            data-tip-side="right"
+            aria-current={view === item.key ? "page" : undefined}
+            onClick={() => handleNavigate(item.key)}
+          >
+            <RailIcon paths={item.paths} />
+            <span className="piq-rail-label">{item.shortLabel}</span>
+          </button>
+        ))}
+      </div>
+      <span className="piq-spacer" />
+      <button
+        type="button"
+        className={`piq-rail-button piq-rail-hc${highContrast ? " is-active" : ""}`}
+        data-tip="High contrast"
+        data-tip-side="right"
+        aria-pressed={highContrast}
+        onClick={toggleHighContrast}
+      >
+        <span aria-hidden="true">◐</span>
+        <span className="piq-sr-only">High contrast</span>
+      </button>
+      <button
+        type="button"
+        className="piq-avatar"
+        data-tip="Account"
+        data-tip-side="right"
+        aria-expanded={isAccountMenuOpen}
+        onClick={() => setIsAccountMenuOpen((previous) => !previous)}
+      >
+        {initials}
+      </button>
+    </nav>
+  );
+
+  const accountMenu = isAccountMenuOpen ? (
+    <>
+      <button
+        type="button"
+        className="piq-scrim"
+        aria-label="Close account menu"
+        onClick={() => setIsAccountMenuOpen(false)}
+      />
+      <div className="piq-account-menu" role="dialog" aria-label="Account">
+        <p className="piq-account-email">{authUser.email}</p>
+        <p className="piq-account-district">{districtName}</p>
+        <button
+          type="button"
+          className="piq-button piq-button-ghost piq-button-block"
+          onClick={() => {
+            setIsAccountMenuOpen(false);
+            void handleLogout();
+          }}
+        >
+          Sign out
+        </button>
+      </div>
+    </>
+  ) : null;
+
+  const sourcesPill = (
+    <span className="piq-sources-pill">
+      <span className={`piq-dot${activeSourceCount === 0 ? " is-warn" : ""}`} aria-hidden="true" />
+      {activeSourceCount} {activeSourceCount === 1 ? "source" : "sources"} · {districtName}
+    </span>
+  );
+
+  const mobileHeader = (
+    <header className="piq-mobile-header">
+      <span className="piq-brand-mark is-small" aria-hidden="true">
+        P
+      </span>
+      <span className="piq-mobile-word">Policy to Action</span>
+      <span className="piq-spacer" />
+      {sourcesPill}
+      <button
+        type="button"
+        className={`piq-icon-button${highContrast ? " is-active" : ""}`}
+        data-tip="High contrast"
+        aria-pressed={highContrast}
+        onClick={toggleHighContrast}
+      >
+        <span aria-hidden="true">◐</span>
+        <span className="piq-sr-only">High contrast</span>
+      </button>
+      <button
+        type="button"
+        className="piq-avatar is-light"
+        data-tip="Account"
+        onClick={() => setIsAccountMenuOpen((previous) => !previous)}
+      >
+        {initials}
+      </button>
+    </header>
+  );
+
+  /* ------------------------------------------------------- Assistant view */
+
+  const emptyThread = conversationGroups.length === 0 && !isConversationLoading;
+
+  const assistantView = (
+    <div className="piq-assistant">
+      <div className="piq-chat">
+        {isOffline ? (
+          <div className="piq-offline" role="status">
+            ⚠ You&rsquo;re offline — you can read saved conversations, but new questions need a
+            connection.
           </div>
+        ) : null}
 
-          <p className="assistant-context-note">
-            Guidance only. Not legal advice. Consult your district attorney for legal interpretation.
-          </p>
+        <header className="piq-chat-head">
+          <h1 className="piq-thread-title">
+            {selectedConversation ? selectedConversation.title : "New question"}
+          </h1>
+          <span className="piq-spacer" />
+          {sourcesPill}
+        </header>
 
-          {showScrollToLatest ? (
-            <button
-              type="button"
-              className="assistant-scroll-latest"
-              onClick={() => scrollToLatestMessage("smooth")}
-            >
-              Jump to Latest
-            </button>
+        <div className="piq-messages" ref={messageListRef}>
+          {isConversationLoading ? (
+            <div className="piq-skeletons" aria-hidden="true">
+              <div className="piq-skeleton is-user" />
+              <div className="piq-skeleton is-assistant" />
+              <div className="piq-skeleton is-assistant is-short" />
+            </div>
+          ) : null}
+
+          {emptyThread ? (
+            <div className="piq-empty">
+              <h2>How can I help, {firstName}?</h2>
+              <p>
+                Answers grounded in {districtName}&rsquo;s {totalPolicyCount(activeDatasets)}{" "}
+                policies and {activeStudentHandbookDocuments.length +
+                  activeStaffHandbookDocuments.length}{" "}
+                handbooks — with the exact source text behind every claim.
+              </p>
+              <div className="piq-starters">
+                {STARTER_PROMPTS.map((prompt, index) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    className="piq-starter"
+                    onClick={() => void sendScenario(EXAMPLE_SCENARIOS[index] ?? prompt)}
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {!isConversationLoading
+            ? conversationGroups.map(({ message, items }, groupIndex) => {
+                if (message.role === "user") {
+                  return (
+                    <div className="piq-bubble-user" key={message.id}>
+                      {message.content.trim()}
+                    </div>
+                  );
+                }
+
+                const question = findPrecedingQuestion(conversationGroups, groupIndex);
+                const prose = items
+                  .filter((item) => item.kind === "general")
+                  .map((item) => item.content)
+                  .join("\n\n");
+                // The guidance model returns most of its answer inside structured
+                // policy/handbook blocks. Their summaries ARE the guidance, so they
+                // must render as readable prose — not be consumed into chips alone.
+                const sourceSummaries = items
+                  .filter(
+                    (item) =>
+                      (item.kind === "policy" || item.kind === "handbook") && item.referenceCard,
+                  )
+                  .map((item) => ({
+                    id: item.id,
+                    label: item.referenceCard ? buildChipLabel(item.referenceCard) : "",
+                    summary: item.referenceCard?.summary ?? "",
+                  }))
+                  .filter(
+                    (entry) =>
+                      entry.summary &&
+                      entry.summary !== "No summary provided." &&
+                      entry.summary !== "No guidance summary provided.",
+                  );
+                const chips = buildEvidenceChips(message, items);
+                const actionItems = items.filter((item) => item.kind === "action");
+                const implicationItems = items.filter((item) => item.kind === "implications");
+                const disclaimerItems = items.filter((item) => item.kind === "disclaimer");
+                const isPinned = pinnedAnswers.some((pin) => pin.id === message.id);
+                const capturedAt = message.answerEvidence?.capturedAt;
+
+                return (
+                  <article className="piq-answer" key={message.id}>
+                    {prose ? (
+                      <div className="piq-prose">
+                        {prose.split(/\n{2,}/).map((paragraph, index) => (
+                          <p key={`${message.id}-p-${index}`}>{renderRichText(paragraph)}</p>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {sourceSummaries.length > 0 ? (
+                      <div className="piq-prose piq-source-summaries">
+                        {sourceSummaries.map((entry) => (
+                          <p key={`${entry.id}-summary`}>
+                            {entry.label ? <b>{entry.label}.</b> : null} {entry.summary}
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {chips.length > 0 ? (
+                      <div className="piq-chips">
+                        {chips.map((chip) => (
+                          <button
+                            key={chip.id}
+                            type="button"
+                            className="piq-chip"
+                            data-tip="View source"
+                            onClick={() => void openEvidence(chip)}
+                          >
+                            {chip.label} ↗
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {actionItems.map((item) => {
+                      const steps = parseNumberedSteps(item.content);
+                      return (
+                        <div className="piq-recommended" key={item.id}>
+                          <span className="piq-microlabel">Recommended actions</span>
+                          {steps.map((step, index) => (
+                            <p key={`${item.id}-step-${index}`}>
+                              <b>{index + 1}.</b> {renderRichText(step)}
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    })}
+
+                    {implicationItems.map((item) => (
+                      <div className="piq-implications" key={item.id}>
+                        <span className="piq-microlabel">Implications</span>
+                        {parseNumberedSteps(item.content).map((line, index) => (
+                          <p key={`${item.id}-line-${index}`}>{renderRichText(line)}</p>
+                        ))}
+                      </div>
+                    ))}
+
+                    {disclaimerItems.map((item) => (
+                      <p className="piq-disclaimer" key={item.id}>
+                        {item.content}
+                      </p>
+                    ))}
+
+                    <p className="piq-answer-meta">
+                      Guidance, not legal advice
+                      {capturedAt ? ` · Sources captured ${formatLongDate(capturedAt)}` : ""} ·{" "}
+                      <button
+                        type="button"
+                        className="piq-link"
+                        data-tip={isPinned ? "Unpin answer" : "Pin answer"}
+                        onClick={() => handleTogglePin(message, question, prose, chips)}
+                      >
+                        {isPinned ? "★ Pinned" : "☆ Pin"}
+                      </button>{" "}
+                      ·{" "}
+                      <button
+                        type="button"
+                        className="piq-link"
+                        data-tip="Copy answer"
+                        onClick={() => void handleCopyAnswer(message)}
+                      >
+                        {copiedMessageId === message.id ? "Copied" : "Copy"}
+                      </button>
+                    </p>
+                  </article>
+                );
+              })
+            : null}
+
+          {isSending ? (
+            <div className="piq-answer piq-answer-pending" aria-live="polite">
+              <span className="piq-typing" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              Reading your policies and handbooks&hellip;
+            </div>
           ) : null}
         </div>
 
-        <form className="assistant-chat-form" onSubmit={handleScenarioSubmit}>
-          <label htmlFor="scenario" className="policy-label">
-            Describe The Situation
-          </label>
-          <p id="scenario-privacy-note" className="small-muted assistant-privacy-notice">
-            Protect student and staff privacy: do not include real names or other identifying
-            details. Use placeholders such as Student A, Student B, or Teacher C instead.
-          </p>
-          <textarea
-            id="scenario"
-            ref={scenarioInputRef}
-            value={scenario}
-            onChange={(event) => setScenario(event.target.value)}
-            placeholder="Example: A parent has filed a formal complaint alleging their child with special needs is not receiving services required by the IEP."
-            rows={5}
-            maxLength={8000}
-            aria-describedby="scenario-privacy-note"
-          />
+        {showScrollToLatest ? (
           <button
-            className="action-button policy-button assistant-guidance-button"
-            type="submit"
-            disabled={isSending}
+            type="button"
+            className="piq-jump"
+            data-tip="Jump to latest"
+            onClick={() => scrollToLatestMessage("smooth")}
           >
-            {isSending ? "Analyzing..." : "Get Policy-Grounded Guidance"}
+            ↓ Latest
           </button>
-        </form>
+        ) : null}
 
-        <div className="assistant-feedback-stack" aria-live="polite">
-          {chatError ? <p className="policy-error">{chatError}</p> : null}
-        </div>
+        <div className="piq-composer-wrap">
+          <div className="piq-feedback" aria-live="polite">
+            {conversationError ? <p className="piq-error">{conversationError}</p> : null}
+            {chatError ? <p className="piq-error">{chatError}</p> : null}
+          </div>
 
-        {retrievalDebug ? (
-          <details className="assistant-debug-panel">
-            <summary>Retrieval Debug</summary>
-            <p className="small-muted">
-              Retrieval mode:{" "}
-              <strong>{retrievalDebug.retrievalMode || "lexical (legacy response)"}</strong>
-            </p>
-            {retrievalDebug.subIssues && retrievalDebug.subIssues.length > 0 ? (
-              <div className="assistant-debug-section">
-                <p className="policy-label">Detected Sub-Issues</p>
-                <ul className="assistant-uploaded-list">
-                  {retrievalDebug.subIssues.map((subIssue, index) => (
-                    <li key={`sub-issue-${index}`}>{subIssue}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <p className="small-muted">
-                Sub-issues: none detected (single-issue scenario or decomposition unavailable)
+          <form className="piq-composer" onSubmit={handleScenarioSubmit}>
+            <textarea
+              id="scenario"
+              ref={composerRef}
+              rows={1}
+              value={scenario}
+              maxLength={8000}
+              aria-label="Ask a follow-up, or describe a new scenario"
+              aria-describedby="composer-note"
+              placeholder="Ask a follow-up, or describe a new scenario…"
+              onChange={(event) => setScenario(event.target.value)}
+              onKeyDown={handleComposerKeyDown}
+            />
+            <button
+              type="submit"
+              className="piq-button piq-button-primary"
+              data-tip="Ask"
+              disabled={isSending || isOffline}
+            >
+              {isSending ? "Asking..." : "Ask"}
+            </button>
+          </form>
+          <p className="piq-composer-note" id="composer-note">
+            Policy to Action can make mistakes — verify critical decisions against the cited source.
+            Use placeholders such as Student A instead of real names.
+          </p>
+
+          {retrievalDebug && SHOW_RETRIEVAL_DEBUG ? (
+            <details className="piq-debug">
+              <summary>Retrieval debug</summary>
+              <p>
+                Mode: <strong>{retrievalDebug.retrievalMode || "lexical (legacy response)"}</strong>{" "}
+                · Policy matches: {retrievalDebug.policyCount} · Handbook matches:{" "}
+                {retrievalDebug.handbookCount}
               </p>
-            )}
-            <p className="small-muted">
-              Matched terms:{" "}
-              {retrievalDebug.matchedTerms.length > 0
-                ? retrievalDebug.matchedTerms.join(", ")
-                : "None"}
-            </p>
-            <p className="small-muted">
-              Policy matches: {retrievalDebug.policyCount} | Handbook matches:{" "}
-              {retrievalDebug.handbookCount}
-            </p>
-
-            <div className="assistant-debug-section">
-              <p className="policy-label">Policy Matches</p>
+              {retrievalDebug.subIssues && retrievalDebug.subIssues.length > 0 ? (
+                <p>Sub-issues: {retrievalDebug.subIssues.join(" | ")}</p>
+              ) : null}
+              <p>
+                Matched terms:{" "}
+                {retrievalDebug.matchedTerms.length > 0
+                  ? retrievalDebug.matchedTerms.join(", ")
+                  : "None"}
+              </p>
               {retrievalDebug.policyMatches && retrievalDebug.policyMatches.length > 0 ? (
-                <ul className="assistant-uploaded-list">
+                <ul>
                   {retrievalDebug.policyMatches.map((match) => (
                     <li key={`policy-match-${match.id}`}>
-                      [{match.relevanceScore}] {match.policySection || "Section ?"} {match.policyCode || ""} -{" "}
+                      [{match.relevanceScore}] {match.policyCode || "—"} —{" "}
                       {match.policyTitle || "Untitled"}
-                      {match.excerpt ? (
-                        <span className="assistant-debug-excerpt"> - {match.excerpt}</span>
-                      ) : null}
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="small-muted">No policy matches returned.</p>
-              )}
-            </div>
-
-            <div className="assistant-debug-section">
-              <p className="policy-label">Handbook Matches</p>
+              ) : null}
               {retrievalDebug.handbookMatches && retrievalDebug.handbookMatches.length > 0 ? (
-                <ul className="assistant-uploaded-list">
+                <ul>
                   {retrievalDebug.handbookMatches.map((match) => (
                     <li key={`handbook-match-${match.id}`}>
                       [{match.relevanceScore}] {formatHandbookTypeLabel(match.handbookType)}:{" "}
-                      {match.sectionTitle || "General Guidance"}
-                      {match.excerpt ? (
-                        <span className="assistant-debug-excerpt"> - {match.excerpt}</span>
-                      ) : null}
+                      {match.sectionTitle || "General guidance"}
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="small-muted">No handbook matches returned.</p>
-              )}
+              ) : null}
+              {retrievalDebug.semanticComparison ? (
+                <p>
+                  Semantic candidates: {retrievalDebug.semanticComparison.policyCandidateCount}{" "}
+                  policy · {retrievalDebug.semanticComparison.handbookCandidateCount} handbook
+                </p>
+              ) : null}
+              {retrievalDebug.postgresComparison ? (
+                <p>
+                  Postgres candidates: {retrievalDebug.postgresComparison.policyCandidateCount}{" "}
+                  policy · {retrievalDebug.postgresComparison.handbookCandidateCount} handbook
+                </p>
+              ) : null}
+            </details>
+          ) : null}
+        </div>
+      </div>
+
+      {evidenceOpen && activeEvidence ? (
+        <aside className="piq-drawer" aria-label="Evidence">
+          <div className="piq-drawer-head">
+            <span className="piq-microlabel">Evidence</span>
+            <span className="piq-spacer" />
+            <button
+              type="button"
+              className="piq-drawer-close"
+              data-tip="Close"
+              onClick={() => setEvidenceOpen(false)}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="piq-evidence-card">
+            <span className="piq-evidence-title">{activeEvidence.title}</span>
+            <span className="piq-evidence-quote">
+              {isEvidenceLoading && !activeEvidence.quote
+                ? "Loading the source text…"
+                : activeEvidence.quote
+                  ? `“${activeEvidence.quote}”`
+                  : "No excerpt was captured for this source."}
+            </span>
+            {activeEvidence.meta ? (
+              <span className="piq-evidence-meta">{activeEvidence.meta}</span>
+            ) : null}
+          </div>
+
+          {activeEvidence.lookup ? (
+            <button
+              type="button"
+              className="piq-button piq-button-ghost piq-button-block"
+              data-tip="Open full policy"
+              onClick={() => {
+                if (activeEvidence.lookup) {
+                  void openReferenceDetail(activeEvidence.lookup);
+                }
+              }}
+            >
+              Open full source
+            </button>
+          ) : null}
+
+          <p className="piq-evidence-explainer">
+            This excerpt is the exact text the answer was grounded in, from your uploaded sources.
+          </p>
+        </aside>
+      ) : null}
+    </div>
+  );
+
+  /* --------------------------------------------------------- History view */
+
+  const historyView = (
+    <div className="piq-page">
+      <div className="piq-page-inner">
+        <h1 className="piq-page-title">Conversation history</h1>
+        <div className="piq-feedback" aria-live="polite">
+          {conversationError ? <p className="piq-error">{conversationError}</p> : null}
+        </div>
+        {conversations.length === 0 ? (
+          <p className="piq-empty-note">
+            No saved conversations yet. Ask a scenario question and it will be saved here.
+          </p>
+        ) : (
+          <div className="piq-rows">
+            {conversations.map((conversation) => (
+              <div className="piq-row" key={conversation.id}>
+                <button
+                  type="button"
+                  className="piq-row-main"
+                  onClick={() => handleConversationOpen(conversation.id)}
+                >
+                  <span className="piq-row-copy">
+                    <b>{conversation.title || "Untitled conversation"}</b>
+                    <span>
+                      {conversation.messageCount}{" "}
+                      {conversation.messageCount === 1 ? "message" : "messages"}
+                      {selectedDataset ? ` · ${selectedDataset.title}` : ""}
+                    </span>
+                  </span>
+                  <span className="piq-row-when">
+                    {formatRelativeDate(conversation.lastMessageAt || conversation.updatedAt)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="piq-icon-button is-danger"
+                  data-tip="Delete"
+                  onClick={() => void handleConversationDelete(conversation)}
+                >
+                  <span aria-hidden="true">🗑</span>
+                  <span className="piq-sr-only">Delete conversation</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  /* ---------------------------------------------------------- Pinned view */
+
+  const pinnedView = (
+    <div className="piq-page">
+      <div className="piq-page-inner">
+        <h1 className="piq-page-title">Pinned answers</h1>
+        <p className="piq-lead">
+          Your district&rsquo;s living FAQ — answers you&rsquo;ve saved, with their evidence frozen
+          at pin time.
+        </p>
+        {pinnedAnswers.length === 0 ? (
+          <p className="piq-empty-note">
+            Nothing pinned yet. Use ☆ Pin under any answer to keep it here.
+          </p>
+        ) : (
+          <div className="piq-pin-grid">
+            {pinnedAnswers.map((pin) => (
+              <article className="piq-pin-card" key={pin.id}>
+                <span className="piq-pin-title">{pin.title}</span>
+                <span className="piq-pin-body">{pin.body}</span>
+                <span className="piq-pin-foot">
+                  <span className="piq-pin-meta">{pin.meta}</span>
+                  <button
+                    type="button"
+                    className="piq-link"
+                    data-tip="Unpin"
+                    onClick={() => handleUnpin(pin.id)}
+                  >
+                    Unpin
+                  </button>
+                </span>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  /* --------------------------------------------------------- Library view */
+
+  const visibleSources = librarySources.filter((source) => {
+    if (source.archived !== showArchived) {
+      return false;
+    }
+    if (libraryFilter === "all") {
+      return true;
+    }
+    if (libraryFilter === "policies") {
+      return source.kind === "dataset";
+    }
+    return source.kind === "handbook" && source.handbookType === libraryFilter;
+  });
+
+  const isSearching = librarySearchQuery.trim().length > 0;
+  const missingHandbooks = [
+    activeStudentHandbookDocuments.length === 0 ? "student handbook" : "",
+    activeStaffHandbookDocuments.length === 0 ? "staff handbook" : "",
+  ].filter(Boolean);
+
+  const libraryView = (
+    <div className="piq-page">
+      <div className="piq-page-inner is-wide">
+        <div className="piq-library-head">
+          <h1 className="piq-page-title">Library</h1>
+          <span className="piq-spacer" />
+          <span className="piq-search">
+            <span aria-hidden="true">⌕</span>
+            <input
+              type="search"
+              value={librarySearchQuery}
+              onChange={(event) => setLibrarySearchQuery(event.target.value)}
+              placeholder={`Search all ${totalPolicyCount(activeDatasets)} policies…`}
+              aria-label="Search policies"
+            />
+          </span>
+          <button
+            type="button"
+            className="piq-button piq-button-primary"
+            data-tip="Add source"
+            onClick={() => setView("source")}
+          >
+            ＋ Add source
+          </button>
+        </div>
+
+        <div className="piq-feedback" aria-live="polite">
+          {datasetStatus ? <p className="piq-status">{datasetStatus}</p> : null}
+          {datasetError ? <p className="piq-error">{datasetError}</p> : null}
+          {handbookManagementStatus ? <p className="piq-status">{handbookManagementStatus}</p> : null}
+          {handbookManagementError ? <p className="piq-error">{handbookManagementError}</p> : null}
+          {policyIndexError ? <p className="piq-error">{policyIndexError}</p> : null}
+        </div>
+
+        {isSearching ? (
+          <div className="piq-rows">
+            <p className="piq-lead piq-lead-tight">
+              {isPolicyIndexLoading
+                ? "Searching your policies…"
+                : `${librarySearchResults.length} ${
+                    librarySearchResults.length === 1 ? "policy matches" : "policies match"
+                  } “${librarySearchQuery.trim()}”`}
+            </p>
+            {librarySearchResults.map((policy) => (
+              <button
+                type="button"
+                className="piq-result"
+                key={policy.id}
+                onClick={() => openLibraryPolicy(policy)}
+              >
+                <span>
+                  <b className="piq-result-code">{policy.policyCode || "—"}</b> ·{" "}
+                  <b>{policy.policyTitle || "Untitled policy"}</b>
+                </span>
+                <span className="piq-result-excerpt">
+                  {buildSearchExcerpt(policy.policyWording, librarySearchQuery)}
+                </span>
+                <span className="piq-result-meta">
+                  {[policy.policySection, policy.revisedDate ? `Revised ${policy.revisedDate}` : "", selectedDataset?.title]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="piq-pills">
+              {(
+                [
+                  { key: "all", label: `All sources (${librarySources.filter((s) => !s.archived).length})` },
+                  { key: "policies", label: `Policies (${activeDatasets.length})` },
+                  { key: "student", label: `Student handbook (${activeStudentHandbookDocuments.length})` },
+                  { key: "staff", label: `Staff handbook (${activeStaffHandbookDocuments.length})` },
+                ] as Array<{ key: LibraryFilter; label: string }>
+              ).map((pill) => (
+                <button
+                  key={pill.key}
+                  type="button"
+                  className={`piq-pill${
+                    libraryFilter === pill.key && !showArchived ? " is-active" : ""
+                  }`}
+                  onClick={() => {
+                    setLibraryFilter(pill.key);
+                    setShowArchived(false);
+                  }}
+                >
+                  {pill.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={`piq-pill${showArchived ? " is-active" : ""}`}
+                data-tip="Archived sources"
+                onClick={() => setShowArchived((previous) => !previous)}
+              >
+                Archived ({archivedDatasets.length + archivedHandbookDocuments.length})
+              </button>
             </div>
 
-            {retrievalDebug.semanticComparison ? (
-              <div className="assistant-debug-section">
-                <p className="policy-label">Semantic Candidates</p>
-                <p className="small-muted">
-                  Policy candidates: {retrievalDebug.semanticComparison.policyCandidateCount} |
-                  Handbook candidates: {retrievalDebug.semanticComparison.handbookCandidateCount}
-                </p>
-
-                <div className="assistant-debug-subsection">
-                  <p className="policy-label">Semantic Policy Candidates</p>
-                  {retrievalDebug.semanticComparison.policyCandidates &&
-                  retrievalDebug.semanticComparison.policyCandidates.length > 0 ? (
-                    <ul className="assistant-uploaded-list">
-                      {retrievalDebug.semanticComparison.policyCandidates.map((candidate) => (
-                        <li key={`semantic-policy-${candidate.id}`}>
-                          [{formatDebugRank(candidate.semanticScore)}]{" "}
-                          {candidate.selectedByCurrentRetrieval ? "selected | " : ""}
-                          {candidate.policySection || "Section ?"} {candidate.policyCode || ""} -{" "}
-                          {candidate.policyTitle || "Untitled"}
-                          {candidate.subIssues.length > 0 ? (
-                            <span className="assistant-debug-score-detail">
-                              {" "}
-                              via: {candidate.subIssues.join(" | ")}
-                            </span>
-                          ) : null}
-                          {candidate.excerpt ? (
-                            <span className="assistant-debug-excerpt">
-                              {" "}
-                              - {candidate.excerpt}
-                            </span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="small-muted">No semantic policy candidates returned.</p>
-                  )}
-                </div>
-
-                <div className="assistant-debug-subsection">
-                  <p className="policy-label">Semantic Handbook Candidates</p>
-                  {retrievalDebug.semanticComparison.handbookCandidates &&
-                  retrievalDebug.semanticComparison.handbookCandidates.length > 0 ? (
-                    <ul className="assistant-uploaded-list">
-                      {retrievalDebug.semanticComparison.handbookCandidates.map((candidate) => (
-                        <li key={`semantic-handbook-${candidate.id}`}>
-                          [{formatDebugRank(candidate.semanticScore)}]{" "}
-                          {candidate.selectedByCurrentRetrieval ? "selected | " : ""}
-                          {formatHandbookTypeLabel(candidate.handbookType)}:{" "}
-                          {candidate.sectionTitle || "General Guidance"}
-                          {candidate.subIssues.length > 0 ? (
-                            <span className="assistant-debug-score-detail">
-                              {" "}
-                              via: {candidate.subIssues.join(" | ")}
-                            </span>
-                          ) : null}
-                          {candidate.excerpt ? (
-                            <span className="assistant-debug-excerpt">
-                              {" "}
-                              - {candidate.excerpt}
-                            </span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="small-muted">No semantic handbook candidates returned.</p>
-                  )}
-                </div>
+            <div className="piq-table">
+              <div className="piq-table-head">
+                <span>Title</span>
+                <span>Rows</span>
+                <span>Health</span>
+                <span>Updated</span>
+                <span>Source</span>
+                <span />
               </div>
+
+              {visibleSources.map((source) => (
+                <div className="piq-table-row" key={`${source.kind}-${source.id}`}>
+                  <span className="piq-table-title">
+                    {source.title}
+                    {source.kind === "dataset" && source.id === selectedDatasetId ? (
+                      <em className="piq-active-tag">active</em>
+                    ) : null}
+                  </span>
+                  <span>{source.rows}</span>
+                  <span className="piq-health">
+                    <HealthMark good={source.healthy} />
+                    {source.healthLabel}
+                  </span>
+                  <span className="piq-table-muted">{formatShortDate(source.updatedAt)}</span>
+                  <span className="piq-table-muted">{source.sourceLabel}</span>
+                  <span className="piq-table-actions">
+                    <button
+                      type="button"
+                      className="piq-icon-button"
+                      data-tip="Rename"
+                      disabled={source.busy}
+                      onClick={() => {
+                        if (source.dataset) {
+                          void handleDatasetRename(source.dataset);
+                        } else if (source.document) {
+                          void handleHandbookRename(source.document);
+                        }
+                      }}
+                    >
+                      <span aria-hidden="true">✎</span>
+                      <span className="piq-sr-only">Rename {source.title}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="piq-icon-button"
+                      data-tip={source.archived ? "Restore" : "Archive"}
+                      disabled={source.busy}
+                      onClick={() => {
+                        if (source.dataset) {
+                          void handleDatasetArchive(source.dataset, !source.archived);
+                        } else if (source.document) {
+                          void handleHandbookArchive(source.document, !source.archived);
+                        }
+                      }}
+                    >
+                      <span aria-hidden="true">{source.archived ? "⤴" : "⤵"}</span>
+                      <span className="piq-sr-only">
+                        {source.archived ? "Restore" : "Archive"} {source.title}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="piq-icon-button is-danger"
+                      data-tip="Delete"
+                      disabled={source.busy}
+                      onClick={() => {
+                        if (source.dataset) {
+                          void handleDatasetDelete(source.dataset);
+                        } else if (source.document) {
+                          void handleHandbookDelete(source.document);
+                        }
+                      }}
+                    >
+                      <span aria-hidden="true">🗑</span>
+                      <span className="piq-sr-only">Delete {source.title}</span>
+                    </button>
+                  </span>
+                </div>
+              ))}
+
+              {visibleSources.length === 0 ? (
+                <p className="piq-table-empty">
+                  {showArchived
+                    ? "Nothing archived — archived sources are excluded from answers but kept for your records."
+                    : "No sources here yet. Use ＋ Add source to import policies or upload a handbook."}
+                </p>
+              ) : null}
+            </div>
+
+            {showArchived ? (
+              <p className="piq-note">
+                Archived sources are excluded from the assistant&rsquo;s answers. Restore (⤴) to
+                include them again, or delete permanently.
+              </p>
             ) : null}
 
-            {retrievalDebug.postgresComparison ? (
-              <div className="assistant-debug-section">
-                <p className="policy-label">Postgres Candidate Comparison</p>
-                <p className="small-muted">
-                  Query: {retrievalDebug.postgresComparison.query || "None"}
-                </p>
-                <p className="small-muted">
-                  Policy candidates: {retrievalDebug.postgresComparison.policyCandidateCount} |
-                  Handbook candidates: {retrievalDebug.postgresComparison.handbookCandidateCount}
-                </p>
-
-                <div className="assistant-debug-subsection">
-                  <p className="policy-label">Postgres Policy Candidates</p>
-                  {retrievalDebug.postgresComparison.policyCandidates &&
-                  retrievalDebug.postgresComparison.policyCandidates.length > 0 ? (
-                    <ul className="assistant-uploaded-list">
-                      {retrievalDebug.postgresComparison.policyCandidates.map((candidate) => (
-                        <li key={`postgres-policy-${candidate.id}`}>
-                          [{formatDebugRank(candidate.combinedRank)}]{" "}
-                          {candidate.selectedByCurrentRetrieval ? "selected | " : ""}
-                          {candidate.policySection || "Section ?"} {candidate.policyCode || ""} -{" "}
-                          {candidate.policyTitle || "Untitled"}
-                          <span className="assistant-debug-score-detail">
-                            {" "}
-                            FTS {formatDebugRank(candidate.fullTextRank)} | Trigram{" "}
-                            {formatDebugRank(candidate.trigramScore)}
-                          </span>
-                          {candidate.excerpt ? (
-                            <span className="assistant-debug-excerpt">
-                              {" "}
-                              - {candidate.excerpt}
-                            </span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="small-muted">No Postgres policy candidates returned.</p>
-                  )}
-                </div>
-
-                <div className="assistant-debug-subsection">
-                  <p className="policy-label">Postgres Handbook Candidates</p>
-                  {retrievalDebug.postgresComparison.handbookCandidates &&
-                  retrievalDebug.postgresComparison.handbookCandidates.length > 0 ? (
-                    <ul className="assistant-uploaded-list">
-                      {retrievalDebug.postgresComparison.handbookCandidates.map((candidate) => (
-                        <li key={`postgres-handbook-${candidate.id}`}>
-                          [{formatDebugRank(candidate.combinedRank)}]{" "}
-                          {candidate.selectedByCurrentRetrieval ? "selected | " : ""}
-                          {formatHandbookTypeLabel(candidate.handbookType)}:{" "}
-                          {candidate.sectionTitle || "General Guidance"}
-                          <span className="assistant-debug-score-detail">
-                            {" "}
-                            FTS {formatDebugRank(candidate.fullTextRank)} | Trigram{" "}
-                            {formatDebugRank(candidate.trigramScore)}
-                          </span>
-                          {candidate.excerpt ? (
-                            <span className="assistant-debug-excerpt">
-                              {" "}
-                              - {candidate.excerpt}
-                            </span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="small-muted">No Postgres handbook candidates returned.</p>
-                  )}
-                </div>
+            {!showArchived && missingHandbooks.length > 0 && activeDatasets.length > 0 ? (
+              <div className="piq-callout">
+                <HealthMark good={false} />
+                <span className="piq-callout-text">
+                  Your {missingHandbooks.join(" and ")} hasn&rsquo;t been added — related questions
+                  will answer from policies only.
+                </span>
+                <button
+                  type="button"
+                  className="piq-button piq-button-ghost"
+                  data-tip="Add handbook"
+                  onClick={() => {
+                    setSourceTab("handbook");
+                    setView("source");
+                  }}
+                >
+                  Add it now
+                </button>
               </div>
             ) : null}
-          </details>
-        ) : null}
-      </section>
-    </section>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  /* ---------------------------------------------------- Policy detail view */
+
+  const policyDetailView = (
+    <div className="piq-page">
+      <div className="piq-page-inner is-narrow">
+        <button type="button" className="piq-back" onClick={() => setView("library")}>
+          ← Library
+        </button>
+        {detailView ? (
+          <>
+            <div className="piq-detail-head">
+              {detailView.code ? <span className="piq-detail-code">{detailView.code}</span> : null}
+              <h1 className="piq-detail-title">{detailView.title}</h1>
+            </div>
+            <div className="piq-detail-meta">
+              {detailView.metadata.map((field) => (
+                <span key={`${field.label}-${field.value}`}>
+                  {field.label}: {field.value}
+                </span>
+              ))}
+              <span className="piq-spacer" />
+              <button
+                type="button"
+                className="piq-link"
+                data-tip="Copy"
+                onClick={() => void window.navigator.clipboard.writeText(detailView.bodyText)}
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                className="piq-link"
+                data-tip="Ask about this policy"
+                onClick={() => {
+                  setScenario(
+                    `About policy ${[detailView.code, detailView.title].filter(Boolean).join(" — ")}: `,
+                  );
+                  setView("assistant");
+                  window.setTimeout(() => composerRef.current?.focus(), 0);
+                }}
+              >
+                Ask about this policy
+              </button>
+            </div>
+            <div className="piq-detail-body">
+              {detailView.bodyText.split(/\n{2,}/).map((paragraph, index) => (
+                <p key={`detail-p-${index}`}>{renderRichText(paragraph)}</p>
+              ))}
+            </div>
+            {detailView.relatedText ? (
+              <div className="piq-related">
+                <span className="piq-microlabel">Related</span>
+                <span>{detailView.relatedText}</span>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <p className="piq-empty-note">
+            Choose a policy from the Library or an evidence chip to read its full text.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
+  /* ------------------------------------------------------ Add source view */
+
+  const sourceView = (
+    <div className="piq-page">
+      <div className="piq-page-inner">
+        <h1 className="piq-page-title">Add a source</h1>
+        <div className="piq-tabs">
+          {SOURCE_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={`piq-tab${sourceTab === tab.key ? " is-active" : ""}`}
+              onClick={() => setSourceTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {sourceTab === "import" ? importPanel : null}
+        {sourceTab === "csv" ? csvPanel : null}
+        {sourceTab === "handbook" ? handbookPanel : null}
+
+        {sourceFeedback}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="piq-app" data-view={view}>
+      {mobileHeader}
+      {rail}
+      <main className="piq-main">
+        {view === "assistant" ? assistantView : null}
+        {view === "history" ? historyView : null}
+        {view === "pinned" ? pinnedView : null}
+        {view === "library" ? libraryView : null}
+        {view === "policy" ? policyDetailView : null}
+        {view === "source" ? sourceView : null}
+      </main>
+      {accountMenu}
+    </div>
   );
 
   async function loadSession(): Promise<void> {
@@ -3367,7 +3843,8 @@ export function PolicyAssistantApp() {
       }
 
       if (response.status === 403) {
-        const message = payload.error ?? "Please verify your email before loading handbook documents.";
+        const message =
+          payload.error ?? "Please verify your email before loading handbook documents.";
         setStudentHandbookError(message);
         setStaffHandbookError(message);
         return;
@@ -3379,8 +3856,7 @@ export function PolicyAssistantApp() {
 
       setHandbookDocuments(payload.documents);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Could not load handbook documents.";
+      const message = error instanceof Error ? error.message : "Could not load handbook documents.";
       setStudentHandbookError(message);
       setStaffHandbookError(message);
     }
@@ -3443,7 +3919,9 @@ export function PolicyAssistantApp() {
         return loadedConversations[0].id;
       });
     } catch (error) {
-      setConversationError(error instanceof Error ? error.message : "Could not load conversation history.");
+      setConversationError(
+        error instanceof Error ? error.message : "Could not load conversation history.",
+      );
       setConversations([]);
       setSelectedConversationId("");
       setMessages([]);
@@ -3543,14 +4021,12 @@ export function PolicyAssistantApp() {
     setUploadError("");
     setDatasetStatus("");
     setDatasetError("");
-    setSelectedDatasetTitleDraft("");
     setStudentHandbookStatus("");
     setStudentHandbookError("");
     setStaffHandbookStatus("");
     setStaffHandbookError("");
     setHandbookManagementStatus("");
     setHandbookManagementError("");
-    setHandbookTitleDrafts({});
     setChatError("");
     setConversationError("");
     setAuthInfo("");
@@ -3559,7 +4035,308 @@ export function PolicyAssistantApp() {
     setAuthPassword("");
     setAuthDistrictName("");
     setResetToken("");
+    setDatasetPolicies({});
+    setDetailView(null);
+    setPinnedAnswers([]);
+    setView("assistant");
+    setIsSetupDismissed(false);
+    setSetupStep(1);
+    setIsAccountMenuOpen(false);
   }
+
+  function buildEvidenceChips(
+    message: ChatMessage,
+    items: RenderedChatBubble[],
+  ): EvidenceItem[] {
+    const chips: EvidenceItem[] = [];
+
+    for (const item of items) {
+      const card = item.referenceCard;
+      if (!card) {
+        continue;
+      }
+
+      chips.push({
+        id: `${item.id}-evidence`,
+        messageId: message.id,
+        label: buildChipLabel(card),
+        title: card.title,
+        quote: card.summary,
+        meta: [
+          ...card.metadata
+            .filter(
+              (field) =>
+                !/^(not listed|no policy revisions|none|n\/a|unknown)$/i.test(field.value.trim()),
+            )
+            .map((field) => `${field.label} ${field.value}`),
+          message.answerEvidence?.policyDataset.title ?? selectedDataset?.title ?? "",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        lookup: card.lookup,
+      });
+    }
+
+    if (chips.length > 0) {
+      return chips;
+    }
+
+    const evidence = message.answerEvidence;
+    if (!evidence) {
+      return chips;
+    }
+
+    for (const match of evidence.policyMatches) {
+      chips.push({
+        id: `${message.id}-policy-${match.id}`,
+        messageId: message.id,
+        label: [match.policyCode, match.policyTitle].filter(Boolean).join(" · ") || "Policy",
+        title: [match.policyCode, match.policyTitle].filter(Boolean).join(" — ") || "Policy",
+        quote: "",
+        meta: [
+          match.policySection,
+          match.revisedDate ? `Revised ${match.revisedDate}` : "",
+          evidence.policyDataset.title,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        lookup: {
+          kind: "policy",
+          datasetId: evidence.policyDataset.id,
+          policyCode: match.policyCode,
+          policyTitle: match.policyTitle,
+        },
+      });
+    }
+
+    for (const version of evidence.handbookVersions) {
+      for (const excerpt of version.matchedExcerpts) {
+        chips.push({
+          id: `${message.id}-handbook-${version.id}-${excerpt.id}`,
+          messageId: message.id,
+          label: `${formatHandbookTypeLabel(version.handbookType)} · ${
+            excerpt.sectionTitle || "Guidance"
+          }`,
+          title: excerpt.sectionTitle || formatHandbookTypeLabel(version.handbookType),
+          quote: "",
+          meta: `${version.title} · uploaded ${formatShortDate(version.uploadedAt)}`,
+          lookup: {
+            kind: "handbook",
+            handbookType: version.handbookType,
+            sectionTitle: excerpt.sectionTitle,
+          },
+        });
+      }
+    }
+
+    return chips;
+  }
+
+}
+
+function buildLibrarySources(
+  allDatasets: PolicyDataset[],
+  allHandbooks: HandbookDocument[],
+  busyDatasetId: string,
+  busyHandbookDocumentId: string,
+): LibrarySource[] {
+  const datasetSources: LibrarySource[] = allDatasets.map((dataset) => ({
+    id: dataset.id,
+    kind: "dataset",
+    title: dataset.title,
+    rows: String(dataset.policyCount),
+    healthy: dataset.policyCount > 0,
+    healthLabel: dataset.policyCount > 0 ? "Good" : "No rows",
+    updatedAt: dataset.uploadedAt,
+    sourceLabel: formatDatasetSource(dataset),
+    archived: Boolean(dataset.archivedAt),
+    busy: busyDatasetId === dataset.id,
+    dataset,
+  }));
+
+  const handbookSources: LibrarySource[] = allHandbooks.map((document) => ({
+    id: document.id,
+    kind: "handbook",
+    handbookType: document.handbookType,
+    title: document.title,
+    rows: `${document.chunkCount} sections`,
+    healthy: document.chunkCount > 0,
+    healthLabel: document.chunkCount > 0 ? "Good" : "No excerpts",
+    updatedAt: document.uploadedAt,
+    sourceLabel: `${formatHandbookTypeLabel(document.handbookType)} upload`,
+    archived: Boolean(document.archivedAt),
+    busy: busyHandbookDocumentId === document.id,
+    document,
+  }));
+
+  return [...datasetSources, ...handbookSources];
+}
+
+interface LibrarySource {
+  id: string;
+  kind: "dataset" | "handbook";
+  handbookType?: "student" | "staff";
+  title: string;
+  rows: string;
+  healthy: boolean;
+  healthLabel: string;
+  updatedAt: string;
+  sourceLabel: string;
+  archived: boolean;
+  busy: boolean;
+  dataset?: PolicyDataset;
+  document?: HandbookDocument;
+}
+
+function renderRichText(text: string): ReactNode {
+  const segments = text.split(/(\*\*[^*]+\*\*)/g);
+  return segments.map((segment, index) => {
+    if (segment.startsWith("**") && segment.endsWith("**") && segment.length > 4) {
+      return <strong key={index}>{segment.slice(2, -2)}</strong>;
+    }
+    return <span key={index}>{segment}</span>;
+  });
+}
+
+function parseNumberedSteps(content: string): string[] {
+  return stripLeadingSectionLabel(content)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^(?:[-*•]\s*|\d+[.)]\s*)/, "").replace(/^\*\*(\d+[.)])\s*/, ""));
+}
+
+function findPrecedingQuestion(
+  groups: Array<{ message: ChatMessage }>,
+  index: number,
+): string {
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    if (groups[cursor].message.role === "user") {
+      return groups[cursor].message.content.trim();
+    }
+  }
+  return "";
+}
+
+function buildChipLabel(card: ReferenceCard): string {
+  const title = card.title.replace(/\s+-\s+/, " · ");
+  return truncateReferenceSummary(title, 46);
+}
+
+function buildSearchExcerpt(wording: string, query: string): string {
+  const normalized = wording.replace(/\s+/g, " ").trim();
+  const term = query.trim().toLowerCase();
+  const index = normalized.toLowerCase().indexOf(term);
+  if (index < 0 || !term) {
+    return truncateReferenceSummary(normalized, 180);
+  }
+
+  // Snap the excerpt window to word boundaries so it never opens mid-word.
+  let start = Math.max(0, index - 80);
+  if (start > 0) {
+    const nextSpace = normalized.indexOf(" ", start);
+    if (nextSpace >= 0 && nextSpace < index) {
+      start = nextSpace + 1;
+    }
+  }
+  let end = Math.min(normalized.length, start + 200);
+  if (end < normalized.length) {
+    const lastSpace = normalized.lastIndexOf(" ", end);
+    if (lastSpace > start + 100) {
+      end = lastSpace;
+    }
+  }
+  const slice = normalized.slice(start, end);
+  return `${start > 0 ? "…" : ""}${slice}${end < normalized.length ? "…" : ""}`;
+}
+
+function totalPolicyCount(datasets: PolicyDataset[]): number {
+  return datasets.reduce((total, dataset) => total + dataset.policyCount, 0);
+}
+
+function deriveFirstName(email: string): string {
+  const local = email.split("@")[0] ?? "";
+  const first = local.split(/[._-]/)[0] ?? "";
+  if (!first) {
+    return "there";
+  }
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
+
+function deriveInitials(email: string, districtName: string): string {
+  const local = email.split("@")[0] ?? "";
+  const parts = local.split(/[._-]/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+  if (local.length >= 2) {
+    return local.slice(0, 2).toUpperCase();
+  }
+  return (districtName.slice(0, 2) || "PA").toUpperCase();
+}
+
+function readStoredPins(userId: string): PinnedAnswer[] {
+  try {
+    const raw = window.localStorage.getItem(`piq-pins:${userId}`);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw) as PinnedAnswer[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredPins(userId: string, pins: PinnedAnswer[]): void {
+  try {
+    window.localStorage.setItem(`piq-pins:${userId}`, JSON.stringify(pins));
+  } catch {
+    // Ignore persistence failures.
+  }
+}
+
+function findMetadataValue(metadata: ReferenceField[], label: string): string {
+  return metadata.find((field) => field.label === label)?.value ?? "";
+}
+
+function formatShortDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatLongDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatRelativeDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const dayDelta = Math.round((startOfToday - startOfDate) / 86400000);
+
+  if (dayDelta <= 0) {
+    return "Today";
+  }
+  if (dayDelta === 1) {
+    return "Yesterday";
+  }
+  if (dayDelta < 7) {
+    return `${dayDelta} days ago`;
+  }
+  return formatShortDate(value);
 }
 
 function buildClientId(prefix: string): string {
@@ -3924,7 +4701,10 @@ function buildReferenceCard(
   return undefined;
 }
 
-function buildPolicyReferenceCard(content: string, selectedDatasetId: string): ReferenceCard | undefined {
+function buildPolicyReferenceCard(
+  content: string,
+  selectedDatasetId: string,
+): ReferenceCard | undefined {
   const fields = parseReferenceFields(content);
   const policyTitle = fields.get("policy title") ?? "";
   const policyCode = fields.get("policy code") ?? "";
@@ -4056,12 +4836,19 @@ function truncateReferenceSummary(value: string, maxLength: number = 220): strin
   }
 
   const truncated = normalized.slice(0, maxLength);
-  const safeBoundary = Math.max(truncated.lastIndexOf(" "), truncated.lastIndexOf("."), truncated.lastIndexOf(","));
-  const summary = safeBoundary > 120 ? truncated.slice(0, safeBoundary) : truncated;
+  const safeBoundary = Math.max(
+    truncated.lastIndexOf(" "),
+    truncated.lastIndexOf("."),
+    truncated.lastIndexOf(","),
+  );
+  const summary = safeBoundary > maxLength / 2 ? truncated.slice(0, safeBoundary) : truncated;
   return `${summary.trim()}...`;
 }
 
-function buildReferenceField(label: string, value: string | null | undefined): ReferenceField | null {
+function buildReferenceField(
+  label: string,
+  value: string | null | undefined,
+): ReferenceField | null {
   const normalized = value?.trim();
   if (!normalized) {
     return null;
@@ -4109,36 +4896,13 @@ function extractHandbookType(content: string): "student" | "staff" | null {
 }
 
 function formatHandbookTypeLabel(handbookType: "student" | "staff"): string {
-  return handbookType === "staff" ? "Staff Handbook" : "Student Handbook";
-}
-
-function countHandbookEvidenceExcerpts(evidence: PolicyAnswerEvidenceSnapshot): number {
-  return evidence.handbookVersions.reduce(
-    (total, version) => total + version.matchedExcerpts.length,
-    0,
-  );
-}
-
-function formatDebugRank(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "0";
-  }
-
-  return value.toFixed(3).replace(/\.?0+$/, "");
-}
-
-function formatDatasetOption(dataset: PolicyDataset): string {
-  const label = `${dataset.title} (${dataset.policyCount} policies)`;
-  if (label.length <= 58) {
-    return label;
-  }
-  return `${label.slice(0, 55)}...`;
+  return handbookType === "staff" ? "Staff handbook" : "Student handbook";
 }
 
 function formatDatasetSource(dataset: PolicyDataset): string {
   if (dataset.sourceType === "scraper_import") {
     const platform = formatDatasetSourcePlatform(dataset.sourcePlatform);
-    return platform ? `Website import - ${platform}` : "Website import";
+    return platform ? `Scraper · ${platform}` : "Scraper";
   }
 
   return "CSV upload";
@@ -4160,13 +4924,6 @@ function formatDatasetSourcePlatform(sourcePlatform: string): string {
   return sourcePlatform.trim();
 }
 
-function formatConversationOption(conversation: ConversationSummary): string {
-  const base = conversation.title.trim() || "Untitled conversation";
-  const title = base.length > 45 ? `${base.slice(0, 42)}...` : base;
-  const timestamp = new Date(conversation.lastMessageAt || conversation.updatedAt).toLocaleString();
-  return `${title} (${timestamp})`;
-}
-
 function upsertConversation(
   previous: ConversationSummary[],
   incoming: ConversationSummary,
@@ -4183,34 +4940,34 @@ function upsertConversation(
 
 function authTitleForMode(mode: AuthMode): string {
   if (mode === "signup") {
-    return "Create Account";
+    return "Create your workspace";
   }
 
   if (mode === "forgot") {
-    return "Reset Password";
+    return "Reset your password";
   }
 
   if (mode === "reset") {
-    return "Set New Password";
+    return "Set a new password";
   }
 
-  return "Sign In";
+  return "Sign in";
 }
 
 function authButtonLabel(mode: AuthMode): string {
   if (mode === "signup") {
-    return "Create Account";
+    return "Create workspace";
   }
 
   if (mode === "forgot") {
-    return "Send Reset Link";
+    return "Email reset link";
   }
 
   if (mode === "reset") {
-    return "Update Password";
+    return "Update password";
   }
 
-  return "Sign In";
+  return "Sign in";
 }
 
 function clearAuthQueryParams(): void {

@@ -1,21 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Instrument_Sans, Schibsted_Grotesk } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { PwaRegister } from "@/components/pwa-register";
 
 import "./globals.css";
 
-const sans = Inter({
+const sans = Instrument_Sans({
   subsets: ["latin"],
-  variable: "--font-sans",
-  weight: ["400", "500", "600", "700"],
+  variable: "--font-instrument",
+  weight: ["400", "500", "600"],
 });
 
-const display = Space_Grotesk({
+const display = Schibsted_Grotesk({
   subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["500", "700"],
+  variable: "--font-schibsted",
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -39,17 +39,17 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0e7490",
+  themeColor: "#0f2c46",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${sans.variable} ${display.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${sans.variable} ${display.variable}`}>
+      <body>
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{if(localStorage.getItem('a11y-contrast')==='high'){document.documentElement.dataset.contrast='high';}}catch(e){}",
+              "try{var h=localStorage.getItem('piq-hc');var v=h===null?localStorage.getItem('a11y-contrast')==='high':h==='1';if(v){document.documentElement.dataset.contrast='high';document.documentElement.classList.add('hc');}}catch(e){}",
           }}
         />
         <PwaRegister />

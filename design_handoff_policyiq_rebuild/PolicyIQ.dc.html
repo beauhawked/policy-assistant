@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;background:#f8fafc;font-family:'Instrument Sans',sans-serif;color:#16283a}
+body{--accent:#1273a8;--accent-soft:#eef6fb;--accent-deep:#0d5c85;--navy:#0f2c46;--line:#e4eaf0;--line-soft:#eef2f6;--line-strong:#d8dee6;--line-mid:#c9d8e2;--chip-line:#cfe2ee;--muted:#8296a8;--muted2:#5f7285;--text-soft:#41556a;--good:#2e9e5b;--warn:#c07f10;--warn-bg:#fdf6e3;--warn-line:#f0e0b0;--warn-text:#8a6414;--on-navy:#9db4c6;--chat-bg:radial-gradient(circle at 12% 8%, rgba(18,115,168,.16), transparent 46%),radial-gradient(circle at 88% 24%, rgba(93,182,224,.14), transparent 42%),radial-gradient(circle at 45% 100%, rgba(15,44,70,.12), transparent 52%),linear-gradient(180deg,#eaf2f7,#f5f9fb);--glass:rgba(255,255,255,.58);--glass-border:rgba(255,255,255,.72);--glass-user:rgba(219,234,244,.62)}
+body.hc{--accent:#0a4f75;--accent-soft:#d9ecf6;--accent-deep:#083c59;--line:#7d8a96;--line-soft:#8d9aa5;--line-strong:#5a6b7a;--line-mid:#5a6b7a;--chip-line:#5a6b7a;--muted:#3d5163;--muted2:#33475a;--text-soft:#1e3346;--good:#1e5c38;--warn:#7a5000;--warn-bg:#fbf3dd;--warn-line:#7a5000;--warn-text:#5c3d00;--on-navy:#d3e2ee;--chat-bg:#ffffff;--glass:#ffffff;--glass-border:#5a6b7a;--glass-user:#eef3f7}
+a{color:var(--accent-deep);text-decoration:none}a:hover{text-decoration:underline;color:var(--accent)}
+body.hc a{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+body.hc :focus-visible{outline-width:3px}
+::selection{background:rgba(18,115,168,.18)}
+[data-tip]{position:relative}
+[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:6px 11px;border-radius:7px;font-size:12px;font-weight:500;width:max-content;max-width:230px;white-space:normal;text-align:left;line-height:1.45;z-index:99;pointer-events:none;box-shadow:0 4px 14px rgba(15,44,70,.3);font-family:'Instrument Sans',sans-serif;letter-spacing:0;text-transform:none}
+[data-tip]:hover::before{content:"";position:absolute;bottom:calc(100% + 3px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--navy);z-index:99;pointer-events:none}
+[data-tip-side="right"]:hover::after{bottom:auto;left:calc(100% + 10px);top:50%;transform:translateY(-50%)}
+[data-tip-side="right"]:hover::before{bottom:auto;left:calc(100% + 5px);top:50%;transform:translateY(-50%);border:5px solid transparent;border-right-color:var(--navy)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div style="display:flex;height:100vh;overflow:hidden;font-size:14px;line-height:1.5">
+<sc-if value="{{ isAuth }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Sign in" style="flex:1;display:flex;background:#f6f8fa">
+  <div style="width:44%;background:var(--navy);color:#fff;display:flex;flex-direction:column;justify-content:space-between;padding:44px 48px">
+    <span style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:8px;background:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-family:'Schibsted Grotesk';font-weight:700;font-size:16px">P</span><span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:17px">PolicyIQ</span></span>
+    <div style="display:flex;flex-direction:column;gap:14px;max-width:400px">
+      <span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:30px;line-height:1.2;letter-spacing:-.015em">Every answer, grounded in your district's own policies.</span>
+      <span style="color:var(--on-navy);font-size:15px">Upload your board policies and handbooks once — then ask scenario questions and get cited, actionable guidance.</span>
+    </div>
+    <span style="color:#5c7791;font-size:12.5px">Private to your district · Sources cited on every answer</span>
+  </div>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center">
+    <div style="width:380px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:30px;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 28px rgba(15,44,70,.08)">
+      <span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:20px">{{ authTitle }}</span>
+      <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:12.5px;font-weight:600;color:var(--text-soft)">District name</span><span style="border:1px solid var(--line-strong);border-radius:9px;padding:10px 13px;color:var(--muted)">Lakeside Unified School District</span></div>
+      </sc-if>
+      <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:12.5px;font-weight:600;color:var(--text-soft)">Work email</span><span style="border:1px solid var(--line-strong);border-radius:9px;padding:10px 13px;color:var(--muted)">morgan@lakesideusd.org</span></div>
+      <sc-if value="{{ authShowsPassword }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:12.5px;font-weight:600;color:var(--text-soft)">Password</span><span style="border:1px solid var(--line-strong);border-radius:9px;padding:10px 13px;color:var(--muted)">••••••••••</span></div>
+      </sc-if>
+      <sc-if value="{{ isForgot }}" hint-placeholder-val="{{ false }}">
+        <span style="color:var(--muted2);font-size:13px;margin-top:-6px">We'll email a one-time reset link. It expires in 60 minutes.</span>
+      </sc-if>
+      <button data-tip="{{ authCta }}" onClick="{{ authSubmit }}" style="background:var(--accent);color:#fff;border:none;border-radius:9px;padding:11px 0;font-weight:600;font-family:inherit;font-size:14px;cursor:pointer" style-hover="background:var(--accent-deep)">{{ authCta }}</button>
+      <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+        <span style="color:var(--muted);font-size:12px;margin-top:-6px">You'll verify your email before uploading data — your district's dataset stays private to your account.</span>
+      </sc-if>
+      <span style="text-align:center;color:var(--muted2);font-size:13px"><a href="#" onClick="{{ authForgot }}">Forgot password?</a> · <a href="#" onClick="{{ authSignup }}">Create a workspace</a> · <a href="#" onClick="{{ authLogin }}">Sign in</a></span>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSetup }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="First-run setup" style="flex:1;display:flex;flex-direction:column;background:#f6f8fa;overflow-y:auto">
+  <div style="display:flex;align-items:center;gap:10px;padding:14px 26px;border-bottom:1px solid var(--line);background:#fff">
+    <span style="width:26px;height:26px;border-radius:7px;background:var(--navy);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-family:'Schibsted Grotesk';font-weight:700;font-size:13px">P</span>
+    <span style="font-family:'Schibsted Grotesk';font-weight:600;font-size:15px">Set up your workspace</span>
+    <span style="flex:1"></span>
+    <span style="color:var(--muted);font-size:13px">Lakeside USD · Step 2 of 3</span>
+  </div>
+  <div style="flex:1;display:flex;justify-content:center;padding:40px 24px">
+    <div style="display:flex;gap:36px;max-width:860px;width:100%;align-items:flex-start">
+      <div style="width:230px;display:flex;flex-direction:column;gap:2px;flex:none">
+        <div style="display:flex;gap:12px;align-items:center;padding:11px 14px;border-radius:10px">
+          <span style="width:22px;height:22px;border-radius:50%;background:var(--good);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:none">✓</span>
+          <span><b>Board policies</b><br><span style="color:var(--muted);font-size:12.5px">412 imported from BoardDocs</span></span>
+        </div>
+        <span style="width:2px;height:14px;background:#d8e2ea;margin-left:24px"></span>
+        <div style="display:flex;gap:12px;align-items:center;padding:11px 14px;border-radius:10px;background:#fff;border:1px solid var(--chip-line)">
+          <span style="width:22px;height:22px;border-radius:50%;border:2px solid var(--accent);color:var(--accent-deep);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none">2</span>
+          <span><b>Handbooks</b><br><span style="color:var(--muted);font-size:12.5px">Student &amp; staff PDFs</span></span>
+        </div>
+        <span style="width:2px;height:14px;background:#d8e2ea;margin-left:24px"></span>
+        <div style="display:flex;gap:12px;align-items:center;padding:11px 14px;border-radius:10px">
+          <span style="width:22px;height:22px;border-radius:50%;border:2px solid #c9d5df;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none">3</span>
+          <span style="color:var(--muted2)"><b style="color:var(--text-soft)">Try a question</b><br><span style="color:var(--muted);font-size:12.5px">See a cited answer</span></span>
+        </div>
+      </div>
+      <div style="flex:1;background:#fff;border:1px solid var(--line);border-radius:14px;padding:28px;display:flex;flex-direction:column;gap:16px;box-shadow:0 4px 16px rgba(15,44,70,.05)">
+        <span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:20px;letter-spacing:-.01em">Add your handbooks</span>
+        <span style="color:var(--muted2);margin-top:-8px">Handbooks let the assistant answer day-to-day questions your board policies don't cover — leave, dress code, devices, discipline procedures.</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="border:1.5px dashed var(--line-mid);border-radius:12px;padding:26px 18px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center;background:#fbfdfe">
+            <span style="font-size:20px">📄</span><span style="font-weight:600">Student handbook</span><span style="color:var(--muted);font-size:12.5px">Drop a PDF, TXT or MD — or browse</span>
+          </div>
+          <div style="border:1.5px dashed var(--line-mid);border-radius:12px;padding:26px 18px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center;background:#fbfdfe">
+            <span style="font-size:20px">📄</span><span style="font-weight:600">Staff handbook</span><span style="color:var(--muted);font-size:12.5px">Drop a PDF, TXT or MD — or browse</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+          <button data-tip="Skip for now" onClick="{{ goAssistant }}" style="border:1px solid var(--line-mid);background:#fff;color:var(--text-soft);border-radius:9px;padding:10px 18px;font-weight:600;font-family:inherit;font-size:13.5px;cursor:pointer" style-hover="background:#f8fafc">Skip for now</button>
+          <button data-tip="Continue" onClick="{{ goAssistant }}" style="background:var(--accent);color:#fff;border:none;border-radius:9px;padding:10px 22px;font-weight:600;font-family:inherit;font-size:13.5px;cursor:pointer" style-hover="background:var(--accent-deep)">Continue</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showRail }}" hint-placeholder-val="{{ true }}">
+<div style="display:contents">
+<div style="width:60px;background:var(--navy);display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;flex:none">
+  <span style="width:32px;height:32px;border-radius:8px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-family:'Schibsted Grotesk';font-weight:700;font-size:16px;margin-bottom:12px">P</span>
+  <sc-for list="{{ navItems }}" as="nav" hint-placeholder-count="5">
+    <button data-tip="{{ nav.tip }}" data-tip-side="right" onClick="{{ nav.go }}" style="{{ nav.style }}" style-hover="background:rgba(255,255,255,.10);color:#ffffff">
+      <span style="display:contents">{{ nav.icon }}</span>
+    </button>
+  </sc-for>
+  <span style="flex:1"></span>
+  <button data-tip="High contrast" data-tip-side="right" onClick="{{ toggleHc }}" style="{{ hcBtnStyle }}" style-hover="background:rgba(255,255,255,.10);color:#ffffff">◐</button>
+  <span data-tip="Account" data-tip-side="right" style="width:30px;height:30px;border-radius:50%;background:#2a4a66;color:#dce9f2;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;cursor:pointer">MK</span>
+</div>
+
+<sc-if value="{{ isAssistant }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Assistant" style="flex:1;display:flex;min-width:0">
+<div style="flex:1;display:flex;flex-direction:column;background:var(--chat-bg);min-width:0">
+  <sc-if value="{{ offline }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:7px 20px;background:var(--warn-bg);border-bottom:1px solid var(--warn-line);color:var(--warn-text);font-size:12.5px;font-weight:600;flex:none">⚠ You're offline — you can read saved conversations, but new questions need a connection.</div>
+  </sc-if>
+  <div style="display:flex;align-items:center;gap:10px;padding:11px 20px;border-bottom:1px solid var(--glass-border);flex:none;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)">
+    <span style="font-family:'Schibsted Grotesk';font-weight:600;font-size:15px">{{ threadTitle }}</span>
+    <span style="flex:1"></span>
+    <span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:12.5px;color:var(--text-soft)"><span style="width:7px;height:7px;border-radius:50%;background:var(--good)"></span>3 sources · Lakeside USD</span>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:22px 28px;display:flex;flex-direction:column;gap:18px">
+    <sc-if value="{{ emptyThread }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center">
+        <span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:22px;letter-spacing:-.015em">How can I help, Morgan?</span>
+        <span style="color:var(--muted2);max-width:44ch">Answers grounded in Lakeside USD's 412 policies and 2 handbooks — with the exact source text behind every claim.</span>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;max-width:560px">
+          <sc-for list="{{ starters }}" as="st" hint-placeholder-count="3">
+            <button onClick="{{ st.ask }}" style="background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 16px;color:var(--text-soft);font-family:inherit;font-size:13px;cursor:pointer" style-hover="border-color:var(--accent);background:var(--accent-soft);color:var(--accent-deep)">{{ st.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ showSeedThread }}" hint-placeholder-val="{{ true }}">
+    <div style="display:contents">
+    <div style="align-self:flex-end;max-width:64%;background:var(--glass-user);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--glass-border);box-shadow:0 4px 18px rgba(15,44,70,.07);padding:11px 15px;border-radius:14px 14px 4px 14px">A parent requested their child's education records. How quickly must we respond?</div>
+    <div style="display:flex;flex-direction:column;gap:9px;max-width:88%;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--glass-border);border-radius:14px;padding:14px 16px;box-shadow:0 6px 22px rgba(15,44,70,.08)">
+      <span>Under policy <b>JRA</b> and FERPA, the district must provide access <b>within 45 days</b> of the request. Your student handbook goes further, committing to <b>10 school days</b> for routine records requests — that shorter timeline is the one families will hold you to.</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button data-tip="View source" onClick="{{ evJRA }}" style="border:1px solid var(--chip-line);background:var(--accent-soft);color:var(--accent-deep);border-radius:999px;padding:3px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit" style-hover="border-color:var(--accent)">JRA · Student records ↗</button>
+        <button data-tip="View source" onClick="{{ evHB }}" style="border:1px solid var(--chip-line);background:#ffffff;color:var(--accent-deep);border-radius:999px;padding:3px 12px;font-size:12.5px;font-weight:500;cursor:pointer;font-family:inherit" style-hover="border-color:var(--accent)">Student HB §4.2 ↗</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;border-left:3px solid var(--good);padding-left:12px;margin-top:2px">
+        <span style="font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--muted);text-transform:uppercase">Recommended actions</span>
+        <span><b style="color:var(--good)">1.</b>&nbsp;Log the request date today — the clock started when it was received.</span>
+        <span><b style="color:var(--good)">2.</b>&nbsp;Verify the requester's custodial rights before release (JRA §2).</span>
+        <span><b style="color:var(--good)">3.</b>&nbsp;Schedule delivery within 10 school days per the handbook commitment.</span>
+      </div>
+      <span style="color:var(--muted);font-size:12px">Guidance, not legal advice · Sources captured Jul 24, 2026 · <a href="#" onClick="{{ noop }}">☆ Pin</a> · <a href="#" onClick="{{ noop }}">Copy</a></span>
+    </div>
+    </div>
+    </sc-if>
+    <sc-for list="{{ extraMessages }}" as="m" hint-placeholder-count="0">
+      <div style="display:contents">
+        <div style="align-self:flex-end;max-width:64%;background:var(--glass-user);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--glass-border);box-shadow:0 4px 18px rgba(15,44,70,.07);padding:11px 15px;border-radius:14px 14px 4px 14px;animation:fadeUp .3s ease">{{ m.q }}</div>
+        <div style="display:flex;flex-direction:column;gap:9px;max-width:88%;animation:fadeUp .3s ease;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--glass-border);border-radius:14px;padding:14px 16px;box-shadow:0 6px 22px rgba(15,44,70,.08)">
+          <span>{{ m.a }}</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <sc-for list="{{ m.cites }}" as="c" hint-placeholder-count="1">
+              <button data-tip="View source" onClick="{{ c.open }}" style="border:1px solid var(--chip-line);background:var(--accent-soft);color:var(--accent-deep);border-radius:999px;padding:3px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit" style-hover="border-color:var(--accent)">{{ c.label }} ↗</button>
+            </sc-for>
+          </div>
+          <span style="color:var(--muted);font-size:12px">Guidance, not legal advice</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="padding:14px 28px 18px;flex:none">
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid var(--glass-border);border-radius:12px;padding:6px 6px 6px 16px;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 6px 22px rgba(15,44,70,.08)">
+      <input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="Ask a follow-up, or describe a new scenario…" style="flex:1;border:none;outline:none;font:inherit;color:#16283a;background:transparent;padding:8px 0">
+      <button data-tip="Ask" onClick="{{ send }}" style="background:var(--accent);color:#fff;border:none;border-radius:9px;padding:9px 18px;font-weight:600;font-family:inherit;font-size:14px;cursor:pointer" style-hover="background:var(--accent-deep)">Ask</button>
+    </div>
+    <div style="text-align:center;color:var(--muted);font-size:11.5px;margin-top:8px">PolicyIQ can make mistakes — verify critical decisions against the cited source.</div>
+  </div>
+</div>
+<sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ true }}">
+<div style="width:280px;border-left:1px solid var(--line);background:#f8fafc;padding:18px;display:flex;flex-direction:column;gap:12px;flex:none;overflow-y:auto">
+  <div style="display:flex;align-items:center">
+    <span style="font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--muted);text-transform:uppercase">Evidence</span>
+    <span style="flex:1"></span>
+    <button data-tip="Close" onClick="{{ closeDrawer }}" style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:15px;font-family:inherit" style-hover="color:#16283a">✕</button>
+  </div>
+  <div style="background:#ffffff;border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:7px">
+    <span style="font-weight:600">{{ ev.title }}</span>
+    <span style="color:var(--text-soft);font-size:13px">{{ ev.quote }}</span>
+    <span style="color:var(--muted);font-size:11.5px">{{ ev.meta }}</span>
+  </div>
+  <button data-tip="Open full policy" onClick="{{ openPolicy }}" style="border:1px solid var(--line-mid);border-radius:8px;padding:8px 0;text-align:center;font-weight:600;color:var(--accent-deep);background:#ffffff;cursor:pointer;font-family:inherit;font-size:13px" style-hover="border-color:var(--accent);background:var(--accent-soft)">Open full policy</button>
+  <button data-tip="Pin answer" onClick="{{ noop }}" style="border:1px solid var(--line-mid);border-radius:8px;padding:8px 0;text-align:center;font-weight:600;color:var(--accent-deep);background:#ffffff;cursor:pointer;font-family:inherit;font-size:13px" style-hover="border-color:var(--accent);background:var(--accent-soft)">☆ Pin this answer</button>
+  <span style="color:var(--muted);font-size:12px;line-height:1.5">This excerpt is the exact text the answer was grounded in, from your uploaded sources.</span>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="History" style="flex:1;background:#ffffff;overflow-y:auto">
+  <div style="max-width:760px;margin:0 auto;padding:34px 24px;display:flex;flex-direction:column;gap:18px">
+    <span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:22px;letter-spacing:-.01em">Conversation history</span>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{ history }}" as="h" hint-placeholder-count="4">
+        <button onClick="{{ h.open }}" style="display:flex;align-items:center;gap:14px;border:1px solid var(--line);border-radius:12px;padding:14px 18px;background:#ffffff;cursor:pointer;font-family:inherit;font-size:14px;text-align:left;color:#16283a" style-hover="border-color:var(--accent);background:#fbfdfe">
+          <span style="flex:1;min-width:0"><b>{{ h.title }}</b><br><span style="color:var(--muted);font-size:12.5px">{{ h.sub }}</span></span>
+          <span style="color:var(--muted);font-size:12.5px;flex:none">{{ h.when }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPinned }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Pinned" style="flex:1;background:#ffffff;overflow-y:auto">
+  <div style="max-width:760px;margin:0 auto;padding:34px 24px;display:flex;flex-direction:column;gap:18px">
+    <span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:22px;letter-spacing:-.01em">Pinned answers</span>
+    <span style="color:var(--muted2);margin-top:-10px">Your district's living FAQ — answers you've saved, with their evidence frozen at pin time.</span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <sc-for list="{{ pins }}" as="p" hint-placeholder-count="4">
+        <div style="border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px" style-hover="border-color:var(--accent)">
+          <span style="font-weight:600">{{ p.title }}</span>
+          <span style="color:var(--text-soft);font-size:13px">{{ p.body }}</span>
+          <span style="color:var(--muted);font-size:12px;margin-top:4px">{{ p.meta }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isLibrary }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Library" style="flex:1;background:#ffffff;overflow-y:auto">
+  <div style="max-width:880px;margin:0 auto;padding:34px 24px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:22px;letter-spacing:-.01em">Library</span>
+      <span style="flex:1"></span>
+      <span style="display:flex;align-items:center;gap:8px;border:1px solid var(--line-strong);border-radius:9px;padding:7px 12px;color:var(--muted);width:260px">⌕&nbsp;<input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Search all 412 policies…" style="border:none;outline:none;font:inherit;background:transparent;color:#16283a;flex:1;min-width:0"></span>
+      <button data-tip="Add source" onClick="{{ goSource }}" style="background:var(--accent);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-weight:600;font-family:inherit;font-size:13.5px;cursor:pointer" style-hover="background:var(--accent-deep)">＋ Add source</button>
+    </div>
+    <sc-if value="{{ searching }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span style="color:var(--muted2);font-size:13px">{{ resultCount }} policies match “{{ query }}”</span>
+        <sc-for list="{{ results }}" as="r" hint-placeholder-count="2">
+          <button onClick="{{ openPolicy }}" style="display:flex;flex-direction:column;gap:4px;border:1px solid var(--line);border-radius:12px;padding:14px 18px;background:#ffffff;cursor:pointer;font-family:inherit;font-size:13.5px;text-align:left;color:#16283a" style-hover="border-color:var(--accent);background:#fbfdfe">
+            <span><b style="color:var(--accent-deep)">{{ r.code }}</b> · <b>{{ r.title }}</b></span>
+            <span style="color:var(--muted2)">{{ r.excerpt }}</span>
+            <span style="color:var(--muted);font-size:12px">{{ r.meta }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ notSearching }}" hint-placeholder-val="{{ true }}">
+    <div style="display:contents">
+    <div style="display:flex;gap:6px">
+      <span style="padding:5px 13px;border-radius:999px;background:var(--accent-soft);color:var(--accent-deep);font-weight:600;font-size:13px">Policies (2)</span>
+      <span style="padding:5px 13px;border-radius:999px;color:var(--muted2);font-size:13px;border:1px solid var(--line)">Student handbook (1)</span>
+      <span style="padding:5px 13px;border-radius:999px;color:var(--muted2);font-size:13px;border:1px solid var(--line)">Staff handbook (0)</span>
+      <button data-tip="Archived sources" onClick="{{ toggleArchived }}" style="{{ archivedTabStyle }}" style-hover="color:#16283a">Archived ({{ archivedCount }})</button>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:2.2fr .7fr 1fr 1fr 1.4fr 96px;gap:12px;padding:10px 16px;background:#f8fafc;border-bottom:1px solid var(--line);font-size:11.5px;font-weight:600;letter-spacing:.05em;color:var(--muted);text-transform:uppercase">
+        <span>Title</span><span>Rows</span><span>Health</span><span>Updated</span><span>Source</span><span></span>
+      </div>
+      <sc-for list="{{ sources }}" as="s" hint-placeholder-count="3">
+        <div style="display:grid;grid-template-columns:2.2fr .7fr 1fr 1fr 1.4fr 96px;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line-soft);align-items:center;font-size:13.5px" style-hover="background:#fbfdfe">
+          <span style="font-weight:600">{{ s.title }}</span>
+          <span>{{ s.rows }}</span>
+          <span style="display:inline-flex;align-items:center;gap:7px"><span style="{{ s.dotStyle }}"></span>{{ s.health }}</span>
+          <span style="color:var(--muted2)">{{ s.updated }}</span>
+          <span style="color:var(--muted2)">{{ s.src }}</span>
+          <span style="display:inline-flex;gap:4px;justify-content:flex-end">
+            <button data-tip="{{ s.archiveLabel }}" onClick="{{ s.toggleArchive }}" style="width:30px;height:30px;border:1px solid var(--line);border-radius:7px;background:#ffffff;color:var(--muted2);cursor:pointer;font-family:inherit;font-size:14px;display:inline-flex;align-items:center;justify-content:center" style-hover="border-color:var(--accent);color:#0d5c85;background:var(--accent-soft)">{{ s.archiveGlyph }}</button>
+            <button data-tip="Delete" onClick="{{ s.remove }}" style="width:30px;height:30px;border:1px solid var(--line);border-radius:7px;background:#ffffff;color:var(--muted2);cursor:pointer;font-family:inherit;font-size:14px;display:inline-flex;align-items:center;justify-content:center" style-hover="border-color:#c94f3d;color:#b0362a;background:#fdefed">🗑</button>
+          </span>
+        </div>
+      </sc-for>
+      <sc-if value="{{ listEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:22px 16px;text-align:center;color:var(--muted);font-size:13px">Nothing archived — archived sources are excluded from answers but kept for your records.</div>
+      </sc-if>
+    </div>
+    <sc-if value="{{ showArchivedHint }}" hint-placeholder-val="{{ false }}">
+      <span style="color:var(--muted);font-size:12.5px">Archived sources are excluded from the assistant's answers. Restore (⤴) to include them again, or delete permanently.</span>
+    </sc-if>
+    <div style="border:1px dashed var(--line-mid);border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;background:#fbfdfe">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none"></span>
+      <span style="flex:1;color:var(--text-soft)">Your staff handbook hasn't been added — staff-leave and HR questions will answer from policies only.</span>
+      <button data-tip="Add staff handbook" onClick="{{ goSource }}" style="border:1px solid var(--line-mid);background:#ffffff;color:var(--accent-deep);border-radius:8px;padding:6px 14px;font-weight:600;font-family:inherit;font-size:13px;cursor:pointer" style-hover="background:var(--accent-soft)">Add it now</button>
+    </div>
+    </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPolicy }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Policy detail" style="flex:1;background:#ffffff;overflow-y:auto">
+  <div style="max-width:720px;margin:0 auto;padding:34px 24px;display:flex;flex-direction:column;gap:14px">
+    <span><a href="#" onClick="{{ backToLibrary }}" style="color:var(--muted);font-size:13px">← Library</a></span>
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:24px;letter-spacing:-.01em;color:var(--accent-deep)">JRA</span>
+      <span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:24px;letter-spacing:-.01em">Student records</span>
+    </div>
+    <div style="display:flex;gap:14px;color:var(--muted2);font-size:13px;border-bottom:1px solid var(--line-soft);padding-bottom:14px">
+      <span>Section J — Students</span><span>·</span><span>Adopted Sep 2011</span><span>·</span><span>Revised Mar 2025</span><span>·</span><span>Board policies 2026</span>
+      <span style="flex:1"></span>
+      <a href="#" onClick="{{ noop }}">Copy</a><a href="#" onClick="{{ noop }}">Ask about this policy</a>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;color:#2b3d4f;font-size:14.5px;line-height:1.7">
+      <span>The district recognizes the right of parents and eligible students to inspect and review the student's education records. Parents may inspect and review the student's education records within forty-five (45) days of the district receiving a request for access.</span>
+      <span><b>2. Verification of identity.</b> Before releasing records, the custodian of records shall verify the identity and custodial rights of the requester. In cases of divorce or separation, both parents retain access rights unless a court order on file provides otherwise.</span>
+      <span><b>3. Fees.</b> The district may charge a reasonable fee for copies of records unless the fee effectively prevents the parent or eligible student from exercising their right to inspect and review.</span>
+      <span><b>4. Amendment requests.</b> Parents who believe information in the education records is inaccurate or misleading may request amendment through the procedure set out in regulation JRA-R.</span>
+    </div>
+    <div style="border:1px solid var(--line);background:#f8fafc;border-radius:12px;padding:14px 18px;display:flex;flex-direction:column;gap:6px;margin-top:8px">
+      <span style="font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--muted);text-transform:uppercase">Related</span>
+      <span style="color:var(--text-soft);font-size:13.5px">Student handbook §4.2 — Records requests · JRA-R — Amendment procedure · KBA — Public records</span>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSource }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Add source" style="flex:1;background:#ffffff;overflow-y:auto">
+  <div style="max-width:760px;margin:0 auto;padding:34px 24px;display:flex;flex-direction:column;gap:16px">
+    <span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:22px;letter-spacing:-.01em">Add a source</span>
+    <div style="display:flex;gap:10px">
+      <sc-for list="{{ srcTabs }}" as="tab" hint-placeholder-count="3">
+        <button onClick="{{ tab.go }}" style="{{ tab.style }}" style-hover="border-color:var(--accent)">{{ tab.label }}</button>
+      </sc-for>
+    </div>
+    <sc-if value="{{ srcIsCsv }}" hint-placeholder-val="{{ false }}">
+      <div style="display:contents">
+        <div style="border:1.5px dashed var(--line-mid);border-radius:12px;padding:34px 18px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center;background:#fbfdfe">
+          <span style="font-size:20px">⇪</span><span style="font-weight:600">Drop your policy CSV here</span><span style="color:var(--muted);font-size:12.5px">or browse — headers like Section, Code, Policy Title and Policy Wording are mapped automatically</span>
+        </div>
+        <span style="color:var(--muted2);font-size:13px">Rows with no policy text and no title are skipped. You'll see a quality preview before anything is saved.</span>
+      </div>
+    </sc-if>
+    <sc-if value="{{ srcIsHandbook }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="border:1.5px dashed var(--line-mid);border-radius:12px;padding:30px 18px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center;background:#fbfdfe">
+          <span style="font-size:20px">📄</span><span style="font-weight:600">Student handbook</span><span style="color:var(--muted);font-size:12.5px">PDF, TXT or MD</span>
+        </div>
+        <div style="border:1.5px dashed var(--line-mid);border-radius:12px;padding:30px 18px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center;background:#fbfdfe">
+          <span style="font-size:20px">📄</span><span style="font-weight:600">Staff handbook</span><span style="color:var(--muted);font-size:12.5px">PDF, TXT or MD</span>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ srcIsImport }}" hint-placeholder-val="{{ true }}">
+    <div style="display:contents">
+    <div style="display:flex;gap:10px">
+      <span style="flex:1;display:flex;align-items:center;border:1px solid var(--line-strong);border-radius:10px;padding:10px 14px;color:var(--text-soft)">https://go.boarddocs.com/wa/lakeside/Board.nsf/Public</span>
+      <button data-tip="Scan" onClick="{{ noop }}" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:0 22px;font-weight:600;font-family:inherit;font-size:14px;cursor:pointer" style-hover="background:var(--accent-deep)">Scan</button>
+    </div>
+    <span style="display:inline-flex;align-items:center;gap:8px;color:var(--text-soft);font-size:13px"><span style="width:7px;height:7px;border-radius:50%;background:var(--good)"></span>Platform detected: <b>BoardDocs</b> · <a href="#" onClick="{{ noop }}">override</a></span>
+    <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:#f8fafc;border-bottom:1px solid var(--line)">
+        <span style="font-weight:600">Preview — 412 policies found</span>
+        <span style="flex:1"></span>
+        <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--warn-text);background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:999px;padding:2px 10px"><span style="width:6px;height:6px;border-radius:50%;background:var(--warn)"></span>3 missing text</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#1e6b3e;background:#eaf6ee;border:1px solid #cbe7d4;border-radius:999px;padding:2px 10px"><span style="width:6px;height:6px;border-radius:50%;background:var(--good)"></span>0 duplicates</span>
+      </div>
+      <sc-for list="{{ preview }}" as="row" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:90px 1.2fr 2fr;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line-soft);font-size:13.5px;align-items:center">
+          <span style="font-weight:600;color:var(--accent-deep)">{{ row.code }}</span>
+          <span>{{ row.title }}</span>
+          <span style="color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ row.text }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button data-tip="Download CSV" onClick="{{ noop }}" style="border:1px solid var(--line-mid);background:#ffffff;color:var(--text-soft);border-radius:9px;padding:9px 18px;font-weight:600;font-family:inherit;font-size:13.5px;cursor:pointer" style-hover="background:#f8fafc">Download CSV</button>
+      <button data-tip="Import to Library" onClick="{{ goLibrary }}" style="background:var(--accent);color:#fff;border:none;border-radius:9px;padding:9px 18px;font-weight:600;font-family:inherit;font-size:13.5px;cursor:pointer" style-hover="background:var(--accent-deep)">Import to Library</button>
+    </div>
+    </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:860},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#1273a8&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#1273a8&quot;,&quot;#2e7d5b&quot;,&quot;#5b5bd6&quot;,&quot;#b8622a&quot;],&quot;section&quot;:&quot;Theme&quot;},&quot;highContrast&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;defaultView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;assistant&quot;,&quot;options&quot;:[&quot;assistant&quot;,&quot;history&quot;,&quot;pinned&quot;,&quot;library&quot;,&quot;source&quot;,&quot;auth&quot;,&quot;setup&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Behavior&quot;},&quot;evidenceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behavior&quot;},&quot;showOffline&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behavior&quot;}}">
+class Component extends DCLogic {
+  state = {
+    view: this.props.defaultView ?? "assistant",
+    drawerOpen: this.props.evidenceOpen ?? true,
+    ev: null,
+    draft: "",
+    extraMessages: [],
+  };
+  componentDidMount() {
+    let hc = this.props.highContrast;
+    try { const saved = localStorage.getItem("piq-hc"); if (saved !== null) hc = saved === "1"; } catch (e) {}
+    this.setState({ hc: Boolean(hc) });
+    this.applyTheme(Boolean(hc));
+  }
+  componentDidUpdate() {
+    this.applyTheme(Boolean(this.state.hc));
+  }
+  applyTheme(hc) {
+    document.body.classList.toggle("hc", hc);
+    if (this.props.accent && !hc) document.body.style.setProperty("--accent", this.props.accent);
+    if (hc) document.body.style.removeProperty("--accent");
+  }
+  libraryVals(dot) {
+    if (!this.state.libSources) {
+      this.state.libSources = [
+        { id: 1, title: "Board policies 2026", rows: "412", health: "Good", good: true, updated: "Jul 12", src: "Scraper · BoardDocs", archived: false },
+        { id: 2, title: "Legacy policy CSV", rows: "388", health: "14 gaps", good: false, updated: "Feb 3", src: "CSV upload", archived: true },
+        { id: 3, title: "Student handbook 2025–26", rows: "58 sections", health: "Good", good: true, updated: "Aug 2025", src: "PDF upload", archived: false },
+      ];
+    }
+    const all = this.state.libSources;
+    const showArchived = Boolean(this.state.libArchivedTab);
+    const setSources = (fn) => this.setState((s) => ({ libSources: fn(s.libSources) }));
+    const shown = all.filter((s) => s.archived === showArchived).map((s) => ({
+      ...s,
+      dotStyle: dot(s.good),
+      archiveGlyph: s.archived ? "⤴" : "⤵",
+      archiveLabel: s.archived ? "Restore" : "Archive",
+      toggleArchive: () => setSources((list) => list.map((x) => x.id === s.id ? { ...x, archived: !x.archived } : x)),
+      remove: () => { if (window.confirm(`Delete “${s.title}” permanently? This also removes its embeddings and cannot be undone.`)) setSources((list) => list.filter((x) => x.id !== s.id)); },
+    }));
+    return {
+      sources: shown,
+      listEmpty: shown.length === 0,
+      archivedCount: all.filter((s) => s.archived).length,
+      showArchivedHint: showArchived,
+      toggleArchived: () => this.setState((s) => ({ libArchivedTab: !s.libArchivedTab })),
+      archivedTabStyle: "padding:5px 13px;border-radius:999px;font-size:13px;cursor:pointer;font-family:inherit;border:1px solid " + (showArchived ? "#1273a8;background:var(--accent-soft);color:var(--accent-deep);font-weight:600" : "transparent;background:none;color:#8296a8"),
+    };
+  }
+  evidence(key) {
+    const db = {
+      jra: { title: "JRA — Student records", quote: "\u201cParents may inspect and review the student's education records within forty-five (45) days of the district receiving a request\u2026\u201d", meta: "Revised Mar 2025 · Board policies 2026" },
+      hb: { title: "Student handbook §4.2 — Records", quote: "\u201cRoutine requests for records will be fulfilled within ten (10) school days of receipt by the building office.\u201d", meta: "Student handbook 2025–26 · uploaded Aug 2025" },
+      jica: { title: "JICA — Bullying prevention", quote: "\u201cAny staff member who witnesses or receives a report of bullying shall notify the building administrator no later than the next school day\u2026\u201d", meta: "Revised Jan 2024 · Board policies 2026" },
+    };
+    return db[key];
+  }
+  renderVals() {
+    const v = this.state.view;
+    const go = (view) => () => this.setState({ view });
+    const icon = (d) => React.createElement("svg", { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, ...d.map((p) => React.createElement("path", { key: p, d: p })));
+    const railBtn = (active) => "width:36px;height:36px;border-radius:9px;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-family:inherit;" + (active ? "background:rgba(255,255,255,.16);color:#ffffff" : "background:transparent;color:#9db4c6");
+    const navItems = [
+      { label: "Assistant", key: "assistant", icon: icon(["M12 20h9", "M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"]) },
+      { label: "History", key: "history", icon: icon(["M12 8v4l3 2", "M3.05 11a9 9 0 1 1 .5 4"]) },
+      { label: "Pinned", key: "pinned", icon: icon(["M12 17l-5.878 3.09 1.123-6.545L2.49 8.91l6.572-.955L12 2l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545Z"]) },
+      { label: "Library", key: "library", icon: icon(["M4 19.5A2.5 2.5 0 0 1 6.5 17H20", "M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"]) },
+      { label: "Add source", key: "source", icon: icon(["M12 5v14", "M5 12h14"]) },
+    ].map((n) => ({
+      label: n.label, tip: n.label, icon: n.icon, style: railBtn(v === n.key),
+      go: n.key === "assistant"
+        ? () => this.setState((s) => ({ view: "assistant", emptyThread: s.view === "assistant" ? true : s.emptyThread, extraMessages: s.view === "assistant" ? [] : s.extraMessages }))
+        : go(n.key),
+    }));
+    const openEv = (key) => () => this.setState({ ev: this.evidence(key), drawerOpen: true });
+    const send = (text) => {
+      const q = (typeof text === "string" ? text : this.state.draft).trim();
+      if (!q) return;
+      this.setState((s) => ({
+        draft: "",
+        emptyThread: false,
+        extraMessages: [...s.extraMessages, {
+          q,
+          a: "Based on your board policies and handbooks, here is how Lakeside USD's rules apply to this scenario. In the working prototype this answer is generated from your uploaded sources, with each claim cited below.",
+          cites: [{ label: "JICA · Bullying prevention", open: openEv("jica") }, { label: "Student HB §4.2", open: openEv("hb") }],
+        }],
+      }));
+    };
+    // shape-coded, not color-only: good = circle, warning = triangle
+    const dot = (ok) => ok
+      ? "width:9px;height:9px;border-radius:50%;flex:none;background:var(--good)"
+      : "width:11px;height:10px;flex:none;background:var(--warn);clip-path:polygon(50% 0,100% 100%,0 100%)";
+    return {
+      toggleHc: () => {
+        const hc = !this.state.hc;
+        try { localStorage.setItem("piq-hc", hc ? "1" : "0"); } catch (e) {}
+        this.setState({ hc });
+      },
+      hcBtnStyle: "width:36px;height:36px;border-radius:9px;border:none;cursor:pointer;font-size:17px;font-family:inherit;margin-bottom:2px;" + (this.state.hc ? "background:rgba(255,255,255,.16);color:#ffffff" : "background:transparent;color:var(--on-navy)"),
+      navItems,
+      isAssistant: v === "assistant", isHistory: v === "history", isPinned: v === "pinned", isLibrary: v === "library", isSource: v === "source",
+      isAuth: v === "auth", isSetup: v === "setup", isPolicy: v === "policy",
+      showRail: v !== "auth" && v !== "setup",
+      query: this.state.query ?? "",
+      onQuery: (e) => this.setState({ query: e.target.value }),
+      searching: Boolean((this.state.query ?? "").trim()),
+      notSearching: !(this.state.query ?? "").trim(),
+      resultCount: 3,
+      results: [
+        { code: "JRA", title: "Student records", excerpt: "…parents may inspect and review the student's education records within forty-five (45) days of the district receiving a request…", meta: "Section J · Revised Mar 2025 · Board policies 2026" },
+        { code: "JRA-R", title: "Student records — administrative procedure", excerpt: "…requests shall be directed to the building principal, who serves as custodian of records for enrolled students…", meta: "Section J · Revised Mar 2025 · Board policies 2026" },
+        { code: "KBA", title: "Public records requests", excerpt: "…records not exempt from disclosure shall be made available for inspection within the timelines established by state law…", meta: "Section K · Revised Aug 2023 · Board policies 2026" },
+      ],
+      openPolicy: go("policy"),
+      backToLibrary: (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ view: "library" }); },
+      goSetup: go("setup"), goAssistant: go("assistant"),
+      drawerOpen: this.state.drawerOpen && v === "assistant",
+      ev: this.state.ev ?? this.evidence("jra"),
+      evJRA: openEv("jra"), evHB: openEv("hb"),
+      closeDrawer: () => this.setState({ drawerOpen: false }),
+      draft: this.state.draft,
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      onKey: (e) => { if (e.key === "Enter") send(); },
+      send: () => send(),
+      extraMessages: this.state.extraMessages,
+      emptyThread: Boolean(this.state.emptyThread),
+      showSeedThread: !this.state.emptyThread,
+      threadTitle: this.state.emptyThread ? "New question" : "Records request timeline",
+      offline: Boolean(this.props.showOffline),
+      starters: [
+        "A student is being bullied online — what must we do?",
+        "A parent requested education records — what's the deadline?",
+        "A teacher needs extended medical leave mid-semester.",
+      ].map((label) => ({ label, ask: () => send(label) })),
+      authTitle: { login: "Sign in", signup: "Create your workspace", forgot: "Reset your password" }[this.state.authMode ?? "login"],
+      authCta: { login: "Sign in", signup: "Create workspace", forgot: "Email reset link" }[this.state.authMode ?? "login"],
+      isSignup: this.state.authMode === "signup",
+      isForgot: this.state.authMode === "forgot",
+      authShowsPassword: this.state.authMode !== "forgot",
+      authSubmit: this.state.authMode === "forgot" ? (() => this.setState({ authMode: "login" })) : go("setup"),
+      authLogin: (e) => { e.preventDefault(); this.setState({ authMode: "login" }); },
+      authSignup: (e) => { e.preventDefault(); this.setState({ authMode: "signup" }); },
+      authForgot: (e) => { e.preventDefault(); this.setState({ authMode: "forgot" }); },
+      noop: (e) => { if (e && e.preventDefault) e.preventDefault(); },
+      goSource: go("source"), goLibrary: go("library"),
+      srcTabs: [
+        { label: "Import from district website", key: "import" },
+        { label: "Upload CSV", key: "csv" },
+        { label: "Upload handbook PDF", key: "handbook" },
+      ].map((t) => {
+        const active = (this.state.srcTab ?? "import") === t.key;
+        return { label: t.label, go: () => this.setState({ srcTab: t.key }),
+          style: "flex:1;padding:12px 14px;border-radius:10px;text-align:center;cursor:pointer;font-family:inherit;font-size:14px;border:1px solid " + (active ? "var(--accent);background:var(--accent-soft);font-weight:600;color:var(--accent-deep)" : "var(--line);background:#ffffff;color:var(--muted2)") };
+      }),
+      srcIsImport: (this.state.srcTab ?? "import") === "import",
+      srcIsCsv: this.state.srcTab === "csv",
+      srcIsHandbook: this.state.srcTab === "handbook",
+      history: [
+        { title: "Records request timeline", sub: "6 messages · Board policies 2026", when: "Today", open: go("assistant") },
+        { title: "Online bullying response", sub: "9 messages · Board policies 2026", when: "Yesterday", open: go("assistant") },
+        { title: "Staff medical leave mid-semester", sub: "4 messages · answered without staff handbook", when: "Jul 18", open: go("assistant") },
+        { title: "Field trip chaperone requirements", sub: "3 messages", when: "Jul 11", open: go("assistant") },
+      ],
+      pins: [
+        { title: "Bullying — 1-day reporting rule", body: "Staff must notify the building administrator no later than the next school day.", meta: "JICA · pinned Jul 2" },
+        { title: "Records — 10-day commitment", body: "Handbook commits to 10 school days for routine requests, tighter than FERPA's 45.", meta: "JRA + HB §4.2 · pinned Jun 18" },
+        { title: "Chaperone screening", body: "All overnight-trip chaperones require a completed background check on file.", meta: "IJOA · pinned Jun 3" },
+        { title: "Device search limits", body: "Student devices may be searched only with reasonable suspicion, documented in writing.", meta: "JIH · pinned May 27" },
+      ],
+      ...this.libraryVals(dot),
+      preview: [
+        { code: "JICA", title: "Bullying prevention", text: "The board is committed to providing a safe learning environment free from bullying…" },
+        { code: "JRA", title: "Student records", text: "Parents may inspect and review the student's education records within forty-five days…" },
+        { code: "GBEB", title: "Staff conduct", text: "All staff members shall maintain professional standards in interactions with students…" },
+        { code: "IJOA", title: "Field trips", text: "Educational trips shall be approved by the building principal and require signed consent…" },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

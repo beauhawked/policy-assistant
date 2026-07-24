@@ -8,7 +8,7 @@ const wrap: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "2rem",
-  fontFamily: "var(--font-sans), Inter, system-ui, sans-serif",
+  fontFamily: "var(--font-ui, system-ui), sans-serif",
   color: "#0f2433",
   background: "#f4f7f9",
 };

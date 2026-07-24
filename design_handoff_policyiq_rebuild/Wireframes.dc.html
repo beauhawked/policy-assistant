@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Caveat:wght@600&family=Schibsted+Grotesk:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f0eee9;font-family:'Patrick Hand',system-ui,sans-serif}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}
+.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.6)}
+.dv-card{max-width:100%;background:#fff;border:1.5px solid #3a3a3a;border-radius:6px;box-shadow:3px 3px 0 rgba(0,0,0,.12);overflow:hidden}
+.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}
+.dv-next{margin:22px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.5)}
+/* wireframe primitives */
+.wf{font-family:'Patrick Hand',cursive;color:#2b2b2b;font-size:13px;line-height:1.35}
+.bar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1.5px solid #3a3a3a;background:#fafaf7}
+.bx{border:1.5px solid #555;border-radius:4px;background:#fff}
+.bxd{border:1.5px dashed #999;border-radius:4px;background:#fcfcfa}
+.ln{height:6px;border-radius:3px;background:#d8d5cd}
+.lnk{height:6px;border-radius:3px;background:#b7b3a8}
+.pill{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #555;border-radius:999px;padding:1px 9px;font-size:12px;background:#fff;white-space:nowrap}
+.pillb{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #2a78d6;border-radius:999px;padding:1px 9px;font-size:12px;background:#e7f0fb;color:#1d5aa8;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;border:1.5px solid #333;border-radius:4px;padding:3px 12px;font-size:12.5px;background:#333;color:#fff;white-space:nowrap}
+.btng{display:inline-flex;align-items:center;justify-content:center;border:1.5px solid #555;border-radius:4px;padding:3px 12px;font-size:12.5px;background:#fff;color:#333;white-space:nowrap}
+.dot{width:9px;height:9px;border-radius:50%;border:1.5px solid #555;display:inline-block;flex:none}
+.dotf{width:9px;height:9px;border-radius:50%;background:#3fa25a;border:1.5px solid #3fa25a;display:inline-block;flex:none}
+.dotw{width:9px;height:9px;border-radius:50%;background:#e0a63c;border:1.5px solid #e0a63c;display:inline-block;flex:none}
+.note{font-family:'Caveat',cursive;font-size:15px;color:#c05621;line-height:1.15}
+.hd{font-weight:400;font-size:15px}
+.mut{color:#8a8578;font-size:12px}
+.av{width:20px;height:20px;border-radius:50%;border:1.5px solid #555;background:#eceae3;flex:none}
+</style></helmet>
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Styled versions of the assistant workspace — Navy + blue, balanced density</span></div>
+<div class="dv-opts" style="font-family:'Instrument Sans',sans-serif">
+
+<div class="dv-opt" id="2a"><div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Institutional-modern — light sidebar, structured answer card (layout of <a class="dv-oid" href="#1a">1a</a>)</div>
+<div class="dv-card" style="width:860px;border:1px solid #d8dee6;box-shadow:0 8px 28px rgba(15,44,70,.12);border-radius:10px;font-family:'Instrument Sans',sans-serif;color:#16283a;font-size:13px;line-height:1.45">
+<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:#fff;border-bottom:1px solid #e4eaf0">
+<span style="width:26px;height:26px;border-radius:7px;background:#0f2c46;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-family:'Schibsted Grotesk';font-weight:700;font-size:14px">P</span>
+<span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:15px;letter-spacing:-.01em">PolicyIQ</span>
+<div style="display:flex;gap:4px;margin-left:16px">
+<span style="padding:5px 12px;border-radius:7px;background:#e8f2f8;color:#0d5c85;font-weight:600">Assistant</span>
+<span style="padding:5px 12px;border-radius:7px;color:#5f7285;font-weight:500">Library</span>
+<span style="padding:5px 12px;border-radius:7px;color:#5f7285;font-weight:500">Add source</span>
+</div>
+<span style="flex:1"></span>
+<span style="color:#5f7285">Lakeside USD</span>
+<span style="width:28px;height:28px;border-radius:50%;background:#dce7ef;display:inline-flex;align-items:center;justify-content:center;color:#0f2c46;font-weight:600;font-size:12px">MK</span>
+</div>
+<div style="display:flex;height:470px">
+<div style="width:236px;border-right:1px solid #e4eaf0;background:#f8fafc;padding:14px;display:flex;flex-direction:column;gap:12px">
+<span style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 0;border-radius:8px;background:#1273a8;color:#fff;font-weight:600;box-shadow:0 1px 2px rgba(15,44,70,.2)">＋ New question</span>
+<div style="background:#fff;border:1px solid #e4eaf0;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">
+<span style="font-size:11px;font-weight:600;letter-spacing:.06em;color:#8296a8;text-transform:uppercase">Your sources</span>
+<span style="display:flex;gap:8px;align-items:center"><span style="width:8px;height:8px;border-radius:50%;background:#2e9e5b;flex:none"></span>Board policies · 412</span>
+<span style="display:flex;gap:8px;align-items:center"><span style="width:8px;height:8px;border-radius:50%;background:#2e9e5b;flex:none"></span>Student handbook</span>
+<span style="display:flex;gap:8px;align-items:center"><span style="width:8px;height:8px;border-radius:50%;border:1.5px solid #b9c6d2;flex:none"></span><span style="color:#8296a8">Staff handbook</span></span>
+<span style="color:#1273a8;font-weight:600;font-size:12.5px">Manage sources →</span>
+</div>
+<span style="font-size:11px;font-weight:600;letter-spacing:.06em;color:#8296a8;text-transform:uppercase">Recent</span>
+<div style="display:flex;flex-direction:column;gap:4px">
+<span style="padding:8px 10px;border-radius:8px;background:#e8f0f6;font-weight:500">Online bullying response</span>
+<span style="padding:8px 10px;border-radius:8px;color:#41556a">Records request timeline</span>
+<span style="padding:8px 10px;border-radius:8px;color:#41556a">Staff medical leave</span>
+<span style="padding:8px 10px;border-radius:8px;color:#41556a">Field trip chaperone rules</span>
+</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;padding:18px 22px;gap:14px;background:#fff">
+<div style="align-self:flex-end;max-width:65%;background:#0f2c46;color:#f2f7fa;padding:10px 14px;border-radius:12px 12px 3px 12px">A student is being bullied online by classmates. What does our policy require us to do?</div>
+<div style="border:1px solid #e4eaf0;border-radius:12px;overflow:hidden;max-width:92%">
+<div style="padding:12px 16px;display:flex;flex-direction:column;gap:6px">
+<span style="font-size:11px;font-weight:600;letter-spacing:.06em;color:#1273a8;text-transform:uppercase">What your policies require</span>
+<span>Policy JICA requires staff to report suspected bullying to the building administrator <b>within one school day</b>, including conduct occurring off-campus through electronic means.</span>
+<div style="display:flex;gap:6px"><span style="border:1px solid #cfe2ee;background:#eef6fb;color:#0d5c85;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:500">JICA · Bullying prevention ↗</span><span style="border:1px solid #cfe2ee;background:#eef6fb;color:#0d5c85;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:500">JICDA · Student conduct ↗</span></div>
+</div>
+<div style="border-top:1px solid #eef2f6;padding:12px 16px;display:flex;flex-direction:column;gap:6px">
+<span style="font-size:11px;font-weight:600;letter-spacing:.06em;color:#1273a8;text-transform:uppercase">Recommended actions</span>
+<span style="display:flex;gap:8px"><span style="color:#2e9e5b;font-weight:700">1.</span>Document the reported incidents and notify the principal today.</span>
+<span style="display:flex;gap:8px"><span style="color:#2e9e5b;font-weight:700">2.</span>Begin the investigation within the 3-day window set by JICA §4.</span>
+</div>
+<div style="border-top:1px solid #eef2f6;background:#f8fafc;padding:8px 16px;color:#8296a8;font-size:12px">Guidance, not legal advice · Sources captured Jul 24, 2026</div>
+</div>
+<span style="flex:1"></span>
+<div style="display:flex;align-items:center;gap:10px;border:1px solid #d8dee6;border-radius:12px;padding:11px 14px;box-shadow:0 1px 3px rgba(15,44,70,.06)">
+<span style="color:#8296a8;flex:1">Describe a scenario or ask a follow-up…</span>
+<span style="background:#1273a8;color:#fff;border-radius:8px;padding:6px 16px;font-weight:600">Ask</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="2b"><div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Modern SaaS — dark navy rail, evidence drawer open (layout of <a class="dv-oid" href="#1b">1b</a>)</div>
+<div class="dv-card" style="width:860px;border:1px solid #d8dee6;box-shadow:0 8px 28px rgba(15,44,70,.12);border-radius:10px;font-family:'Instrument Sans',sans-serif;color:#16283a;font-size:13px;line-height:1.45">
+<div style="display:flex;height:520px">
+<div style="width:56px;background:#0f2c46;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0">
+<span style="width:30px;height:30px;border-radius:8px;background:#1273a8;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-family:'Schibsted Grotesk';font-weight:700;margin-bottom:10px">P</span>
+<span style="width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.14);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:16px">✎</span>
+<span style="width:34px;height:34px;border-radius:8px;color:#9db4c6;display:inline-flex;align-items:center;justify-content:center;font-size:16px">🗂</span>
+<span style="width:34px;height:34px;border-radius:8px;color:#9db4c6;display:inline-flex;align-items:center;justify-content:center;font-size:16px">⟳</span>
+<span style="width:34px;height:34px;border-radius:8px;color:#9db4c6;display:inline-flex;align-items:center;justify-content:center;font-size:16px">☆</span>
+<span style="flex:1"></span>
+<span style="width:28px;height:28px;border-radius:50%;background:#2a4a66;color:#dce9f2;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">MK</span>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;background:#fff;min-width:0">
+<div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid #e4eaf0">
+<span style="font-family:'Schibsted Grotesk';font-weight:600;font-size:14px">Records request timeline</span>
+<span style="flex:1"></span>
+<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid #dbe6ed;border-radius:999px;padding:3px 11px;font-size:12px;color:#41556a"><span style="width:7px;height:7px;border-radius:50%;background:#2e9e5b"></span>3 sources · Lakeside USD</span>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;padding:18px 24px;gap:14px;overflow:hidden">
+<div style="align-self:flex-end;max-width:70%;background:#eef3f7;padding:10px 14px;border-radius:12px 12px 3px 12px">A parent requested their child's education records. How quickly must we respond?</div>
+<div style="display:flex;flex-direction:column;gap:8px;max-width:92%">
+<span>Under policy JRA and FERPA, the district must provide access <b>within 45 days</b> of the request — but your student handbook commits to <b>10 school days</b> for routine requests.</span>
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<span style="border:1px solid #1273a8;background:#eef6fb;color:#0d5c85;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600">JRA · Student records</span>
+<span style="border:1px solid #cfe2ee;background:#fff;color:#0d5c85;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:500">Student HB §4.2</span>
+</div>
+<span style="color:#8296a8;font-size:12px">Guidance, not legal advice · ☆ Pin · Copy</span>
+</div>
+<span style="flex:1"></span>
+<div style="display:flex;align-items:center;gap:10px;border:1px solid #d8dee6;border-radius:12px;padding:11px 14px">
+<span style="color:#8296a8;flex:1">Ask a follow-up…</span>
+<span style="background:#1273a8;color:#fff;border-radius:8px;padding:6px 16px;font-weight:600">Ask</span>
+</div>
+</div>
+</div>
+<div style="width:250px;border-left:1px solid #e4eaf0;background:#f8fafc;padding:16px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center"><span style="font-size:11px;font-weight:600;letter-spacing:.06em;color:#8296a8;text-transform:uppercase">Evidence</span><span style="flex:1"></span><span style="color:#8296a8">✕</span></div>
+<div style="background:#fff;border:1px solid #e4eaf0;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px">
+<span style="font-weight:600">JRA — Student records</span>
+<span style="color:#41556a;font-size:12.5px">"Parents may inspect and review the student's education records within forty-five (45) days of the district receiving a request…"</span>
+<span style="color:#8296a8;font-size:11.5px">Revised Mar 2025 · Board policies 2026</span>
+</div>
+<span style="border:1px solid #c9d8e2;border-radius:8px;padding:6px 0;text-align:center;font-weight:600;color:#0d5c85;background:#fff">Open full policy</span>
+<span style="border:1px solid #c9d8e2;border-radius:8px;padding:6px 0;text-align:center;font-weight:600;color:#0d5c85;background:#fff">☆ Pin this answer</span>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="2c"><div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>Warm &amp; approachable — navy header band, centered airy thread</div>
+<div class="dv-card" style="width:860px;border:1px solid #d8dee6;box-shadow:0 8px 28px rgba(15,44,70,.12);border-radius:10px;font-family:'Instrument Sans',sans-serif;color:#16283a;font-size:13px;line-height:1.5">
+<div style="background:#0f2c46;color:#fff;padding:12px 22px;display:flex;align-items:center;gap:18px">
+<span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:16px;letter-spacing:-.01em">◆ PolicyIQ</span>
+<span style="padding:4px 0;border-bottom:2px solid #5db6e0;font-weight:600">Assistant</span>
+<span style="color:#9db4c6">Library</span>
+<span style="color:#9db4c6">Add source</span>
+<span style="flex:1"></span>
+<span style="color:#9db4c6;font-size:12.5px">Lakeside USD</span>
+<span style="width:28px;height:28px;border-radius:50%;background:#2a4a66;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#dce9f2">MK</span>
+</div>
+<div style="background:#f6f8fa;height:470px;display:flex;flex-direction:column;align-items:center;padding:26px 0">
+<div style="width:620px;display:flex;flex-direction:column;gap:16px;flex:1">
+<div style="text-align:center;display:flex;flex-direction:column;gap:4px">
+<span style="font-family:'Schibsted Grotesk';font-weight:700;font-size:21px;letter-spacing:-.015em">How can I help, Morgan?</span>
+<span style="color:#5f7285">Answers grounded in Lakeside USD's 412 policies and 2 handbooks.</span>
+</div>
+<div style="background:#fff;border:1px solid #dfe7ee;border-radius:14px;padding:14px 16px;box-shadow:0 2px 8px rgba(15,44,70,.06);display:flex;flex-direction:column;gap:10px">
+<span style="color:#8296a8">Describe a scenario — e.g. "A teacher needs extended medical leave mid-semester…"</span>
+<div style="display:flex;align-items:center">
+<span style="display:inline-flex;align-items:center;gap:6px;color:#5f7285;font-size:12px"><span style="width:7px;height:7px;border-radius:50%;background:#2e9e5b"></span>All sources up to date</span>
+<span style="flex:1"></span>
+<span style="background:#1273a8;color:#fff;border-radius:10px;padding:7px 18px;font-weight:600">Ask →</span>
+</div>
+</div>
+<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+<span style="background:#fff;border:1px solid #dfe7ee;border-radius:999px;padding:5px 14px;color:#41556a">Bullying report steps</span>
+<span style="background:#fff;border:1px solid #dfe7ee;border-radius:999px;padding:5px 14px;color:#41556a">Records request deadline</span>
+<span style="background:#fff;border:1px solid #dfe7ee;border-radius:999px;padding:5px 14px;color:#41556a">Staff leave options</span>
+</div>
+<span style="flex:1"></span>
+<div style="display:flex;flex-direction:column;gap:8px">
+<span style="font-size:11px;font-weight:600;letter-spacing:.06em;color:#8296a8;text-transform:uppercase">Pinned answers</span>
+<div style="display:flex;gap:10px">
+<div style="flex:1;background:#fff;border:1px solid #dfe7ee;border-radius:12px;padding:11px 13px"><span style="font-weight:600">Bullying — 1-day reporting rule</span><br><span style="color:#8296a8;font-size:12px">JICA · pinned Jul 02</span></div>
+<div style="flex:1;background:#fff;border:1px solid #dfe7ee;border-radius:12px;padding:11px 13px"><span style="font-weight:600">Records — 10-day commitment</span><br><span style="color:#8296a8;font-size:12px">JRA · pinned Jun 18</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "hi-fi <a class="dv-oid" href="#2b">2b</a>'s style across all screens" · "2a's sidebar with <a class="dv-oid" href="#2c">2c</a>'s welcome state" · "try the forest-green palette on <a class="dv-oid" href="#2a">2a</a>"</p>
+</section>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">PolicyIQ revamp — 3 workspace structures + key flows (setup, evidence, library, scraper, mobile)</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a"><div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Refined two-panel — sources rail slims to a status card; chat gets the room</div>
+<div class="dv-card wf" style="width:640px">
+<div class="bar"><span style="font-size:15px">◆ PolicyIQ</span><span style="flex:1"></span><span class="pillb">Assistant</span><span class="pill">Library</span><span class="pill">Scraper</span><span class="av"></span></div>
+<div style="display:flex;min-height:340px">
+<div style="width:180px;border-right:1.5px solid #3a3a3a;padding:10px;display:flex;flex-direction:column;gap:10px;background:#fafaf7">
+<div class="bx" style="padding:8px;display:flex;flex-direction:column;gap:6px"><span class="hd">Your sources</span>
+<span style="display:flex;gap:6px;align-items:center"><span class="dotf"></span>Policies · 412</span>
+<span style="display:flex;gap:6px;align-items:center"><span class="dotf"></span>Student handbook</span>
+<span style="display:flex;gap:6px;align-items:center"><span class="dot"></span>Staff handbook</span>
+<span class="btng" style="align-self:flex-start;font-size:11.5px">Manage →</span></div>
+<span class="btn">+ New question</span>
+<span class="hd">Recent</span>
+<div class="bx" style="padding:6px 8px"><div class="lnk" style="width:80%"></div><div class="ln" style="width:55%;margin-top:5px"></div></div>
+<div class="bxd" style="padding:6px 8px"><div class="ln" style="width:70%"></div><div class="ln" style="width:45%;margin-top:5px"></div></div>
+<div class="bxd" style="padding:6px 8px"><div class="ln" style="width:75%"></div><div class="ln" style="width:50%;margin-top:5px"></div></div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;padding:12px;gap:10px">
+<div style="align-self:flex-end;max-width:70%" class="bx"><div style="padding:7px 10px">A student is being bullied online — what must we do?</div></div>
+<div class="bx" style="padding:10px;display:flex;flex-direction:column;gap:7px">
+<span class="hd">What your policies require</span>
+<div class="ln" style="width:95%"></div><div class="ln" style="width:88%"></div>
+<div style="display:flex;gap:6px"><span class="pillb">JICA · Bullying</span><span class="pillb">JICDA · Conduct</span></div>
+<div class="ln" style="width:80%"></div>
+<span class="hd" style="margin-top:2px">Action steps</span>
+<div class="ln" style="width:90%"></div><div class="ln" style="width:70%"></div>
+</div>
+<span style="flex:1"></span>
+<div class="bx" style="display:flex;align-items:center;padding:8px 10px;gap:8px"><span class="mut">Describe a scenario…</span><span style="flex:1"></span><span class="btn">Ask</span></div>
+</div>
+</div>
+</div>
+<span class="note">↑ sources collapse into one status card — no more upload forms living on the main screen</span></div>
+
+<div class="dv-opt" id="1b"><div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Chat-first — icon rail, centered thread, evidence slides in from the right</div>
+<div class="dv-card wf" style="width:680px">
+<div style="display:flex;min-height:360px">
+<div style="width:44px;border-right:1.5px solid #3a3a3a;background:#fafaf7;display:flex;flex-direction:column;align-items:center;gap:12px;padding:10px 0">
+<span style="font-size:15px">◆</span><span class="bx" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">+</span>
+<span class="bxd" style="width:22px;height:22px"></span><span class="bxd" style="width:22px;height:22px"></span><span class="bxd" style="width:22px;height:22px"></span>
+<span style="flex:1"></span><span class="av"></span>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;padding:14px 26px;gap:10px">
+<div style="display:flex;justify-content:center"><span class="pill"><span class="dotf"></span>3 sources connected · Lakeside USD</span></div>
+<div style="align-self:flex-end;max-width:60%" class="bx"><div style="padding:7px 10px">Parent requested education records — deadline?</div></div>
+<div class="bx" style="padding:10px;display:flex;flex-direction:column;gap:7px;max-width:88%">
+<div class="ln" style="width:95%"></div><div class="ln" style="width:90%"></div><div class="ln" style="width:60%"></div>
+<div style="display:flex;gap:6px"><span class="pillb">JRA · Records ↗</span><span class="pillb">Handbook §4.2 ↗</span></div>
+</div>
+<span style="flex:1"></span>
+<div class="bx" style="display:flex;align-items:center;padding:8px 10px;gap:8px"><span class="mut">Ask about any scenario…</span><span style="flex:1"></span><span class="btn">Ask</span></div>
+</div>
+<div style="width:190px;border-left:1.5px dashed #999;background:#fcfcfa;padding:10px;display:flex;flex-direction:column;gap:8px">
+<span class="hd">Evidence — JRA</span>
+<div class="bx" style="padding:7px"><div class="lnk" style="width:70%"></div><div class="ln" style="width:90%;margin-top:5px"></div><div class="ln" style="width:85%;margin-top:4px"></div><div class="ln" style="width:60%;margin-top:4px"></div></div>
+<span class="mut">Revised 03/2025 · Dataset v3</span>
+<span class="btng" style="align-self:flex-start;font-size:11.5px">Open full policy</span>
+<span class="btng" style="align-self:flex-start;font-size:11.5px">Pin this answer</span>
+</div>
+</div>
+</div>
+<span class="note">↑ click a citation chip → evidence drawer; library &amp; scraper live behind the rail icons</span></div>
+
+<div class="dv-opt" id="1c"><div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Dashboard hub — home page with health stats; assistant, library, scraper as siblings</div>
+<div class="dv-card wf" style="width:620px">
+<div class="bar"><span style="font-size:15px">◆ PolicyIQ</span><span style="flex:1"></span><span class="pillb">Home</span><span class="pill">Assistant</span><span class="pill">Library</span><span class="pill">Scraper</span><span class="av"></span></div>
+<div style="padding:14px;display:flex;flex-direction:column;gap:12px">
+<span class="hd" style="font-size:17px">Good morning — Lakeside USD workspace</span>
+<div style="display:flex;gap:10px">
+<div class="bx" style="flex:1;padding:8px"><span class="mut">Policies</span><div style="font-size:19px">412</div><span class="mut">2 datasets</span></div>
+<div class="bx" style="flex:1;padding:8px"><span class="mut">Handbooks</span><div style="font-size:19px">2</div><span style="display:flex;gap:5px;align-items:center"><span class="dotw"></span><span class="mut">staff outdated</span></span></div>
+<div class="bx" style="flex:1;padding:8px"><span class="mut">Questions asked</span><div style="font-size:19px">86</div><span class="mut">this month</span></div>
+<div class="bx" style="flex:1;padding:8px"><span class="mut">Coverage</span><div style="font-size:19px">94%</div><span class="mut">rows w/ full text</span></div>
+</div>
+<div style="display:flex;gap:10px">
+<div class="bx" style="flex:1.4;padding:10px;display:flex;flex-direction:column;gap:7px"><span class="hd">Ask the assistant</span>
+<div class="bxd" style="padding:7px 9px" class="mut"><span class="mut">Describe a scenario…</span></div>
+<div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill">Bullying report</span><span class="pill">Records request</span><span class="pill">Staff leave</span></div></div>
+<div class="bx" style="flex:1;padding:10px;display:flex;flex-direction:column;gap:6px"><span class="hd">Recent conversations</span>
+<div class="ln" style="width:90%"></div><div class="ln" style="width:75%"></div><div class="ln" style="width:82%"></div><span class="btng" style="align-self:flex-start;font-size:11.5px">All history →</span></div>
+</div>
+</div>
+</div>
+<span class="note">↑ gives admins the "dataset health" view you asked for; chat is one click deeper</span></div>
+
+<div class="dv-opt" id="1d"><div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Guided setup — checklist wizard replaces the wall of upload forms</div>
+<div class="dv-card wf" style="width:430px">
+<div class="bar"><span style="font-size:15px">◆ Set up your workspace</span><span style="flex:1"></span><span class="mut">Step 2 of 3</span></div>
+<div style="padding:14px;display:flex;gap:14px">
+<div style="width:140px;display:flex;flex-direction:column;gap:9px">
+<span style="display:flex;gap:7px;align-items:center"><span class="dotf"></span>Board policies</span>
+<span style="display:flex;gap:7px;align-items:center;font-weight:700"><span class="dotw"></span>Handbooks</span>
+<span style="display:flex;gap:7px;align-items:center"><span class="dot"></span>Try a question</span>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:9px">
+<span class="hd">Add your handbooks</span>
+<div class="bxd" style="padding:14px;text-align:center"><span class="mut">Drop student handbook<br>PDF · TXT · MD</span></div>
+<div class="bxd" style="padding:14px;text-align:center"><span class="mut">Drop staff handbook</span></div>
+<div style="display:flex;gap:8px"><span class="btng">Skip for now</span><span class="btn">Continue</span></div>
+</div>
+</div>
+</div>
+<span class="note">↑ first-run only; afterwards sources are managed from the Library</span></div>
+
+<div class="dv-opt" id="1e"><div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Answer anatomy — scannable sections, inline citations, one clear disclaimer</div>
+<div class="dv-card wf" style="width:400px">
+<div style="padding:12px;display:flex;flex-direction:column;gap:9px">
+<div style="display:flex;gap:6px;align-items:center"><span class="hd" style="font-size:16px">Answer</span><span style="flex:1"></span><span class="pill">Pin ☆</span><span class="pill">Copy</span></div>
+<div class="bx" style="padding:9px;display:flex;flex-direction:column;gap:6px;border-left:4px solid #333">
+<span class="hd">1 · What policy requires</span>
+<div class="ln" style="width:95%"></div><div class="ln" style="width:85%"></div>
+<span class="pillb">JICA · Bullying prevention ↗</span></div>
+<div class="bx" style="padding:9px;display:flex;flex-direction:column;gap:6px;border-left:4px solid #777">
+<span class="hd">2 · Handbook guidance</span>
+<div class="ln" style="width:90%"></div>
+<span class="pillb">Student HB §7 · Reporting ↗</span></div>
+<div class="bx" style="padding:9px;display:flex;flex-direction:column;gap:6px;border-left:4px solid #3fa25a">
+<span class="hd">3 · Recommended actions</span>
+<div style="display:flex;gap:7px;align-items:center"><span class="dot"></span><div class="ln" style="width:80%;flex:1"></div></div>
+<div style="display:flex;gap:7px;align-items:center"><span class="dot"></span><div class="ln" style="width:65%;flex:1"></div></div>
+</div>
+<span class="mut">⚠ Guidance, not legal advice · sources captured 07/24/26</span>
+</div>
+</div>
+<span class="note">↑ numbered sections + chips replace today's long undifferentiated bubbles</span></div>
+
+<div class="dv-opt" id="1f"><div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>Library — datasets &amp; handbooks in one table, plus direct policy search</div>
+<div class="dv-card wf" style="width:560px">
+<div class="bar"><span style="font-size:15px">Library</span><span style="flex:1"></span><div class="bx" style="padding:2px 10px;width:180px"><span class="mut">Search all policies…</span></div><span class="btn">+ Add source</span></div>
+<div style="padding:12px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;gap:6px"><span class="pillb">Policies (2)</span><span class="pill">Student HB (1)</span><span class="pill">Staff HB (1)</span><span class="pill">Archived</span></div>
+<div class="bx">
+<div style="display:flex;gap:10px;padding:6px 10px;border-bottom:1.5px solid #555;background:#fafaf7"><span style="width:200px" class="mut">Title</span><span style="width:70px" class="mut">Rows</span><span style="width:90px" class="mut">Health</span><span style="width:90px" class="mut">Updated</span><span class="mut">Source</span></div>
+<div style="display:flex;gap:10px;padding:8px 10px;border-bottom:1px dashed #bbb;align-items:center"><span style="width:200px">Board policies 2026</span><span style="width:70px">412</span><span style="width:90px;display:flex;gap:5px;align-items:center"><span class="dotf"></span>Good</span><span style="width:90px" class="mut">Jul 12</span><span class="mut">Scraper · BoardDocs</span></div>
+<div style="display:flex;gap:10px;padding:8px 10px;align-items:center"><span style="width:200px">Legacy policy CSV</span><span style="width:70px">388</span><span style="width:90px;display:flex;gap:5px;align-items:center"><span class="dotw"></span>14 gaps</span><span style="width:90px" class="mut">Feb 03</span><span class="mut">CSV upload</span></div>
+</div>
+<span class="note">search hits open the policy full-text directly — no chat needed</span>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1g"><div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>Scraper — one URL box, auto-detect, quality preview before import</div>
+<div class="dv-card wf" style="width:560px">
+<div class="bar"><span style="font-size:15px">Import from district website</span></div>
+<div style="padding:12px;display:flex;flex-direction:column;gap:9px">
+<div style="display:flex;gap:8px"><div class="bx" style="flex:1;padding:5px 10px"><span class="mut">https://go.boarddocs.com/…</span></div><span class="btn">Scan</span></div>
+<div style="display:flex;gap:6px;align-items:center"><span class="pillb"><span class="dotf"></span>Detected: BoardDocs</span><span class="mut">override ▾</span></div>
+<div class="bx">
+<div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1.5px solid #555;background:#fafaf7"><span class="hd">Preview — 412 policies found</span><span style="display:flex;gap:6px"><span class="pill"><span class="dotw"></span>3 missing text</span><span class="pill"><span class="dotf"></span>0 duplicates</span></span></div>
+<div style="display:flex;gap:10px;padding:6px 10px;border-bottom:1px dashed #bbb"><span style="width:60px">JICA</span><div class="ln" style="width:150px;align-self:center"></div><div class="ln" style="flex:1;align-self:center"></div></div>
+<div style="display:flex;gap:10px;padding:6px 10px;border-bottom:1px dashed #bbb"><span style="width:60px">JRA</span><div class="ln" style="width:120px;align-self:center"></div><div class="ln" style="flex:1;align-self:center"></div></div>
+<div style="display:flex;gap:10px;padding:6px 10px"><span style="width:60px">GBEB</span><div class="ln" style="width:140px;align-self:center"></div><div class="ln" style="flex:1;align-self:center"></div></div>
+</div>
+<div style="display:flex;gap:8px;justify-content:flex-end"><span class="btng">Download CSV</span><span class="btn">Import to Library</span></div>
+</div>
+</div>
+<span class="note">↑ scraper becomes "Add source" inside the product — no more separate export/re-upload loop</span></div>
+
+<div class="dv-opt" id="1h"><div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a>Mobile — bottom tabs; chat is the default</div>
+<div class="dv-card wf" style="width:210px">
+<div class="bar" style="padding:6px 10px"><span>◆ PolicyIQ</span><span style="flex:1"></span><span class="av" style="width:16px;height:16px"></span></div>
+<div style="height:280px;display:flex;flex-direction:column;padding:10px;gap:8px">
+<div style="align-self:flex-end;max-width:85%" class="bx"><div style="padding:5px 8px;font-size:11px">Teacher medical leave mid-semester?</div></div>
+<div class="bx" style="padding:8px;display:flex;flex-direction:column;gap:5px">
+<div class="ln" style="width:95%"></div><div class="ln" style="width:85%"></div>
+<span class="pillb" style="font-size:10px">Staff HB §3 ↗</span>
+<div class="ln" style="width:70%"></div>
+</div>
+<span style="flex:1"></span>
+<div class="bx" style="display:flex;align-items:center;padding:6px 8px;gap:6px"><span class="mut" style="font-size:10.5px">Ask…</span><span style="flex:1"></span><span class="btn" style="font-size:10.5px;padding:2px 8px">↑</span></div>
+</div>
+<div style="display:flex;border-top:1.5px solid #3a3a3a;background:#fafaf7">
+<span style="flex:1;text-align:center;padding:6px 0;font-size:11px;font-weight:700">Ask</span>
+<span style="flex:1;text-align:center;padding:6px 0;font-size:11px;color:#999">Library</span>
+<span style="flex:1;text-align:center;padding:6px 0;font-size:11px;color:#999">History</span>
+<span style="flex:1;text-align:center;padding:6px 0;font-size:11px;color:#999">Account</span>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "go deeper on <a class="dv-oid" href="#1b">1b</a> with the evidence drawer open" · "combine <a class="dv-oid" href="#1c">1c</a>'s dashboard with <a class="dv-oid" href="#1a">1a</a>'s chat" · "show the hi-fi version of <a class="dv-oid" href="#1b">1b</a>"</p>
+</section>
+</x-dc>
+</body>
+</html>
