@@ -144,18 +144,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }),
     ]);
 
-    const refinedPolicyMatches = refinePolicyMatchesForScenario(
-      retrieval.policies,
-      scenario,
-      scenarioFocus,
-      detailedIntent,
-    );
-    const refinedHandbookMatches = refineHandbookMatchesForScenario(
-      handbookRetrieval.guidance,
-      scenario,
-      scenarioFocus,
-      detailedIntent,
-    );
+    // The legacy scenario refiners are hand-tuned to one district's policy
+    // naming conventions and exist to clean the lexical pipeline's noise.
+    // Semantic/hybrid retrieval already enforces precision portably (score
+    // floors, rank fusion, per-sub-issue guarantees), so the tuned filters
+    // only apply when retrieval actually ran in lexical mode.
+    const refinedPolicyMatches =
+      retrievalContext.mode === "lexical"
+        ? refinePolicyMatchesForScenario(retrieval.policies, scenario, scenarioFocus, detailedIntent)
+        : retrieval.policies;
+    const refinedHandbookMatches =
+      retrievalContext.mode === "lexical"
+        ? refineHandbookMatchesForScenario(
+            handbookRetrieval.guidance,
+            scenario,
+            scenarioFocus,
+            detailedIntent,
+          )
+        : handbookRetrieval.guidance;
     const requestedHandbookTypes = detectExplicitRequestedHandbookTypes(scenario);
     const selectedPolicyIds = new Set(refinedPolicyMatches.map((policy) => policy.id));
     const selectedHandbookIds = new Set(refinedHandbookMatches.map((chunk) => chunk.id));

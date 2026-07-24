@@ -4752,7 +4752,15 @@ function buildHandbookReferenceCard(content: string): ReferenceCard | undefined 
     return undefined;
   }
 
-  const isNoMatch = /^no matching .*handbook guidance$/i.test(sectionTitle);
+  const isNoMatch =
+    /^no matching .*handbook guidance$/i.test(sectionTitle.trim()) ||
+    /no matching .*handbook guidance found/i.test(handbookGuidance);
+
+  // A "no matching guidance" placeholder is an honest absence, not a source.
+  // Rendering it as a citation chip would fabricate evidence.
+  if (isNoMatch) {
+    return undefined;
+  }
 
   return {
     label:
