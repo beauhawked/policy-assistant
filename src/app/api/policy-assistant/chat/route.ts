@@ -205,8 +205,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    await appendPolicyConversationMessage(activeConversation.id, "user", scenario);
-    await appendPolicyConversationMessage(activeConversation.id, "assistant", answer, answerEvidence);
+    const savedUserMessage = await appendPolicyConversationMessage(
+      activeConversation.id,
+      "user",
+      scenario,
+    );
+    const savedAssistantMessage = await appendPolicyConversationMessage(
+      activeConversation.id,
+      "assistant",
+      answer,
+      answerEvidence,
+    );
 
     const refreshedConversation = await getPolicyConversation(user.id, activeConversation.id);
 
@@ -214,6 +223,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       {
         answer,
         answerEvidence,
+        messageIds: {
+          user: savedUserMessage.id,
+          assistant: savedAssistantMessage.id,
+        },
         conversation: refreshedConversation ?? activeConversation,
         retrieval: {
           retrievalMode: retrievalContext.mode,

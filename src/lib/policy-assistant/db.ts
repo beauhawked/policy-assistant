@@ -3212,3 +3212,155 @@ export async function deletePolicyConversation(
 
   return (result.rowCount ?? 0) > 0;
 }
+
+// ---------------------------------------------------------------------------
+// Pinned answers
+// ---------------------------------------------------------------------------
+
+interface RawPinnedAnswer {
+  id: number | string;
+  message_id: number | string;
+  conversation_id: string;
+  dataset_id: string;
+  title: string;
+  body: string;
+  meta: string;
+  created_at: Date | string;
+}
+
+export interface StoredPinnedAnswer {
+  id: number;
+  messageId: number;
+  conversationId: string;
+  datasetId: string;
+  title: string;
+  body: string;
+  meta: string;
+  createdAt: string;
+}
+
+let pinnedAnswersReady = false;
+
+async function ensurePinnedAnswersTable(): Promise<void> {
+  await ensureSchema();
+  if (pinnedAnswersReady) {
+    return;
+  }
+
+  const client = await getClient();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pinned_answers (
+        id BIGSERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        message_id BIGINT NOT NULL REFERENCES policy_conversation_messages(id) ON DELETE CASCADE,
+        conversation_id TEXT NOT NULL REFERENCES policy_conversations(id) ON DELETE CASCADE,
+        dataset_id TEXT NOT NULL REFERENCES policy_datasets(id) ON DELETE CASCADE,
+        title TEXT NOT NULL DEFAULT '',
+        body TEXT NOT NULL DEFAULT '',
+        meta TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, message_id)
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_pinned_answers_user_dataset
+      ON pinned_answers(user_id, dataset_id);
+    `);
+    pinnedAnswersReady = true;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Pin a saved assistant message. Ownership is verified by resolving the
+ * message through its conversation to the requesting user; the conversation
+ * and dataset ids are derived server-side so the client cannot forge them.
+ */
+export async function createPinnedAnswer(
+  userId: string,
+  input: { messageId: number; title: string; body: string; meta: string },
+): Promise<StoredPinnedAnswer | null> {
+  await ensurePinnedAnswersTable();
+
+  const result = await getPool().query<RawPinnedAnswer>(
+    `
+    INSERT INTO pinned_answers (user_id, message_id, conversation_id, dataset_id, title, body, meta)
+    SELECT c.user_id, m.id, c.id, c.dataset_id, $3, $4, $5
+    FROM policy_conversation_messages m
+    JOIN policy_conversations c ON c.id = m.conversation_id
+    WHERE m.id = $2 AND c.user_id = $1 AND m.role = 'assistant'
+    ON CONFLICT (user_id, message_id) DO UPDATE SET title = EXCLUDED.title
+    RETURNING id, message_id, conversation_id, dataset_id, title, body, meta, created_at
+    `,
+    [
+      userId,
+      input.messageId,
+      input.title.slice(0, 300),
+      input.body.slice(0, 1000),
+      input.meta.slice(0, 500),
+    ],
+  );
+
+  const row = result.rows[0];
+  return row ? mapPinnedAnswer(row) : null;
+}
+
+export async function deletePinnedAnswer(userId: string, messageId: number): Promise<boolean> {
+  await ensurePinnedAnswersTable();
+
+  const result = await getPool().query<{ id: string }>(
+    `
+    DELETE FROM pinned_answers
+    WHERE user_id = $1 AND message_id = $2
+    RETURNING id
+    `,
+    [userId, messageId],
+  );
+
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function listPinnedAnswers(
+  userId: string,
+  options?: { datasetId?: string; limit?: number },
+): Promise<StoredPinnedAnswer[]> {
+  await ensurePinnedAnswersTable();
+
+  const limit = options?.limit && options.limit > 0 ? Math.min(options.limit, 200) : 100;
+  const params: Array<string | number> = [userId];
+  let datasetClause = "";
+  if (options?.datasetId) {
+    params.push(options.datasetId);
+    datasetClause = `AND dataset_id = $${params.length}`;
+  }
+  params.push(limit);
+
+  const result = await getPool().query<RawPinnedAnswer>(
+    `
+    SELECT id, message_id, conversation_id, dataset_id, title, body, meta, created_at
+    FROM pinned_answers
+    WHERE user_id = $1
+    ${datasetClause}
+    ORDER BY created_at DESC
+    LIMIT $${params.length}
+    `,
+    params,
+  );
+
+  return result.rows.map(mapPinnedAnswer);
+}
+
+function mapPinnedAnswer(row: RawPinnedAnswer): StoredPinnedAnswer {
+  return {
+    id: Number(row.id),
+    messageId: Number(row.message_id),
+    conversationId: row.conversation_id,
+    datasetId: row.dataset_id,
+    title: row.title,
+    body: row.body,
+    meta: row.meta,
+    createdAt: formatTimestamp(row.created_at),
+  };
+}

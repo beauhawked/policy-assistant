@@ -116,6 +116,8 @@ interface PolicyAnswerEvidenceSnapshot {
 
 interface ChatMessage {
   id: string;
+  /** Database id of the saved conversation message; stable across reloads. */
+  storedId?: number;
   role: "user" | "assistant";
   content: string;
   answerEvidence?: PolicyAnswerEvidenceSnapshot | null;
@@ -316,12 +318,22 @@ interface EvidenceItem {
 }
 
 interface PinnedAnswer {
-  id: string;
+  messageId: number;
   title: string;
   body: string;
   meta: string;
   pinnedAt: string;
   conversationId: string;
+}
+
+interface StoredPinnedAnswerPayload {
+  messageId: number;
+  conversationId: string;
+  datasetId: string;
+  title: string;
+  body: string;
+  meta: string;
+  createdAt: string;
 }
 
 interface DetailView {
@@ -571,6 +583,9 @@ export function PolicyAssistantApp() {
   const [sourceTab, setSourceTab] = useState<SourceTab>("import");
   const [setupStep, setSetupStep] = useState(1);
   const [isSetupDismissed, setIsSetupDismissed] = useState(false);
+  // Engaged means the guided setup was started for this user and stays visible
+  // through all three steps until finished or skipped, even once data exists.
+  const [isSetupEngaged, setIsSetupEngaged] = useState(false);
   const [datasetPolicies, setDatasetPolicies] = useState<Record<string, LibraryPolicyRecord[]>>({});
   const [isPolicyIndexLoading, setIsPolicyIndexLoading] = useState(false);
   const [policyIndexError, setPolicyIndexError] = useState("");
@@ -727,13 +742,44 @@ export function PolicyAssistantApp() {
   }, []);
 
   useEffect(() => {
-    if (!authUser) {
+    if (!authUser || !authUser.emailVerifiedAt || !selectedDatasetId) {
       setPinnedAnswers([]);
       return;
     }
 
-    setPinnedAnswers(readStoredPins(authUser.id));
-  }, [authUser]);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await fetch(
+          `/api/policy-assistant/pins?datasetId=${encodeURIComponent(selectedDatasetId)}`,
+          { cache: "no-store" },
+        );
+        const payload = (await response.json().catch(() => ({}))) as {
+          pins?: StoredPinnedAnswerPayload[];
+        };
+        if (cancelled || !response.ok || !Array.isArray(payload.pins)) {
+          return;
+        }
+        setPinnedAnswers(
+          payload.pins.map((pin) => ({
+            messageId: pin.messageId,
+            title: pin.title,
+            body: pin.body,
+            meta: pin.meta,
+            pinnedAt: pin.createdAt,
+            conversationId: pin.conversationId,
+          })),
+        );
+      } catch {
+        // Pin loading is non-critical; leave the list empty on failure.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser, selectedDatasetId]);
 
   useEffect(() => {
     if (activeDatasets.length === 0) {
@@ -819,11 +865,11 @@ export function PolicyAssistantApp() {
   }, [view, selectedDatasetId]);
 
   useEffect(() => {
-    if (activeDatasets.length > 0 && setupStep === 1) {
+    if (isSetupEngaged && activeDatasets.length > 0 && setupStep === 1) {
       setSetupStep(2);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDatasets.length]);
+  }, [activeDatasets.length, isSetupEngaged]);
 
   useEffect(() => {
     const composer = composerRef.current;
@@ -1000,6 +1046,7 @@ export function PolicyAssistantApp() {
       setView("assistant");
       setSetupStep(1);
       setIsSetupDismissed(false);
+      setIsSetupEngaged(false);
 
       if (payload.user.emailVerifiedAt) {
         await loadWorkspaceData();
@@ -1793,6 +1840,7 @@ export function PolicyAssistantApp() {
       const payload = (await response.json().catch(() => ({}))) as {
         answer?: string;
         answerEvidence?: PolicyAnswerEvidenceSnapshot;
+        messageIds?: { user?: number; assistant?: number };
         error?: string;
         conversation?: ConversationSummary;
         retrieval?: RetrievalDebugData;
@@ -1820,12 +1868,20 @@ export function PolicyAssistantApp() {
 
       const assistantMessage: ChatMessage = {
         id: buildClientId("assistant"),
+        storedId: payload.messageIds?.assistant,
         role: "assistant",
         content: payload.answer,
         answerEvidence: payload.answerEvidence ?? null,
       };
 
-      setMessages((previous) => [...previous, assistantMessage]);
+      setMessages((previous) => [
+        ...previous.map((message) =>
+          message.id === userMessage.id
+            ? { ...message, storedId: payload.messageIds?.user }
+            : message,
+        ),
+        assistantMessage,
+      ]);
       setRetrievalDebug(payload.retrieval ?? null);
 
       if (payload.conversation) {
@@ -2024,55 +2080,138 @@ export function PolicyAssistantApp() {
     }
   };
 
-  const handleTogglePin = (
+  const handleTogglePin = async (
     message: ChatMessage,
     question: string,
     summary: string,
     chips: EvidenceItem[],
-  ): void => {
+  ): Promise<void> => {
     if (!authUser) {
       return;
     }
 
-    setPinnedAnswers((previous) => {
-      const isPinned = previous.some((pin) => pin.id === message.id);
-      const next = isPinned
-        ? previous.filter((pin) => pin.id !== message.id)
-        : [
-            {
-              id: message.id,
-              title: truncateReferenceSummary(question || summary, 90),
-              body: truncateReferenceSummary(summary, 200),
-              meta: [
-                chips
-                  .slice(0, 2)
-                  .map((chip) => chip.title)
-                  .join(" + "),
-                `pinned ${formatShortDate(new Date().toISOString())}`,
-              ]
-                .filter(Boolean)
-                .join(" · "),
-              pinnedAt: new Date().toISOString(),
-              conversationId: selectedConversationId,
-            },
-            ...previous,
-          ];
+    const messageId = message.storedId;
+    if (!messageId) {
+      setChatError("This answer is still saving; try pinning again in a moment.");
+      return;
+    }
 
-      writeStoredPins(authUser.id, next);
-      return next;
-    });
+    const alreadyPinned = pinnedAnswers.some((pin) => pin.messageId === messageId);
+
+    if (alreadyPinned) {
+      await handleUnpin(messageId);
+      return;
+    }
+
+    const newPin: PinnedAnswer = {
+      messageId,
+      title: truncateReferenceSummary(question || summary, 90),
+      body: truncateReferenceSummary(summary, 200),
+      meta: [
+        chips
+          .slice(0, 2)
+          .map((chip) => chip.title)
+          .join(" + "),
+        `pinned ${formatShortDate(new Date().toISOString())}`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      pinnedAt: new Date().toISOString(),
+      conversationId: selectedConversationId,
+    };
+
+    setPinnedAnswers((previous) => [newPin, ...previous]);
+
+    try {
+      const response = await fetch("/api/policy-assistant/pins", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          messageId,
+          title: newPin.title,
+          body: newPin.body,
+          meta: newPin.meta,
+        }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error ?? "Could not pin the answer.");
+      }
+    } catch (error) {
+      setPinnedAnswers((previous) => previous.filter((pin) => pin.messageId !== messageId));
+      setChatError(error instanceof Error ? error.message : "Could not pin the answer.");
+    }
   };
 
-  const handleUnpin = (pinId: string): void => {
+  const handleDatasetActivate = (datasetId: string): void => {
+    if (datasetId === selectedDatasetId) {
+      return;
+    }
+    setSelectedDatasetId(datasetId);
+    setSelectedConversationId("");
+    setMessages([]);
+    setChatError("");
+    setRetrievalDebug(null);
+    setEvidenceOpen(false);
+    setActiveEvidence(null);
+    const activated = datasets.find((dataset) => dataset.id === datasetId);
+    setDatasetStatus(activated ? `${activated.title} is now the active policy source.` : "");
+  };
+
+  const togglePinForClientMessage = (clientMessageId: string): void => {
+    const groupIndex = conversationGroups.findIndex(
+      (group) => group.message.id === clientMessageId,
+    );
+    if (groupIndex < 0) {
+      return;
+    }
+
+    const { message, items } = conversationGroups[groupIndex];
+    const question = findPrecedingQuestion(conversationGroups, groupIndex);
+    const prose = items
+      .filter((item) => item.kind === "general")
+      .map((item) => item.content)
+      .join("\n\n");
+    const summaries = items
+      .filter(
+        (item) => (item.kind === "policy" || item.kind === "handbook") && item.referenceCard,
+      )
+      .map((item) => item.referenceCard?.summary ?? "")
+      .filter(Boolean)
+      .join(" ");
+    const chips = buildEvidenceChips(message, items);
+
+    void handleTogglePin(message, question, prose || summaries, chips);
+  };
+
+  const isClientMessagePinned = (clientMessageId: string): boolean => {
+    const group = conversationGroups.find((item) => item.message.id === clientMessageId);
+    const storedId = group?.message.storedId;
+    return Boolean(storedId && pinnedAnswers.some((pin) => pin.messageId === storedId));
+  };
+
+  const handleUnpin = async (messageId: number): Promise<void> => {
     if (!authUser) {
       return;
     }
 
-    setPinnedAnswers((previous) => {
-      const next = previous.filter((pin) => pin.id !== pinId);
-      writeStoredPins(authUser.id, next);
-      return next;
-    });
+    const removed = pinnedAnswers.find((pin) => pin.messageId === messageId);
+    setPinnedAnswers((previous) => previous.filter((pin) => pin.messageId !== messageId));
+
+    try {
+      const response = await fetch(`/api/policy-assistant/pins/${messageId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok && response.status !== 404) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error ?? "Could not remove the pin.");
+      }
+    } catch (error) {
+      if (removed) {
+        setPinnedAnswers((previous) => [removed, ...previous]);
+      }
+      setChatError(error instanceof Error ? error.message : "Could not remove the pin.");
+    }
   };
 
   async function fetchReferenceDetail(lookup: ReferenceLookup): Promise<LoadedReferenceDetail> {
@@ -2140,7 +2279,7 @@ export function PolicyAssistantApp() {
   const firstName = deriveFirstName(authUser?.email ?? "");
   const initials = deriveInitials(authUser?.email ?? "", authUser?.districtName ?? "");
   const isSetupActive =
-    Boolean(authUser?.emailVerifiedAt) && activeDatasets.length === 0 && !isSetupDismissed;
+    Boolean(authUser?.emailVerifiedAt) && isSetupEngaged && !isSetupDismissed;
 
   if (isAuthLoading) {
     return (
@@ -2805,7 +2944,11 @@ export function PolicyAssistantApp() {
                 className="piq-button piq-button-ghost"
                 data-tip="Skip for now"
                 onClick={() => {
+                  if (authUser) {
+                    writeSetupDone(authUser.id);
+                  }
                   setIsSetupDismissed(true);
+                  setIsSetupEngaged(false);
                   setView("assistant");
                 }}
               >
@@ -2820,7 +2963,11 @@ export function PolicyAssistantApp() {
                     setSetupStep(setupStep + 1);
                     return;
                   }
+                  if (authUser) {
+                    writeSetupDone(authUser.id);
+                  }
                   setIsSetupDismissed(true);
+                  setIsSetupEngaged(false);
                   setView("assistant");
                 }}
               >
@@ -3035,7 +3182,12 @@ export function PolicyAssistantApp() {
                 const actionItems = items.filter((item) => item.kind === "action");
                 const implicationItems = items.filter((item) => item.kind === "implications");
                 const disclaimerItems = items.filter((item) => item.kind === "disclaimer");
-                const isPinned = pinnedAnswers.some((pin) => pin.id === message.id);
+                const isPinned = Boolean(
+                  message.storedId &&
+                    pinnedAnswers.some((pin) => pin.messageId === message.storedId),
+                );
+                const pinSummary =
+                  prose || sourceSummaries.map((entry) => entry.summary).join(" ");
                 const capturedAt = message.answerEvidence?.capturedAt;
 
                 return (
@@ -3110,7 +3262,7 @@ export function PolicyAssistantApp() {
                         type="button"
                         className="piq-link"
                         data-tip={isPinned ? "Unpin answer" : "Pin answer"}
-                        onClick={() => handleTogglePin(message, question, prose, chips)}
+                        onClick={() => void handleTogglePin(message, question, pinSummary, chips)}
                       >
                         {isPinned ? "★ Pinned" : "☆ Pin"}
                       </button>{" "}
@@ -3283,6 +3435,21 @@ export function PolicyAssistantApp() {
             </button>
           ) : null}
 
+          <button
+            type="button"
+            className="piq-button piq-button-ghost piq-button-block"
+            data-tip={
+              isClientMessagePinned(activeEvidence.messageId)
+                ? "Remove this answer from Pinned"
+                : "Keep this answer in Pinned"
+            }
+            onClick={() => togglePinForClientMessage(activeEvidence.messageId)}
+          >
+            {isClientMessagePinned(activeEvidence.messageId)
+              ? "★ Unpin this answer"
+              : "☆ Pin this answer"}
+          </button>
+
           <p className="piq-evidence-explainer">
             This excerpt is the exact text the answer was grounded in, from your uploaded sources.
           </p>
@@ -3359,7 +3526,7 @@ export function PolicyAssistantApp() {
         ) : (
           <div className="piq-pin-grid">
             {pinnedAnswers.map((pin) => (
-              <article className="piq-pin-card" key={pin.id}>
+              <article className="piq-pin-card" key={pin.messageId}>
                 <span className="piq-pin-title">{pin.title}</span>
                 <span className="piq-pin-body">{pin.body}</span>
                 <span className="piq-pin-foot">
@@ -3368,7 +3535,7 @@ export function PolicyAssistantApp() {
                     type="button"
                     className="piq-link"
                     data-tip="Unpin"
-                    onClick={() => handleUnpin(pin.id)}
+                    onClick={() => void handleUnpin(pin.messageId)}
                   >
                     Unpin
                   </button>
@@ -3528,6 +3695,20 @@ export function PolicyAssistantApp() {
                   <span className="piq-table-muted">{formatShortDate(source.updatedAt)}</span>
                   <span className="piq-table-muted">{source.sourceLabel}</span>
                   <span className="piq-table-actions">
+                    {source.kind === "dataset" &&
+                    !source.archived &&
+                    source.id !== selectedDatasetId ? (
+                      <button
+                        type="button"
+                        className="piq-icon-button"
+                        data-tip="Make this the active policy source"
+                        disabled={source.busy}
+                        onClick={() => handleDatasetActivate(source.id)}
+                      >
+                        <span aria-hidden="true">✓</span>
+                        <span className="piq-sr-only">Set {source.title} as active source</span>
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       className="piq-icon-button"
@@ -3818,6 +3999,13 @@ export function PolicyAssistantApp() {
       if (payload.datasets.length === 0) {
         setSelectedDatasetId("");
       }
+
+      // Engage the guided setup only for users who have no active sources and
+      // have never finished or skipped it before.
+      const hasActiveDatasets = payload.datasets.some((dataset) => !dataset.archivedAt);
+      if (!hasActiveDatasets && authUser && !readSetupDone(authUser.id)) {
+        setIsSetupEngaged(true);
+      }
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Could not load existing datasets.");
     }
@@ -3981,6 +4169,7 @@ export function PolicyAssistantApp() {
       setMessages(
         payload.messages.map((message) => ({
           id: `stored-${message.id}`,
+          storedId: message.id,
           role: message.role,
           content: message.content,
           answerEvidence: message.answerEvidence,
@@ -3998,6 +4187,10 @@ export function PolicyAssistantApp() {
     setDatasets([]);
     setHandbookDocuments([]);
     setSelectedDatasetId("");
+    setPinnedAnswers([]);
+    setIsSetupEngaged(false);
+    setIsSetupDismissed(false);
+    setSetupStep(1);
     setConversations([]);
     setSelectedConversationId("");
     setMessages([]);
@@ -4275,26 +4468,6 @@ function deriveInitials(email: string, districtName: string): string {
   return (districtName.slice(0, 2) || "PA").toUpperCase();
 }
 
-function readStoredPins(userId: string): PinnedAnswer[] {
-  try {
-    const raw = window.localStorage.getItem(`piq-pins:${userId}`);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw) as PinnedAnswer[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeStoredPins(userId: string, pins: PinnedAnswer[]): void {
-  try {
-    window.localStorage.setItem(`piq-pins:${userId}`, JSON.stringify(pins));
-  } catch {
-    // Ignore persistence failures.
-  }
-}
 
 function findMetadataValue(metadata: ReferenceField[], label: string): string {
   return metadata.find((field) => field.label === label)?.value ?? "";
@@ -4337,6 +4510,22 @@ function formatRelativeDate(value: string): string {
     return `${dayDelta} days ago`;
   }
   return formatShortDate(value);
+}
+
+function readSetupDone(userId: string): boolean {
+  try {
+    return window.localStorage.getItem(`piq-setup-done:${userId}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeSetupDone(userId: string): void {
+  try {
+    window.localStorage.setItem(`piq-setup-done:${userId}`, "1");
+  } catch {
+    // Ignore persistence failures.
+  }
 }
 
 function buildClientId(prefix: string): string {
