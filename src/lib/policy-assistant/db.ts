@@ -1379,6 +1379,34 @@ export async function updateUserName(
   return row ? mapAuthUser(row) : null;
 }
 
+export async function insertModelCallLog(entry: {
+  userId: string;
+  conversationId?: string | null;
+  purpose: string;
+  model: string;
+  inputText: string;
+  outputText: string;
+  durationMs: number;
+}): Promise<void> {
+  await ensureSchema();
+
+  await getPool().query(
+    `
+    INSERT INTO model_call_logs (user_id, conversation_id, purpose, model, input_text, output_text, duration_ms)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `,
+    [
+      entry.userId,
+      entry.conversationId ?? null,
+      entry.purpose,
+      entry.model,
+      entry.inputText,
+      entry.outputText,
+      entry.durationMs,
+    ],
+  );
+}
+
 export async function updateUserPasswordHash(userId: string, passwordHash: string): Promise<void> {
   await ensureSchema();
 
@@ -1919,6 +1947,25 @@ async function ensureSchema(): Promise<void> {
 
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at);
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS model_call_logs (
+          id BIGSERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          conversation_id TEXT,
+          purpose TEXT NOT NULL DEFAULT 'guidance',
+          model TEXT NOT NULL,
+          input_text TEXT NOT NULL,
+          output_text TEXT NOT NULL,
+          duration_ms INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_model_call_logs_user_created
+        ON model_call_logs(user_id, created_at DESC);
       `);
 
       await client.query(`

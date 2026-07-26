@@ -177,6 +177,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const rawAnswer = await generatePolicyGuidance({
+      audit: {
+        userId: user.id,
+        conversationId: activeConversation?.id ?? null,
+      },
       districtName: dataset.districtName,
       scenario,
       focus: scenarioFocus,

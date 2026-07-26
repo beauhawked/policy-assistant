@@ -1,10 +1,15 @@
 import OpenAI from "openai";
 
+import { insertModelCallLog } from "@/lib/policy-assistant/db";
 import type { HandbookRetrievalResult, RetrievalResult } from "@/lib/policy-assistant/types";
 
 export type PolicyGuidanceResponseStyle = "direct_answer" | "action_guidance";
 
 interface GeneratePolicyGuidanceInput {
+  audit?: {
+    userId: string;
+    conversationId?: string | null;
+  };
   districtName: string;
   scenario: string;
   focus?: "policy" | "handbook" | "mixed";
@@ -72,9 +77,11 @@ export async function generatePolicyGuidance(input: GeneratePolicyGuidanceInput)
       : "No matching handbook guidance found.",
   ].join("\n");
 
+  const startedAt = Date.now();
   const response = await requestPolicyGuidance(client, model, responseStyle, userPrompt);
 
   const rawText = extractResponseText(response).trim();
+  await recordModelCall(input.audit, "guidance", model, userPrompt, rawText, startedAt);
   if (!rawText) {
     throw new Error("OpenAI returned an empty response.");
   }
@@ -84,18 +91,23 @@ export async function generatePolicyGuidance(input: GeneratePolicyGuidanceInput)
     return normalized;
   }
 
-  const correctedResponse = await requestPolicyGuidance(
-    client,
-    model,
-    responseStyle,
-    [
-      userPrompt,
-      "",
-      "Required correction:",
-      "This is an operational, multi-issue scenario. The response must include both an Action Steps: section and a Legal, Ethical, and Academic Implications: section after the policy and handbook summaries.",
-    ].join("\n"),
-  );
+  const correctionPrompt = [
+    userPrompt,
+    "",
+    "Required correction:",
+    "This is an operational, multi-issue scenario. The response must include both an Action Steps: section and a Legal, Ethical, and Academic Implications: section after the policy and handbook summaries.",
+  ].join("\n");
+  const correctionStartedAt = Date.now();
+  const correctedResponse = await requestPolicyGuidance(client, model, responseStyle, correctionPrompt);
   const correctedText = extractResponseText(correctedResponse).trim();
+  await recordModelCall(
+    input.audit,
+    "guidance_correction",
+    model,
+    correctionPrompt,
+    correctedText,
+    correctionStartedAt,
+  );
   const corrected = normalizeAssistantOutput(
     correctedText,
     responseStyle,
@@ -373,4 +385,32 @@ export function detectResponseStyle(scenario: string): PolicyGuidanceResponseSty
       ));
 
   return asksForAction ? "action_guidance" : "direct_answer";
+}
+
+async function recordModelCall(
+  audit: GeneratePolicyGuidanceInput["audit"],
+  purpose: string,
+  model: string,
+  inputText: string,
+  outputText: string,
+  startedAt: number,
+): Promise<void> {
+  if (!audit) {
+    return;
+  }
+
+  try {
+    await insertModelCallLog({
+      userId: audit.userId,
+      conversationId: audit.conversationId ?? null,
+      purpose,
+      model,
+      inputText,
+      outputText,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (error) {
+    // The audit log must never break answer delivery.
+    console.error("model_call_log_failed", error);
+  }
 }

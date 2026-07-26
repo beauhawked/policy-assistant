@@ -350,7 +350,7 @@ interface DetailView {
 }
 
 type AuthMode = "login" | "signup" | "forgot" | "reset";
-type AppView = "assistant" | "history" | "pinned" | "library" | "policy" | "source";
+type AppView = "assistant" | "history" | "pinned" | "library" | "policy" | "source" | "help";
 type SourceTab = "import" | "csv" | "handbook";
 type LibraryFilter = "all" | "policies" | "student" | "staff";
 
@@ -415,6 +415,65 @@ const NAV_ITEMS: Array<{
     label: "Add source",
     shortLabel: "Add",
     paths: ["M12 5v14", "M5 12h14"],
+  },
+  {
+    key: "help",
+    label: "Help",
+    shortLabel: "Help",
+    paths: [
+      "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
+      "M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3",
+      "M12 17h.01",
+    ],
+  },
+];
+
+type HelpTab = "start" | "faq" | "trust";
+
+const HELP_TABS: Array<{ key: HelpTab; label: string }> = [
+  { key: "start", label: "Getting started" },
+  { key: "faq", label: "FAQ" },
+  { key: "trust", label: "Trust and privacy" },
+];
+
+const HELP_DOWNLOADS: Array<{ label: string; file: string }> = [
+  { label: "Quick-Start Guide (PDF)", file: "/help/Policy-to-Action-Quick-Start-Participants.pdf" },
+  { label: "District Setup Guide (PDF)", file: "/help/Policy-to-Action-District-Setup-Guide.pdf" },
+  { label: "User Manual (PDF)", file: "/help/Policy-to-Action-User-Manual.pdf" },
+];
+
+const FAQ_ITEMS: Array<{ q: string; a: string }> = [
+  {
+    q: "My verification email has not arrived.",
+    a: "Check your spam or quarantine folder; the sender is Policy to Action. You can request a fresh link with Resend verification on the sign-in screen. Some district mail filters take several minutes to release messages.",
+  },
+  {
+    q: "An answer seems generic or cites nothing.",
+    a: "Confirm the correct dataset shows as Active in the Library and its health reads Good. Then add specifics to your scenario: what happened, who was involved by role, and the decisions you need to make. Vague questions produce vague citations.",
+  },
+  {
+    q: "The header says 0 sources.",
+    a: "No active policy dataset exists yet. A setup administrator should open the Library, select Add source, and import your board policies from your district's policy site or a CSV export.",
+  },
+  {
+    q: "How do I verify an answer before acting on it?",
+    a: "Select any citation chip beneath an answer to open the evidence panel, which quotes the exact policy text the answer was grounded in. Open full source shows the complete policy. Policy to Action is decision support, not legal advice; verify consequential decisions against the cited source.",
+  },
+  {
+    q: "Can I save an answer for later?",
+    a: "Yes. Select Pin under any answer, or Pin this answer in the evidence panel. Pinned answers are saved to your account with their evidence and appear in the Pinned view from the left rail.",
+  },
+  {
+    q: "How do I keep student information private?",
+    a: "Use placeholders such as Student A or a seventh-grade student instead of real names. The reminder under the question box applies to every scenario you write.",
+  },
+  {
+    q: "What happens when our board revises policies?",
+    a: "A setup administrator re-imports from your policy site or uploads a fresh CSV, archives the outdated dataset, and sets the new one active. Answers immediately draw from the current manual, and the archived dataset is preserved for your records.",
+  },
+  {
+    q: "Can I print or export an answer?",
+    a: "Yes. Printing the page produces a clean document without navigation, suitable for board packets. The full policy reader also offers Print and Download Markdown for entire datasets.",
   },
 ];
 
@@ -594,6 +653,7 @@ export function PolicyAssistantApp() {
   const [showArchived, setShowArchived] = useState(false);
   const [sourceTab, setSourceTab] = useState<SourceTab>("import");
   const [setupStep, setSetupStep] = useState(1);
+  const [helpTab, setHelpTab] = useState<HelpTab>("start");
   const [isSetupDismissed, setIsSetupDismissed] = useState(false);
   // Engaged means the guided setup was started for this user and stays visible
   // through all three steps until finished or skipped, even once data exists.
@@ -3695,6 +3755,146 @@ export function PolicyAssistantApp() {
 
   /* --------------------------------------------------------- History view */
 
+  const helpView = (
+    <div className="piq-page">
+      <div className="piq-page-inner">
+        <h1 className="piq-page-title">Help</h1>
+        <div className="piq-pills">
+          {HELP_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={`piq-pill${helpTab === tab.key ? " is-active" : ""}`}
+              aria-pressed={helpTab === tab.key}
+              onClick={() => setHelpTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {helpTab === "start" ? (
+          <div className="piq-help-body">
+            <p className="piq-lead">
+              Policy to Action answers real administrative scenarios using only your
+              district&rsquo;s own board policies and handbooks, with every claim cited back to the
+              exact source text.
+            </p>
+            <ol className="piq-help-steps">
+              <li>
+                <b>Describe a real situation</b> in the question box: what happened, who was
+                involved by role, and the decisions you need to make. Use placeholders such as
+                Student A instead of real names. Enter submits; Shift+Enter starts a new line.
+              </li>
+              <li>
+                <b>Read the structured answer:</b> the policies that apply, numbered recommended
+                actions, and the implications of following or not following them.
+              </li>
+              <li>
+                <b>Verify the evidence.</b> Select any citation chip to see the exact policy text
+                behind the claim, and Open full source to read the complete policy.
+              </li>
+              <li>
+                <b>Keep what matters.</b> Pin answers worth returning to; every conversation is
+                saved automatically to History.
+              </li>
+            </ol>
+            <h2 className="piq-help-heading">Guides for download</h2>
+            <ul className="piq-help-downloads">
+              {HELP_DOWNLOADS.map((doc) => (
+                <li key={doc.file}>
+                  <a href={doc.file} download>
+                    {doc.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {helpTab === "faq" ? (
+          <div className="piq-help-body">
+            {FAQ_ITEMS.map((item) => (
+              <details className="piq-faq-item" key={item.q}>
+                <summary>{item.q}</summary>
+                <p>{item.a}</p>
+              </details>
+            ))}
+          </div>
+        ) : null}
+
+        {helpTab === "trust" ? (
+          <div className="piq-help-body">
+            <p className="piq-lead">
+              How your district&rsquo;s data is handled, in plain language.
+            </p>
+            <h2 className="piq-help-heading">Your data, your workspace</h2>
+            <p>
+              The policies, handbooks, conversations, and pinned answers in your workspace are
+              private to your account. They are never shared across districts, never sold, and
+              never used to train artificial intelligence models. You can archive or permanently
+              delete any source or conversation at any time.
+            </p>
+            <h2 className="piq-help-heading">Student privacy</h2>
+            <p>
+              Policy to Action is designed to be used without student personal information. The
+              interface reminds you on every screen to use placeholders such as Student A rather
+              than real names, and answers are generated from policy text, not student records.
+            </p>
+            <h2 className="piq-help-heading">Security measures</h2>
+            <p>
+              Accounts require verified email. Passwords are protected with modern one-way
+              hashing and are never stored in readable form. Connections are encrypted in
+              transit, sessions are managed server side, and request rate limiting protects
+              against abuse.
+            </p>
+            <h2 className="piq-help-heading">Service providers</h2>
+            <p>
+              Policy to Action runs on a small set of infrastructure providers, each bound by
+              its own data protection commitments:
+            </p>
+            <div className="piq-table piq-trust-table" role="table" aria-label="Service providers">
+              <div className="piq-table-head" role="row">
+                <span role="columnheader">Provider</span>
+                <span role="columnheader">Purpose</span>
+                <span role="columnheader">Data involved</span>
+              </div>
+              <div className="piq-table-row" role="row">
+                <span role="cell">OpenAI</span>
+                <span role="cell">Answer generation and retrieval</span>
+                <span role="cell">
+                  Scenario text and policy excerpts. API data is not used to train OpenAI models.
+                </span>
+              </div>
+              <div className="piq-table-row" role="row">
+                <span role="cell">Neon</span>
+                <span role="cell">Database hosting</span>
+                <span role="cell">Your workspace content, encrypted at rest</span>
+              </div>
+              <div className="piq-table-row" role="row">
+                <span role="cell">Vercel</span>
+                <span role="cell">Application hosting</span>
+                <span role="cell">Application traffic</span>
+              </div>
+              <div className="piq-table-row" role="row">
+                <span role="cell">Resend</span>
+                <span role="cell">Verification and reset email</span>
+                <span role="cell">Your email address only</span>
+              </div>
+            </div>
+            <h2 className="piq-help-heading">Guidance, not legal advice</h2>
+            <p>
+              Answers are decision support generated from your uploaded sources. They are not
+              legal advice, and every answer links its citations so you can verify against the
+              source text before acting. Questions about this page can be directed to your
+              Policy to Action contact.
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+
   const historyView = (
     <div className="piq-page">
       <div className="piq-page-inner">
@@ -4204,6 +4404,7 @@ export function PolicyAssistantApp() {
         {view === "library" ? libraryView : null}
         {view === "policy" ? policyDetailView : null}
         {view === "source" ? sourceView : null}
+        {view === "help" ? helpView : null}
       </main>
       {accountMenu}
     </div>
