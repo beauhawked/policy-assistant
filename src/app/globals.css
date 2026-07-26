@@ -1014,7 +1014,7 @@ html.hc .piq-split-footnote{
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 999px;
   padding: 3px 12px;
   background: rgba(255, 255, 255, 0.7);
@@ -1585,7 +1585,7 @@ a.piq-icon-button:hover {
   border: 1px solid var(--line-strong);
   border-radius: 9px;
   padding: 7px 12px;
-  width: 260px;
+  width: 240px;
   color: var(--muted);
 }
 
@@ -1644,7 +1644,7 @@ a.piq-icon-button:hover {
 .piq-table-head,
 .piq-table-row {
   display: grid;
-  grid-template-columns: 2.2fr 0.8fr 1fr 0.9fr 1.3fr 112px;
+  grid-template-columns: 2.2fr 0.8fr 1fr 0.9fr 1.3fr max-content;
   gap: 12px;
   align-items: center;
 }
@@ -1845,6 +1845,12 @@ html.hc .piq-detail-body{
 
 .piq-detail-body p {
   margin: 0;
+}
+
+.piq-related-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .piq-related {

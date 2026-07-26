@@ -342,6 +342,7 @@ interface DetailView {
   kind: "policy" | "handbook";
   code: string;
   title: string;
+  section: string;
   metadata: ReferenceField[];
   bodyText: string;
   relatedText: string;
@@ -676,6 +677,13 @@ export function PolicyAssistantApp() {
 
   const policyIndex = selectedDatasetId ? datasetPolicies[selectedDatasetId] : undefined;
 
+  const relatedPolicies = useMemo<LibraryPolicyRecord[]>(() => {
+    if (!detailView || detailView.kind !== "policy" || !policyIndex) {
+      return [];
+    }
+    return findRelatedPolicies(detailView, policyIndex);
+  }, [detailView, policyIndex]);
+
   const librarySearchResults = useMemo(() => {
     const query = librarySearchQuery.trim().toLowerCase();
     if (!query || !policyIndex) {
@@ -903,7 +911,11 @@ export function PolicyAssistantApp() {
   }, [messages, selectedConversationId, scrollToLatestMessage, syncMessageListScrollState]);
 
   useEffect(() => {
-    if (view !== "library" || !selectedDatasetId || datasetPolicies[selectedDatasetId]) {
+    if (
+      (view !== "library" && view !== "policy") ||
+      !selectedDatasetId ||
+      datasetPolicies[selectedDatasetId]
+    ) {
       return;
     }
 
@@ -2133,6 +2145,7 @@ export function PolicyAssistantApp() {
           lookup.kind === "policy"
             ? findMetadataValue(metadata, "Policy Title") || lookup.policyTitle
             : lookup.sectionTitle,
+        section: lookup.kind === "policy" ? findMetadataValue(metadata, "Section") : "",
         metadata,
         bodyText: detail.bodyText,
         relatedText:
@@ -2155,6 +2168,7 @@ export function PolicyAssistantApp() {
       kind: "policy",
       code: policy.policyCode,
       title: policy.policyTitle || "Untitled policy",
+      section: policy.policySection,
       metadata: [
         buildReferenceField("Section", policy.policySection),
         buildReferenceField("Adopted", policy.adoptedDate),
@@ -2682,8 +2696,13 @@ export function PolicyAssistantApp() {
 
         <div className="piq-import-options">
           <span className="piq-detect">
-            <span className="piq-dot" aria-hidden="true" />
-            Platform:
+            <span
+              className={`piq-dot${policyImportPreview ? "" : " is-warn"}`}
+              aria-hidden="true"
+            />
+            {policyImportPreview && policyImportPlatform === "auto"
+              ? `Detected: ${policyImportPreview.platformLabel}`
+              : "Platform:"}
             <select
               className="piq-select"
               value={policyImportPlatform}
@@ -3304,6 +3323,17 @@ export function PolicyAssistantApp() {
             {selectedConversation ? selectedConversation.title : "New question"}
           </h1>
           <span className="piq-spacer" />
+          {activeEvidence ? (
+            <button
+              type="button"
+              className={`piq-pill piq-evidence-toggle${evidenceOpen ? " is-active" : ""}`}
+              aria-pressed={evidenceOpen}
+              data-tip={evidenceOpen ? "Close the evidence panel" : "Reopen the evidence panel"}
+              onClick={() => setEvidenceOpen((previous) => !previous)}
+            >
+              Evidence
+            </button>
+          ) : null}
           {sourcesPill}
         </header>
 
@@ -3530,7 +3560,8 @@ export function PolicyAssistantApp() {
           </form>
           <p className="piq-composer-note" id="composer-note">
             Policy to Action can make mistakes — verify critical decisions against the cited source.
-            Use placeholders such as Student A instead of real names.
+            Use placeholders such as Student A instead of real names. Shift+Enter starts a new
+            line.
           </p>
 
           {retrievalDebug && SHOW_RETRIEVAL_DEBUG ? (
@@ -3697,7 +3728,9 @@ export function PolicyAssistantApp() {
                   onClick={() => void handleConversationDelete(conversation)}
                 >
                   <span aria-hidden="true">🗑</span>
-                  <span className="piq-sr-only">Delete conversation</span>
+                  <span className="piq-sr-only">
+                    Delete conversation {conversation.title || "Untitled conversation"}
+                  </span>
                 </button>
               </div>
             ))}
@@ -4091,7 +4124,25 @@ export function PolicyAssistantApp() {
                 <p key={`detail-p-${index}`}>{renderRichText(paragraph)}</p>
               ))}
             </div>
-            {detailView.relatedText ? (
+            {relatedPolicies.length > 0 ? (
+              <div className="piq-related">
+                <span className="piq-microlabel">Related policies</span>
+                <span className="piq-related-chips">
+                  {relatedPolicies.map((policy) => (
+                    <button
+                      key={policy.id}
+                      type="button"
+                      className="piq-chip"
+                      onClick={() => openLibraryPolicy(policy)}
+                    >
+                      {[policy.policyCode, policy.policyTitle || "Untitled policy"]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </button>
+                  ))}
+                </span>
+              </div>
+            ) : detailView.relatedText ? (
               <div className="piq-related">
                 <span className="piq-microlabel">Related</span>
                 <span>{detailView.relatedText}</span>
@@ -4676,6 +4727,55 @@ function buildSearchExcerpt(wording: string, query: string): string {
 
 function totalPolicyCount(datasets: PolicyDataset[]): number {
   return datasets.reduce((total, dataset) => total + dataset.policyCount, 0);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findRelatedPolicies(
+  detail: { code: string; title: string; section: string; bodyText: string },
+  policies: LibraryPolicyRecord[],
+): LibraryPolicyRecord[] {
+  const others = policies.filter(
+    (policy) =>
+      !(policy.policyCode === detail.code && (policy.policyTitle || "Untitled policy") === detail.title),
+  );
+
+  const referenced: LibraryPolicyRecord[] = [];
+  for (const policy of others) {
+    const code = policy.policyCode.trim();
+    if (!code || code.length < 2) {
+      continue;
+    }
+    const pattern = new RegExp(
+      `\\b(?:policy|policies|rule|bylaw)\\s*(?:no\\.?|number|#)?\\s*${escapeRegExp(code)}\\b`,
+      "i",
+    );
+    if (pattern.test(detail.bodyText)) {
+      referenced.push(policy);
+    }
+  }
+
+  const sameSection = detail.section
+    ? others
+        .filter(
+          (policy) =>
+            policy.policySection.trim() === detail.section.trim() &&
+            !referenced.includes(policy),
+        )
+        .sort((a, b) => {
+          const currentCode = Number.parseInt(detail.code, 10);
+          const codeA = Number.parseInt(a.policyCode, 10);
+          const codeB = Number.parseInt(b.policyCode, 10);
+          if (Number.isFinite(currentCode) && Number.isFinite(codeA) && Number.isFinite(codeB)) {
+            return Math.abs(codeA - currentCode) - Math.abs(codeB - currentCode);
+          }
+          return a.policyCode.localeCompare(b.policyCode);
+        })
+    : [];
+
+  return [...referenced, ...sameSection].slice(0, 4);
 }
 
 function deriveFirstName(email: string): string {
