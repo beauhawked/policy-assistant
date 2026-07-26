@@ -2722,3 +2722,31 @@ html.hc .piq-detail-body{
 .piq-trust-table .piq-table-row {
   grid-template-columns: 0.8fr 1.2fr 2fr;
 }
+
+/* =========================================================================
+   Native app safe areas: keep controls clear of the iPhone notch and home
+   indicator when running inside the mobile shell or as an installed PWA.
+   ========================================================================= */
+
+.piq-rail {
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+}
+
+.piq-chat-head {
+  padding-top: calc(11px + env(safe-area-inset-top, 0px) * 0.5);
+}
+
+@media (max-width: 768px) {
+  .piq-mobile-header {
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  }
+
+  .piq-rail {
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .piq-composer-wrap {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px) * 0.6);
+  }
+}
