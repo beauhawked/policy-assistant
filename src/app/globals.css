@@ -2875,3 +2875,348 @@ html.rm *::after {
     scroll-behavior: auto !important;
   }
 }
+
+/* =========================================================================
+   Landing page
+   ========================================================================= */
+
+.pta-landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at 85% 5%, rgba(18, 115, 168, 0.14), transparent 45%),
+    radial-gradient(circle at 8% 40%, rgba(93, 182, 224, 0.12), transparent 40%),
+    linear-gradient(180deg, #f2f7fb, #f8fafc 45%);
+}
+
+.pta-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 18px clamp(20px, 5vw, 56px);
+}
+
+.pta-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: auto;
+}
+
+.pta-brand-chip {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 44, 70, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-bubble);
+}
+
+.pta-brand-chip.is-small {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+}
+
+.pta-brand-word {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--navy);
+  letter-spacing: -0.01em;
+}
+
+.pta-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.pta-nav-links a:not(.pta-button) {
+  color: var(--text-soft);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.pta-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.pta-button:hover {
+  text-decoration: none;
+}
+
+.pta-button-primary {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.pta-button-primary:hover {
+  background: var(--accent-deep);
+  color: #ffffff;
+}
+
+.pta-button-ghost {
+  background: var(--surface);
+  border: 1px solid var(--line-mid);
+  color: var(--accent-deep);
+}
+
+.pta-button-ghost:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.pta-button-large {
+  padding: 13px 26px;
+  font-size: 15.5px;
+}
+
+.pta-hero {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.05fr) minmax(320px, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+  padding: clamp(28px, 6vh, 72px) clamp(20px, 5vw, 56px);
+}
+
+.pta-hero-copy h1 {
+  margin: 0 0 16px 0;
+  font-family: var(--font-display);
+  font-size: clamp(30px, 4.2vw, 46px);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: var(--navy);
+}
+
+.pta-hero-copy h1 em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.pta-hero-copy > p {
+  margin: 0 0 22px 0;
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--text-soft);
+  max-width: 54ch;
+}
+
+.pta-hero-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pta-hero-note {
+  margin: 14px 0 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.pta-hero-shot {
+  margin: 0;
+}
+
+.pta-hero-shot img,
+.pta-how-shot img {
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-lift);
+}
+
+.pta-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  padding: 10px clamp(20px, 5vw, 56px) 30px clamp(20px, 5vw, 56px);
+}
+
+.pta-feature {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px 24px;
+  box-shadow: var(--shadow-card);
+}
+
+.pta-feature h2 {
+  margin: 0 0 8px 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--navy);
+}
+
+.pta-feature p {
+  margin: 0;
+  color: var(--text-soft);
+  line-height: 1.55;
+}
+
+.pta-how {
+  padding: 30px clamp(20px, 5vw, 56px);
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+}
+
+.pta-how h2,
+.pta-resources h2 {
+  grid-column: 1 / -1;
+  margin: 0 0 4px 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  color: var(--navy);
+}
+
+.pta-how ol {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--text-soft);
+  line-height: 1.55;
+}
+
+.pta-how ol b {
+  color: var(--navy);
+}
+
+.pta-how-shot {
+  margin: 0;
+}
+
+.pta-how-shot figcaption {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.pta-resources {
+  padding: 30px clamp(20px, 5vw, 56px) 50px clamp(20px, 5vw, 56px);
+}
+
+.pta-resources p {
+  margin: 6px 0 12px 0;
+  color: var(--text-soft);
+}
+
+.pta-resources ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pta-resources li a {
+  display: inline-block;
+  background: var(--surface);
+  border: 1px solid var(--line-mid);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.pta-resources li a:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  text-decoration: none;
+}
+
+.pta-footer {
+  margin-top: auto;
+  background: var(--navy);
+  color: var(--on-navy);
+  padding: 26px clamp(20px, 5vw, 56px);
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+
+.pta-footer .pta-brand-word {
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.pta-footer p {
+  margin: 0;
+  font-size: 12.5px;
+  max-width: 72ch;
+}
+
+@media (max-width: 860px) {
+  .pta-hero,
+  .pta-how {
+    grid-template-columns: 1fr;
+  }
+
+  .pta-nav-links a:not(.pta-button) {
+    display: none;
+  }
+}
+
+/* Header brand lockup inside the app. */
+.piq-head-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.piq-head-brand:hover {
+  text-decoration: none;
+}
+
+.piq-brand-mark.is-head {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+
+.piq-head-brand-word {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--navy);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.piq-head-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--line-strong);
+  flex: none;
+}
+
+a.piq-brand-mark {
+  text-decoration: none;
+}
+
+@media (max-width: 980px) {
+  .piq-head-brand-word,
+  .piq-head-divider {
+    display: none;
+  }
+}

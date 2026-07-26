@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {
   ChangeEvent,
   DragEvent,
@@ -3389,9 +3390,9 @@ export function PolicyAssistantApp() {
 
   const rail = (
     <nav className="piq-rail" aria-label="Primary">
-      <span className="piq-brand-mark piq-rail-mark" aria-hidden="true">
+      <Link className="piq-brand-mark piq-rail-mark" href="/" aria-label="Policy to Action home">
         <Image src="/logo-icon.png" alt="" width={32} height={27} className="piq-brand-logo" />
-      </span>
+      </Link>
       <div className="piq-rail-nav">
         {NAV_ITEMS.map((item) => (
           <button
@@ -3480,10 +3481,12 @@ export function PolicyAssistantApp() {
 
   const mobileHeader = (
     <header className="piq-mobile-header">
-      <span className="piq-brand-mark is-small" aria-hidden="true">
-        <Image src="/logo-icon.png" alt="" width={32} height={27} className="piq-brand-logo" />
-      </span>
-      <span className="piq-mobile-word">Policy to Action</span>
+      <Link className="piq-head-brand" href="/" aria-label="Policy to Action home">
+        <span className="piq-brand-mark is-small" aria-hidden="true">
+          <Image src="/logo-icon.png" alt="" width={32} height={27} className="piq-brand-logo" />
+        </span>
+        <span className="piq-mobile-word">Policy to Action</span>
+      </Link>
       <span className="piq-spacer" />
       {sourcesPill}
       <button
@@ -3524,6 +3527,13 @@ export function PolicyAssistantApp() {
         ) : null}
 
         <header className="piq-chat-head">
+          <Link className="piq-head-brand" href="/" aria-label="Policy to Action home">
+            <span className="piq-brand-mark is-head" aria-hidden="true">
+              <Image src="/logo-icon.png" alt="" width={32} height={27} className="piq-brand-logo" />
+            </span>
+            <span className="piq-head-brand-word">Policy to Action</span>
+          </Link>
+          <span className="piq-head-divider" aria-hidden="true" />
           <h1 className="piq-thread-title">
             {selectedConversation ? selectedConversation.title : "New question"}
           </h1>
