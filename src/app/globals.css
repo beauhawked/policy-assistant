@@ -551,7 +551,7 @@ html.hc .piq-link{
   flex-direction: column;
   justify-content: space-between;
   gap: 32px;
-  padding: 44px 48px;
+  padding: calc(44px + env(safe-area-inset-top, 0px)) 48px 44px 48px;
 }
 
 .piq-split-pitch {
@@ -2118,7 +2118,7 @@ html.hc .piq-detail-body{
 
   .piq-split-brand {
     width: 100%;
-    padding: 28px 24px;
+    padding: calc(28px + env(safe-area-inset-top, 0px)) 24px 28px 24px;
     gap: 20px;
   }
 
@@ -2895,7 +2895,8 @@ html.rm *::after {
   align-items: center;
   gap: 14px 22px;
   flex-wrap: wrap;
-  padding: 18px clamp(20px, 5vw, 56px);
+  padding: calc(18px + env(safe-area-inset-top, 0px)) clamp(20px, 5vw, 56px) 18px
+    clamp(20px, 5vw, 56px);
 }
 
 .pta-brand {
@@ -3149,7 +3150,8 @@ html.rm *::after {
   margin-top: auto;
   background: var(--navy);
   color: var(--on-navy);
-  padding: 26px clamp(20px, 5vw, 56px);
+  padding: 26px clamp(20px, 5vw, 56px) calc(26px + env(safe-area-inset-bottom, 0px))
+    clamp(20px, 5vw, 56px);
   display: flex;
   align-items: center;
   gap: 22px;
