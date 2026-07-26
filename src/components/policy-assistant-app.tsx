@@ -440,6 +440,10 @@ const HELP_DOWNLOADS: Array<{ label: string; file: string }> = [
   { label: "Quick-Start Guide (PDF)", file: "/help/Policy-to-Action-Quick-Start-Participants.pdf" },
   { label: "District Setup Guide (PDF)", file: "/help/Policy-to-Action-District-Setup-Guide.pdf" },
   { label: "User Manual (PDF)", file: "/help/Policy-to-Action-User-Manual.pdf" },
+  {
+    label: "Technical Blueprint for District IT (PDF)",
+    file: "/help/Policy-to-Action-Technical-Blueprint.pdf",
+  },
 ];
 
 const FAQ_ITEMS: Array<{ q: string; a: string }> = [
@@ -3863,7 +3867,8 @@ export function PolicyAssistantApp() {
                 <span role="cell">OpenAI</span>
                 <span role="cell">Answer generation and retrieval</span>
                 <span role="cell">
-                  Scenario text and policy excerpts. API data is not used to train OpenAI models.
+                  Scenario text and policy excerpts, processed under a Data Processing Addendum.
+                  API data is not used to train OpenAI models.
                 </span>
               </div>
               <div className="piq-table-row" role="row">
