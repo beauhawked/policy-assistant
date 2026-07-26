@@ -1417,7 +1417,7 @@ export async function getUserBySessionId(sessionId: string): Promise<AuthUser | 
 
   const result = await getPool().query<RawAuthUser>(
     `
-    SELECT u.id, u.email, u.district_name, u.created_at, u.email_verified_at
+    SELECT u.id, u.email, u.first_name, u.last_name, u.district_name, u.created_at, u.email_verified_at
     FROM auth_sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.id = $1
