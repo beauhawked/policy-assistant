@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   ChangeEvent,
   DragEvent,
@@ -2400,7 +2401,7 @@ export function PolicyAssistantApp() {
     return (
       <div className="piq-boot" role="status" aria-live="polite">
         <span className="piq-boot-mark" aria-hidden="true">
-          P
+          <Image src="/logo-icon.png" alt="" width={32} height={27} className="piq-brand-logo" />
         </span>
         <span className="piq-spinner" aria-hidden="true" />
         <p>Checking your workspace session&hellip;</p>
@@ -2420,7 +2421,7 @@ export function PolicyAssistantApp() {
         <aside className="piq-split-brand">
           <span className="piq-brand">
             <span className="piq-brand-mark" aria-hidden="true">
-              P
+              <Image src="/logo-icon.png" alt="" width={32} height={27} className="piq-brand-logo" />
             </span>
             <span className="piq-brand-word">Policy to Action</span>
           </span>
@@ -2615,7 +2616,7 @@ export function PolicyAssistantApp() {
         <aside className="piq-split-brand">
           <span className="piq-brand">
             <span className="piq-brand-mark" aria-hidden="true">
-              P
+              <Image src="/logo-icon.png" alt="" width={32} height={27} className="piq-brand-logo" />
             </span>
             <span className="piq-brand-word">Policy to Action</span>
           </span>
@@ -2980,7 +2981,7 @@ export function PolicyAssistantApp() {
       <div className="piq-setup">
         <header className="piq-setup-bar">
           <span className="piq-brand-mark is-small" aria-hidden="true">
-            P
+            <Image src="/logo-icon.png" alt="" width={32} height={27} className="piq-brand-logo" />
           </span>
           <span className="piq-setup-title">Set up your workspace</span>
           <span className="piq-spacer" />
@@ -3133,7 +3134,7 @@ export function PolicyAssistantApp() {
   const rail = (
     <nav className="piq-rail" aria-label="Primary">
       <span className="piq-brand-mark piq-rail-mark" aria-hidden="true">
-        P
+        <Image src="/logo-icon.png" alt="" width={32} height={27} className="piq-brand-logo" />
       </span>
       <div className="piq-rail-nav">
         {NAV_ITEMS.map((item) => (
@@ -3276,7 +3277,7 @@ export function PolicyAssistantApp() {
   const mobileHeader = (
     <header className="piq-mobile-header">
       <span className="piq-brand-mark is-small" aria-hidden="true">
-        P
+        <Image src="/logo-icon.png" alt="" width={32} height={27} className="piq-brand-logo" />
       </span>
       <span className="piq-mobile-word">Policy to Action</span>
       <span className="piq-spacer" />

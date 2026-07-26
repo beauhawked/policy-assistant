@@ -475,15 +475,20 @@ html.hc .piq-link{
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
+  background: #ffffff;
+  border: 1px solid rgba(15, 44, 70, 0.12);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 16px;
   flex: none;
+  overflow: hidden;
+}
+
+.piq-brand-logo {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+  display: block;
 }
 
 .piq-brand-mark.is-small {
@@ -519,14 +524,12 @@ html.hc .piq-link{
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
+  background: #ffffff;
+  border: 1px solid rgba(15, 44, 70, 0.12);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 18px;
+  overflow: hidden;
 }
 
 .piq-boot p {
