@@ -9,7 +9,7 @@ const config: CapacitorConfig = {
     allowNavigation: ["policytoaction.beauhawked.com"],
   },
   ios: {
-    contentInset: "always",
+    contentInset: "never",
     backgroundColor: "#0f2c46",
   },
   android: {

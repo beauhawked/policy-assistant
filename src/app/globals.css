@@ -2746,6 +2746,28 @@ html.hc .piq-detail-body{
     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
   }
 
+  /* Phones: the mobile header carries the brand, so the chat header
+     drops its duplicate lockup, and the sources pill truncates
+     instead of overflowing. */
+  .piq-chat-head .piq-head-brand,
+  .piq-chat-head .piq-head-divider {
+    display: none;
+  }
+
+  .piq-sources-pill {
+    display: inline-block;
+    max-width: 52vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .piq-sources-pill .piq-dot {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 5px;
+  }
+
   .piq-composer-wrap {
     padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px) * 0.6);
   }
