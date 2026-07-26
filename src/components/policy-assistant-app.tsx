@@ -129,6 +129,8 @@ interface AuthUser {
   email: string;
   firstName: string;
   lastName: string;
+  roleTitle: string;
+  profileContext: string;
   districtName: string;
   createdAt: string;
   emailVerifiedAt: string | null;
@@ -350,7 +352,7 @@ interface DetailView {
 }
 
 type AuthMode = "login" | "signup" | "forgot" | "reset";
-type AppView = "assistant" | "history" | "pinned" | "library" | "policy" | "source" | "help";
+type AppView = "assistant" | "history" | "pinned" | "library" | "policy" | "source" | "help" | "profile";
 type SourceTab = "import" | "csv" | "handbook";
 type LibraryFilter = "all" | "policies" | "student" | "staff";
 
@@ -589,11 +591,14 @@ export function PolicyAssistantApp() {
   const [authDistrictName, setAuthDistrictName] = useState("");
   const [authFirstName, setAuthFirstName] = useState("");
   const [authLastName, setAuthLastName] = useState("");
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [nameDraftFirst, setNameDraftFirst] = useState("");
-  const [nameDraftLast, setNameDraftLast] = useState("");
-  const [nameEditError, setNameEditError] = useState("");
-  const [isSavingName, setIsSavingName] = useState(false);
+  const [profileDraftFirst, setProfileDraftFirst] = useState("");
+  const [profileDraftLast, setProfileDraftLast] = useState("");
+  const [profileDraftDistrict, setProfileDraftDistrict] = useState("");
+  const [profileDraftRole, setProfileDraftRole] = useState("");
+  const [profileDraftContext, setProfileDraftContext] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [profileStatus, setProfileStatus] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authInfo, setAuthInfo] = useState("");
   const [resetToken, setResetToken] = useState("");
@@ -1348,21 +1353,44 @@ export function PolicyAssistantApp() {
     }
   };
 
-  const handleNameSave = async (): Promise<void> => {
-    const firstNameDraft = nameDraftFirst.trim();
+  const openProfileView = (): void => {
+    setProfileDraftFirst(authUser?.firstName ?? "");
+    setProfileDraftLast(authUser?.lastName ?? "");
+    setProfileDraftDistrict(authUser?.districtName ?? "");
+    setProfileDraftRole(authUser?.roleTitle ?? "");
+    setProfileDraftContext(authUser?.profileContext ?? "");
+    setProfileError("");
+    setProfileStatus("");
+    setIsAccountMenuOpen(false);
+    setView("profile");
+  };
+
+  const handleProfileSave = async (): Promise<void> => {
+    const firstNameDraft = profileDraftFirst.trim();
     if (!firstNameDraft) {
-      setNameEditError("First name is required.");
+      setProfileError("First name is required.");
+      return;
+    }
+    if (!profileDraftDistrict.trim()) {
+      setProfileError("District name is required.");
       return;
     }
 
-    setIsSavingName(true);
-    setNameEditError("");
+    setIsSavingProfile(true);
+    setProfileError("");
+    setProfileStatus("");
 
     try {
       const response = await fetch("/api/policy-assistant/auth/profile", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ firstName: firstNameDraft, lastName: nameDraftLast.trim() }),
+        body: JSON.stringify({
+          firstName: firstNameDraft,
+          lastName: profileDraftLast.trim(),
+          districtName: profileDraftDistrict.trim(),
+          roleTitle: profileDraftRole.trim(),
+          profileContext: profileDraftContext.trim(),
+        }),
       });
       const payload = (await response.json().catch(() => ({}))) as {
         user?: AuthUser;
@@ -1375,15 +1403,15 @@ export function PolicyAssistantApp() {
       }
 
       if (!response.ok || !payload.user) {
-        throw new Error(payload.error ?? "Could not save your name.");
+        throw new Error(payload.error ?? "Could not save your profile.");
       }
 
       setAuthUser(payload.user);
-      setIsEditingName(false);
+      setProfileStatus("Profile saved. New answers will use this context.");
     } catch (error) {
-      setNameEditError(error instanceof Error ? error.message : "Could not save your name.");
+      setProfileError(error instanceof Error ? error.message : "Could not save your profile.");
     } finally {
-      setIsSavingName(false);
+      setIsSavingProfile(false);
     }
   };
 
@@ -3258,65 +3286,13 @@ export function PolicyAssistantApp() {
         ) : null}
         <p className="piq-account-email">{authUser.email}</p>
         <p className="piq-account-district">{districtName}</p>
-        {isEditingName ? (
-          <div className="piq-account-name-form">
-            <div className="piq-field">
-              <label htmlFor="account-first-name">First name</label>
-              <input
-                id="account-first-name"
-                type="text"
-                autoComplete="given-name"
-                value={nameDraftFirst}
-                onChange={(event) => setNameDraftFirst(event.target.value)}
-              />
-            </div>
-            <div className="piq-field">
-              <label htmlFor="account-last-name">Last name</label>
-              <input
-                id="account-last-name"
-                type="text"
-                autoComplete="family-name"
-                value={nameDraftLast}
-                onChange={(event) => setNameDraftLast(event.target.value)}
-              />
-            </div>
-            {nameEditError ? <p className="piq-error">{nameEditError}</p> : null}
-            <div className="piq-account-name-actions">
-              <button
-                type="button"
-                className="piq-button piq-button-primary"
-                disabled={isSavingName}
-                onClick={() => void handleNameSave()}
-              >
-                {isSavingName ? "Saving…" : "Save"}
-              </button>
-              <button
-                type="button"
-                className="piq-button piq-button-ghost"
-                disabled={isSavingName}
-                onClick={() => {
-                  setIsEditingName(false);
-                  setNameEditError("");
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="piq-button piq-button-ghost piq-button-block"
-            onClick={() => {
-              setNameDraftFirst(authUser.firstName ?? "");
-              setNameDraftLast(authUser.lastName ?? "");
-              setNameEditError("");
-              setIsEditingName(true);
-            }}
-          >
-            {authUser.firstName ? "Edit name" : "Add your name"}
-          </button>
-        )}
+        <button
+          type="button"
+          className="piq-button piq-button-ghost piq-button-block"
+          onClick={openProfileView}
+        >
+          Profile and settings
+        </button>
         <button
           type="button"
           className="piq-button piq-button-ghost piq-button-block"
@@ -3758,6 +3734,101 @@ export function PolicyAssistantApp() {
   );
 
   /* --------------------------------------------------------- History view */
+
+  const profileView = (
+    <div className="piq-page">
+      <div className="piq-page-inner is-narrow">
+        <h1 className="piq-page-title">Profile and settings</h1>
+        <p className="piq-lead">
+          Tell the assistant who is asking. Your role and context tailor the guidance, for
+          example separating steps you can take directly from steps that need escalation, while
+          answers stay grounded in your district&rsquo;s cited policies.
+        </p>
+
+        <div className="piq-feedback" aria-live="polite">
+          {profileStatus ? <p className="piq-status">{profileStatus}</p> : null}
+          {profileError ? <p className="piq-error">{profileError}</p> : null}
+        </div>
+
+        <div className="piq-form piq-profile-form">
+          <div className="piq-field-row">
+            <div className="piq-field">
+              <label htmlFor="profile-first-name">First name</label>
+              <input
+                id="profile-first-name"
+                type="text"
+                autoComplete="given-name"
+                value={profileDraftFirst}
+                onChange={(event) => setProfileDraftFirst(event.target.value)}
+                required
+              />
+            </div>
+            <div className="piq-field">
+              <label htmlFor="profile-last-name">Last name</label>
+              <input
+                id="profile-last-name"
+                type="text"
+                autoComplete="family-name"
+                value={profileDraftLast}
+                onChange={(event) => setProfileDraftLast(event.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="piq-field">
+            <label htmlFor="profile-district">District name</label>
+            <input
+              id="profile-district"
+              type="text"
+              autoComplete="organization"
+              value={profileDraftDistrict}
+              onChange={(event) => setProfileDraftDistrict(event.target.value)}
+              required
+            />
+          </div>
+
+          <div className="piq-field">
+            <label htmlFor="profile-role">Your role</label>
+            <input
+              id="profile-role"
+              type="text"
+              value={profileDraftRole}
+              onChange={(event) => setProfileDraftRole(event.target.value)}
+              placeholder="Example: Assistant Principal, Middle School"
+              maxLength={120}
+            />
+          </div>
+
+          <div className="piq-field">
+            <label htmlFor="profile-context">About your school or district</label>
+            <textarea
+              id="profile-context"
+              rows={5}
+              value={profileDraftContext}
+              onChange={(event) => setProfileDraftContext(event.target.value)}
+              placeholder="Anything the assistant should know: building level, student population size, programs you oversee, priorities. Do not include student names or records."
+              maxLength={1500}
+            />
+            <span className="piq-field-hint">
+              {profileDraftContext.length}/1500 &middot; Used as background for your answers only.
+              Never include student names or personal information.
+            </span>
+          </div>
+
+          <div className="piq-actions-right">
+            <button
+              type="button"
+              className="piq-button piq-button-primary"
+              disabled={isSavingProfile}
+              onClick={() => void handleProfileSave()}
+            >
+              {isSavingProfile ? "Saving\u2026" : "Save profile"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const helpView = (
     <div className="piq-page">
@@ -4410,6 +4481,7 @@ export function PolicyAssistantApp() {
         {view === "policy" ? policyDetailView : null}
         {view === "source" ? sourceView : null}
         {view === "help" ? helpView : null}
+        {view === "profile" ? profileView : null}
       </main>
       {accountMenu}
     </div>
@@ -4710,10 +4782,13 @@ export function PolicyAssistantApp() {
     setAuthDistrictName("");
     setAuthFirstName("");
     setAuthLastName("");
-    setIsEditingName(false);
-    setNameDraftFirst("");
-    setNameDraftLast("");
-    setNameEditError("");
+    setProfileDraftFirst("");
+    setProfileDraftLast("");
+    setProfileDraftDistrict("");
+    setProfileDraftRole("");
+    setProfileDraftContext("");
+    setProfileError("");
+    setProfileStatus("");
     setResetToken("");
     setDatasetPolicies({});
     setDetailView(null);

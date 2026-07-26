@@ -165,6 +165,8 @@ interface RawAuthUser {
   email: string;
   first_name: string;
   last_name: string;
+  role_title: string;
+  profile_context: string;
   district_name: string;
   created_at: Date | string;
   email_verified_at: Date | string | null;
@@ -1289,7 +1291,7 @@ export async function createUserAccount(
     `
     INSERT INTO users (id, email, first_name, last_name, district_name, password_hash, email_verified_at)
     VALUES ($1, $2, $3, $4, $5, $6, NULL)
-    RETURNING id, email, first_name, last_name, district_name, created_at, email_verified_at
+    RETURNING id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at
     `,
     [userId, normalizedEmail, firstName.trim(), lastName.trim(), normalizedDistrictName, passwordHash],
   );
@@ -1305,7 +1307,7 @@ export async function findUserByEmail(
   const normalizedEmail = normalizeEmail(email);
   const result = await getPool().query<RawAuthUserWithPassword>(
     `
-    SELECT id, email, first_name, last_name, district_name, password_hash, created_at, email_verified_at
+    SELECT id, email, first_name, last_name, role_title, profile_context, district_name, password_hash, created_at, email_verified_at
     FROM users
     WHERE email = $1
     LIMIT 1
@@ -1329,7 +1331,7 @@ export async function findUserById(userId: string): Promise<AuthUser | null> {
 
   const result = await getPool().query<RawAuthUser>(
     `
-    SELECT id, email, first_name, last_name, district_name, created_at, email_verified_at
+    SELECT id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at
     FROM users
     WHERE id = $1
     LIMIT 1
@@ -1349,7 +1351,7 @@ export async function setUserEmailVerified(userId: string): Promise<AuthUser | n
     UPDATE users
     SET email_verified_at = COALESCE(email_verified_at, NOW())
     WHERE id = $1
-    RETURNING id, email, first_name, last_name, district_name, created_at, email_verified_at
+    RETURNING id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at
     `,
     [userId],
   );
@@ -1358,21 +1360,37 @@ export async function setUserEmailVerified(userId: string): Promise<AuthUser | n
   return row ? mapAuthUser(row) : null;
 }
 
-export async function updateUserName(
+export async function updateUserProfile(
   userId: string,
-  firstName: string,
-  lastName: string,
+  profile: {
+    firstName: string;
+    lastName: string;
+    districtName: string;
+    roleTitle: string;
+    profileContext: string;
+  },
 ): Promise<AuthUser | null> {
   await ensureSchema();
 
   const result = await getPool().query<RawAuthUser>(
     `
     UPDATE users
-    SET first_name = $2, last_name = $3
+    SET first_name = $2,
+        last_name = $3,
+        district_name = $4,
+        role_title = $5,
+        profile_context = $6
     WHERE id = $1
-    RETURNING id, email, first_name, last_name, district_name, created_at, email_verified_at
+    RETURNING id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at
     `,
-    [userId, firstName.trim(), lastName.trim()],
+    [
+      userId,
+      profile.firstName.trim(),
+      profile.lastName.trim(),
+      profile.districtName.trim(),
+      profile.roleTitle.trim(),
+      profile.profileContext.trim(),
+    ],
   );
 
   const row = result.rows[0];
@@ -1445,7 +1463,7 @@ export async function getUserBySessionId(sessionId: string): Promise<AuthUser | 
 
   const result = await getPool().query<RawAuthUser>(
     `
-    SELECT u.id, u.email, u.first_name, u.last_name, u.district_name, u.created_at, u.email_verified_at
+    SELECT u.id, u.email, u.first_name, u.last_name, u.role_title, u.profile_context, u.district_name, u.created_at, u.email_verified_at
     FROM auth_sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.id = $1
@@ -1919,6 +1937,16 @@ async function ensureSchema(): Promise<void> {
       await client.query(`
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT '';
+      `);
+
+      await client.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS role_title TEXT NOT NULL DEFAULT '';
+      `);
+
+      await client.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS profile_context TEXT NOT NULL DEFAULT '';
       `);
 
       await client.query(`
@@ -2736,6 +2764,8 @@ function mapAuthUser(row: RawAuthUser): AuthUser {
     email: row.email,
     firstName: row.first_name || "",
     lastName: row.last_name || "",
+    roleTitle: row.role_title || "",
+    profileContext: row.profile_context || "",
     districtName: row.district_name || "",
     createdAt: formatTimestamp(row.created_at),
     emailVerifiedAt: row.email_verified_at ? formatTimestamp(row.email_verified_at) : null,

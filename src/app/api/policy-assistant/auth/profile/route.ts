@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthenticatedUserFromRequest } from "@/lib/policy-assistant/auth";
-import { updateUserName } from "@/lib/policy-assistant/db";
+import { updateUserProfile } from "@/lib/policy-assistant/db";
 import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
 
@@ -11,6 +11,13 @@ export const dynamic = "force-dynamic";
 interface UpdateProfilePayload {
   firstName?: unknown;
   lastName?: unknown;
+  districtName?: unknown;
+  roleTitle?: unknown;
+  profileContext?: unknown;
+}
+
+function readField(value: unknown, maxLength: number): string {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
 export async function PATCH(request: NextRequest): Promise<NextResponse> {
@@ -34,16 +41,27 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     }
 
     const payload = (await request.json().catch(() => ({}))) as UpdateProfilePayload;
-    const firstName =
-      typeof payload.firstName === "string" ? payload.firstName.trim().slice(0, 80) : "";
-    const lastName =
-      typeof payload.lastName === "string" ? payload.lastName.trim().slice(0, 80) : "";
+    const firstName = readField(payload.firstName, 80);
+    const lastName = readField(payload.lastName, 80);
+    const districtName = readField(payload.districtName, 160);
+    const roleTitle = readField(payload.roleTitle, 120);
+    const profileContext = readField(payload.profileContext, 1500);
 
     if (!firstName) {
       return NextResponse.json({ error: "First name is required." }, { status: 400 });
     }
 
-    const updated = await updateUserName(user.id, firstName, lastName);
+    if (!districtName) {
+      return NextResponse.json({ error: "District name is required." }, { status: 400 });
+    }
+
+    const updated = await updateUserProfile(user.id, {
+      firstName,
+      lastName,
+      districtName,
+      roleTitle,
+      profileContext,
+    });
     if (!updated) {
       return NextResponse.json({ error: "Could not update your profile." }, { status: 404 });
     }

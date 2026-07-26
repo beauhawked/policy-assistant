@@ -42,6 +42,8 @@ export interface AuthUser {
   email: string;
   firstName: string;
   lastName: string;
+  roleTitle: string;
+  profileContext: string;
   districtName: string;
   createdAt: string;
   emailVerifiedAt: string | null;
