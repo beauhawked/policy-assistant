@@ -3355,6 +3355,11 @@ export function PolicyAssistantApp() {
                   activeStaffHandbookDocuments.length}{" "}
                 handbooks — with the exact source text behind every claim.
               </p>
+              <p className="piq-empty-hint">
+                Strong scenarios describe what happened, who was involved by role, and the
+                decisions you need to make. Use placeholders such as Student A instead of real
+                names.
+              </p>
               <div className="piq-starters">
                 {STARTER_PROMPTS.map((prompt, index) => (
                   <button
