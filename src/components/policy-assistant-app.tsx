@@ -594,6 +594,8 @@ export function PolicyAssistantApp() {
   const [copiedMessageId, setCopiedMessageId] = useState("");
 
   const messageListRef = useRef<HTMLDivElement | null>(null);
+  const drawerCloseRef = useRef<HTMLButtonElement | null>(null);
+  const lastFocusedBeforeDrawerRef = useRef<HTMLElement | null>(null);
   const nearBottomRef = useRef(true);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -740,6 +742,39 @@ export function PolicyAssistantApp() {
       window.removeEventListener("offline", updateOnlineState);
     };
   }, []);
+
+  // Escape dismisses the topmost transient surface: evidence drawer first,
+  // then the account menu. Focus is managed by the drawer effect below.
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      if (evidenceOpen) {
+        setEvidenceOpen(false);
+      } else if (isAccountMenuOpen) {
+        setIsAccountMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [evidenceOpen, isAccountMenuOpen]);
+
+  // Move focus into the drawer when it opens; return it when it closes.
+  useEffect(() => {
+    if (evidenceOpen) {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) {
+        lastFocusedBeforeDrawerRef.current = active;
+      }
+      drawerCloseRef.current?.focus();
+      return;
+    }
+
+    lastFocusedBeforeDrawerRef.current?.focus();
+    lastFocusedBeforeDrawerRef.current = null;
+  }, [evidenceOpen]);
 
   useEffect(() => {
     if (!authUser || !authUser.emailVerifiedAt || !selectedDatasetId) {
@@ -2889,6 +2924,7 @@ export function PolicyAssistantApp() {
                       key={tab.key}
                       type="button"
                       className={`piq-tab${sourceTab === tab.key ? " is-active" : ""}`}
+                      aria-pressed={sourceTab === tab.key}
                       onClick={() => setSourceTab(tab.key)}
                     >
                       {tab.label}
@@ -3020,6 +3056,7 @@ export function PolicyAssistantApp() {
         className="piq-avatar"
         data-tip="Account"
         data-tip-side="right"
+        aria-label="Account menu"
         aria-expanded={isAccountMenuOpen}
         onClick={() => setIsAccountMenuOpen((previous) => !previous)}
       >
@@ -3082,6 +3119,8 @@ export function PolicyAssistantApp() {
         type="button"
         className="piq-avatar is-light"
         data-tip="Account"
+        aria-label="Account menu"
+        aria-expanded={isAccountMenuOpen}
         onClick={() => setIsAccountMenuOpen((previous) => !previous)}
       >
         {initials}
@@ -3111,7 +3150,7 @@ export function PolicyAssistantApp() {
           {sourcesPill}
         </header>
 
-        <div className="piq-messages" ref={messageListRef}>
+        <div className="piq-messages" ref={messageListRef} role="log" aria-label="Conversation">
           {isConversationLoading ? (
             <div className="piq-skeletons" aria-hidden="true">
               <div className="piq-skeleton is-user" />
@@ -3400,9 +3439,11 @@ export function PolicyAssistantApp() {
               type="button"
               className="piq-drawer-close"
               data-tip="Close"
+              aria-label="Close evidence panel"
+              ref={drawerCloseRef}
               onClick={() => setEvidenceOpen(false)}
             >
-              ✕
+              <span aria-hidden="true">✕</span>
             </button>
           </div>
 
@@ -3651,6 +3692,7 @@ export function PolicyAssistantApp() {
                   className={`piq-pill${
                     libraryFilter === pill.key && !showArchived ? " is-active" : ""
                   }`}
+                  aria-pressed={libraryFilter === pill.key && !showArchived}
                   onClick={() => {
                     setLibraryFilter(pill.key);
                     setShowArchived(false);
@@ -3662,6 +3704,7 @@ export function PolicyAssistantApp() {
               <button
                 type="button"
                 className={`piq-pill${showArchived ? " is-active" : ""}`}
+                aria-pressed={showArchived}
                 data-tip="Archived sources"
                 onClick={() => setShowArchived((previous) => !previous)}
               >
@@ -3669,32 +3712,38 @@ export function PolicyAssistantApp() {
               </button>
             </div>
 
-            <div className="piq-table">
-              <div className="piq-table-head">
-                <span>Title</span>
-                <span>Rows</span>
-                <span>Health</span>
-                <span>Updated</span>
-                <span>Source</span>
-                <span />
+            <div className="piq-table" role="table" aria-label="Library sources">
+              <div className="piq-table-head" role="row">
+                <span role="columnheader">Title</span>
+                <span role="columnheader">Rows</span>
+                <span role="columnheader">Health</span>
+                <span role="columnheader">Updated</span>
+                <span role="columnheader">Source</span>
+                <span role="columnheader">
+                  <span className="piq-sr-only">Actions</span>
+                </span>
               </div>
 
               {visibleSources.map((source) => (
-                <div className="piq-table-row" key={`${source.kind}-${source.id}`}>
-                  <span className="piq-table-title">
+                <div className="piq-table-row" role="row" key={`${source.kind}-${source.id}`}>
+                  <span className="piq-table-title" role="cell">
                     {source.title}
                     {source.kind === "dataset" && source.id === selectedDatasetId ? (
                       <em className="piq-active-tag">active</em>
                     ) : null}
                   </span>
-                  <span>{source.rows}</span>
-                  <span className="piq-health">
+                  <span role="cell" data-label="Rows">{source.rows}</span>
+                  <span className="piq-health" role="cell" data-label="Health">
                     <HealthMark good={source.healthy} />
                     {source.healthLabel}
                   </span>
-                  <span className="piq-table-muted">{formatShortDate(source.updatedAt)}</span>
-                  <span className="piq-table-muted">{source.sourceLabel}</span>
-                  <span className="piq-table-actions">
+                  <span className="piq-table-muted" role="cell" data-label="Updated">
+                    {formatShortDate(source.updatedAt)}
+                  </span>
+                  <span className="piq-table-muted" role="cell" data-label="Source">
+                    {source.sourceLabel}
+                  </span>
+                  <span className="piq-table-actions" role="cell">
                     {source.kind === "dataset" &&
                     !source.archived &&
                     source.id !== selectedDatasetId ? (
@@ -3882,6 +3931,7 @@ export function PolicyAssistantApp() {
               key={tab.key}
               type="button"
               className={`piq-tab${sourceTab === tab.key ? " is-active" : ""}`}
+              aria-pressed={sourceTab === tab.key}
               onClick={() => setSourceTab(tab.key)}
             >
               {tab.label}

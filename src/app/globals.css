@@ -13,7 +13,7 @@
   --text: #16283a;
   --text-soft: #41556a;
   --muted2: #5f7285;
-  --muted: #8296a8;
+  --muted: #647789; /* AA 4.62:1 on white */
 
   --line: #e4eaf0;
   --line-soft: #eef2f6;
@@ -21,7 +21,7 @@
   --line-mid: #c9d8e2;
   --chip-line: #cfe2ee;
 
-  --good: #2e9e5b;
+  --good: #27874e; /* AA 4.50:1 on white as text */
   --warn: #c07f10;
   --warn-bg: #fdf6e3;
   --warn-line: #f0e0b0;
@@ -203,6 +203,15 @@ textarea::placeholder {
   transform: translateY(-50%);
   border: 5px solid transparent;
   border-right-color: var(--navy);
+}
+
+/* Touch devices: tap-and-hold must not fire hover tooltips. Keyboard
+   focus tooltips remain available on every device. */
+@media (hover: none) {
+  [data-tip]:hover::after,
+  [data-tip]:hover::before {
+    content: none;
+  }
 }
 
 @keyframes piq-fade-up {
@@ -2654,5 +2663,74 @@ html[data-contrast="high"] .piq-detail-body {
     border: none;
     padding: 0;
     break-inside: avoid;
+  }
+}
+
+
+/* =========================================================================
+   Mobile hardening (P1 wave 2)
+   ========================================================================= */
+
+@media (max-width: 980px) {
+  /* Reflowed table rows lose the column header row; label each value. */
+  .piq-table-row span[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted2);
+  }
+}
+
+@media (max-width: 768px) {
+  .piq-mobile-header {
+    min-width: 0;
+  }
+
+  .piq-mobile-word {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    max-width: 36vw;
+  }
+
+  .piq-preview-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .piq-preview-text {
+    white-space: normal;
+  }
+
+  .piq-import-row {
+    flex-wrap: wrap;
+  }
+
+  .piq-callout {
+    flex-wrap: wrap;
+  }
+
+  /* Keep the bottom tab bar above the evidence sheet. */
+  .piq-rail {
+    position: relative;
+    z-index: 40;
+  }
+
+  .piq-drawer {
+    bottom: 58px;
+  }
+
+  .piq-step {
+    flex: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .piq-mobile-header .piq-sources-pill {
+    display: none;
   }
 }
