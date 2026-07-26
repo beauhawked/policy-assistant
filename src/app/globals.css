@@ -36,13 +36,14 @@
   --surface-soft: #fbfdfe;
 
   --chat-bg:
-    radial-gradient(circle at 12% 8%, rgba(18, 115, 168, 0.16), transparent 46%),
-    radial-gradient(circle at 88% 24%, rgba(93, 182, 224, 0.14), transparent 42%),
-    radial-gradient(circle at 45% 100%, rgba(15, 44, 70, 0.12), transparent 52%),
-    linear-gradient(180deg, #eaf2f7, #f5f9fb);
-  --glass: rgba(255, 255, 255, 0.58);
-  --glass-border: rgba(255, 255, 255, 0.72);
-  --glass-user: rgba(219, 234, 244, 0.62);
+    radial-gradient(circle at 12% 8%, rgba(18, 115, 168, 0.34), transparent 48%),
+    radial-gradient(circle at 88% 22%, rgba(93, 182, 224, 0.30), transparent 44%),
+    radial-gradient(circle at 70% 78%, rgba(18, 115, 168, 0.18), transparent 46%),
+    radial-gradient(circle at 30% 100%, rgba(15, 44, 70, 0.22), transparent 54%),
+    linear-gradient(165deg, #dcebf5, #eef5fa 55%, #e3eef6);
+  --glass: rgba(255, 255, 255, 0.46);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-user: rgba(210, 230, 243, 0.5);
 
   --font-ui: var(--font-instrument, "Instrument Sans"), system-ui, sans-serif;
   --font-display: var(--font-schibsted, "Schibsted Grotesk"), system-ui, sans-serif;
@@ -998,8 +999,8 @@ html.hc .piq-split-footnote{
   padding: 11px 20px;
   border-bottom: 1px solid var(--glass-border);
   background: var(--glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
 }
 
 .piq-thread-title {
@@ -1038,30 +1039,39 @@ html.hc .piq-split-footnote{
 .piq-bubble-user {
   align-self: flex-end;
   max-width: 64%;
-  background: var(--glass-user);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background:
+    linear-gradient(172deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.08) 46%, rgba(255, 255, 255, 0) 80%),
+    var(--glass-user);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
   border: 1px solid var(--glass-border);
   border-radius: 14px 14px 4px 14px;
   padding: 11px 15px;
-  box-shadow: var(--shadow-bubble);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    var(--shadow-bubble);
   white-space: pre-wrap;
   animation: piq-fade-up 0.3s ease;
 }
 
 .piq-answer {
+  position: relative;
   align-self: flex-start;
   max-width: 88%;
   display: flex;
   flex-direction: column;
   gap: 9px;
-  background: var(--glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background:
+    linear-gradient(172deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.12) 42%, rgba(255, 255, 255, 0) 78%),
+    var(--glass);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
   border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    var(--shadow-card);
   border-radius: 14px;
   padding: 14px 16px;
-  box-shadow: var(--shadow-card);
   animation: piq-fade-up 0.3s ease;
 }
 
@@ -1277,10 +1287,14 @@ html.hc .piq-split-footnote{
   border: 1px solid var(--glass-border);
   border-radius: 12px;
   padding: 6px 6px 6px 16px;
-  background: var(--glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: var(--shadow-card);
+  background:
+    linear-gradient(172deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.1) 55%),
+    var(--glass);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    var(--shadow-card);
 }
 
 .piq-composer:focus-within {
