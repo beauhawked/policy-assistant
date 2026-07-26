@@ -273,9 +273,8 @@ export default function PolicyLibraryPage() {
 
 function splitParagraphs(text: string): string[] {
   const paragraphs = text
-    .split(/\n{2,}|\r\n{2,}/)
-    .flatMap((block) => block.split(/\n/))
-    .map((paragraph) => paragraph.trim())
+    .split(/(?:\r?\n){2,}/)
+    .map((paragraph) => paragraph.replace(/\s*\r?\n\s*/g, " ").trim())
     .filter(Boolean);
   return paragraphs.length > 0 ? paragraphs : ["(No policy text)"];
 }
@@ -298,5 +297,5 @@ function downloadTextFile(filename: string, content: string): void {
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

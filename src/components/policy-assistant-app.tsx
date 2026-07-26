@@ -358,7 +358,6 @@ const HIGH_CONTRAST_STORAGE_KEY = "piq-hc";
 const SHOW_RETRIEVAL_DEBUG =
   process.env.NODE_ENV === "development" ||
   process.env.NEXT_PUBLIC_RETRIEVAL_DEBUG === "1";
-const LEGACY_CONTRAST_STORAGE_KEY = "a11y-contrast";
 
 const EXAMPLE_SCENARIOS = [
   "A student is being bullied online by classmates. What does our policy require us to do?",
@@ -575,6 +574,8 @@ export function PolicyAssistantApp() {
   const [activeEvidence, setActiveEvidence] = useState<EvidenceItem | null>(null);
   const [isEvidenceLoading, setIsEvidenceLoading] = useState(false);
   const [pinnedAnswers, setPinnedAnswers] = useState<PinnedAnswer[]>([]);
+  const [isPinsLoading, setIsPinsLoading] = useState(false);
+  const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [librarySearchQuery, setLibrarySearchQuery] = useState("");
@@ -715,9 +716,6 @@ export function PolicyAssistantApp() {
     let stored: string | null = null;
     try {
       stored = window.localStorage.getItem(HIGH_CONTRAST_STORAGE_KEY);
-      if (stored === null) {
-        stored = window.localStorage.getItem(LEGACY_CONTRAST_STORAGE_KEY) === "high" ? "1" : null;
-      }
     } catch {
       stored = null;
     }
@@ -783,6 +781,7 @@ export function PolicyAssistantApp() {
     }
 
     let cancelled = false;
+    setIsPinsLoading(true);
 
     (async () => {
       try {
@@ -808,6 +807,10 @@ export function PolicyAssistantApp() {
         );
       } catch {
         // Pin loading is non-critical; leave the list empty on failure.
+      } finally {
+        if (!cancelled) {
+          setIsPinsLoading(false);
+        }
       }
     })();
 
@@ -1419,9 +1422,9 @@ export function PolicyAssistantApp() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = policyImportPreview.filename || "policy-preview.csv";
+    link.download = policyImportPreview.filename || "policy-preview-sample.csv";
     link.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const handleUpload = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -1975,6 +1978,10 @@ export function PolicyAssistantApp() {
         `/api/policy-assistant/conversations/${encodeURIComponent(conversation.id)}`,
         { method: "DELETE" },
       );
+      if (response.status === 401) {
+        clearSessionState();
+        return;
+      }
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         throw new Error(
@@ -2010,7 +2017,6 @@ export function PolicyAssistantApp() {
       const next = !previous;
       try {
         window.localStorage.setItem(HIGH_CONTRAST_STORAGE_KEY, next ? "1" : "0");
-        window.localStorage.setItem(LEGACY_CONTRAST_STORAGE_KEY, next ? "high" : "default");
       } catch {
         // Ignore persistence failures.
       }
@@ -2703,9 +2709,9 @@ export function PolicyAssistantApp() {
             type="button"
             className="piq-button piq-button-ghost"
             onClick={handlePolicyPreviewDownload}
-            data-tip="Download CSV"
+            data-tip="Download a CSV of the preview rows shown here"
           >
-            Download CSV
+            Download sample CSV
           </button>
           <button
             type="button"
@@ -3560,7 +3566,9 @@ export function PolicyAssistantApp() {
           Your district&rsquo;s living FAQ — answers you&rsquo;ve saved, with their evidence frozen
           at pin time.
         </p>
-        {pinnedAnswers.length === 0 ? (
+        {pinnedAnswers.length === 0 && isPinsLoading ? (
+          <p className="piq-empty-note">Loading your pinned answers…</p>
+        ) : pinnedAnswers.length === 0 ? (
           <p className="piq-empty-note">
             Nothing pinned yet. Use ☆ Pin under any answer to keep it here.
           </p>
@@ -3744,6 +3752,24 @@ export function PolicyAssistantApp() {
                     {source.sourceLabel}
                   </span>
                   <span className="piq-table-actions" role="cell">
+                    {!source.archived ? (
+                      <a
+                        className="piq-icon-button"
+                        data-tip="Open full reader"
+                        href={
+                          source.kind === "dataset"
+                            ? `/policy-assistant/library/policies/${encodeURIComponent(source.id)}`
+                            : `/policy-assistant/library/handbooks/${encodeURIComponent(source.id)}`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <span aria-hidden="true">⧉</span>
+                        <span className="piq-sr-only">
+                          Open {source.title} in the full document reader
+                        </span>
+                      </a>
+                    ) : null}
                     {source.kind === "dataset" &&
                     !source.archived &&
                     source.id !== selectedDatasetId ? (
@@ -3814,9 +3840,11 @@ export function PolicyAssistantApp() {
 
               {visibleSources.length === 0 ? (
                 <p className="piq-table-empty">
-                  {showArchived
-                    ? "Nothing archived — archived sources are excluded from answers but kept for your records."
-                    : "No sources here yet. Use ＋ Add source to import policies or upload a handbook."}
+                  {isWorkspaceLoading
+                    ? "Loading your sources…"
+                    : showArchived
+                      ? "Nothing archived — archived sources are excluded from answers but kept for your records."
+                      : "No sources here yet. Use ＋ Add source to import policies or upload a handbook."}
                 </p>
               ) : null}
             </div>
@@ -3862,6 +3890,11 @@ export function PolicyAssistantApp() {
         <button type="button" className="piq-back" onClick={() => setView("library")}>
           ← Library
         </button>
+        {policyIndexError ? (
+          <div className="piq-feedback" aria-live="polite">
+            <p className="piq-error">{policyIndexError}</p>
+          </div>
+        ) : null}
         {detailView ? (
           <>
             <div className="piq-detail-head">
@@ -3879,7 +3912,11 @@ export function PolicyAssistantApp() {
                 type="button"
                 className="piq-link"
                 data-tip="Copy"
-                onClick={() => void window.navigator.clipboard.writeText(detailView.bodyText)}
+                onClick={() => {
+                  void window.navigator.clipboard.writeText(detailView.bodyText).catch(() => {
+                    setPolicyIndexError("Your browser blocked clipboard access.");
+                  });
+                }}
               >
                 Copy
               </button>
@@ -3949,7 +3986,7 @@ export function PolicyAssistantApp() {
   );
 
   return (
-    <div className="piq-app" data-view={view}>
+    <div className="piq-app">
       {mobileHeader}
       {rail}
       <main className="piq-main">
@@ -3987,32 +4024,7 @@ export function PolicyAssistantApp() {
           await loadWorkspaceData();
         }
       } else {
-        setAuthUser(null);
-        setDatasets([]);
-        setHandbookDocuments([]);
-        setSelectedDatasetId("");
-        setConversations([]);
-        setSelectedConversationId("");
-        setMessages([]);
-        setScenario("");
-        setUploadFile(null);
-        setPolicyImportUrl("");
-        setPolicyImportPlatform("auto");
-        setPolicyImportIncludeAllBooks(false);
-        setPolicyImportStatus("");
-        setPolicyImportError("");
-        setPolicyImportPreview(null);
-        setPolicyImportSummary(null);
-        setStudentHandbookFile(null);
-        setStaffHandbookFile(null);
-        setUploadStatus("");
-        setUploadError("");
-        setStudentHandbookStatus("");
-        setStudentHandbookError("");
-        setStaffHandbookStatus("");
-        setStaffHandbookError("");
-        setChatError("");
-        setConversationError("");
+        clearSessionState();
       }
     } catch (error) {
       setAuthUser(null);
@@ -4101,7 +4113,12 @@ export function PolicyAssistantApp() {
   }
 
   async function loadWorkspaceData(): Promise<void> {
-    await Promise.all([loadDatasets(), loadHandbookDocuments()]);
+    setIsWorkspaceLoading(true);
+    try {
+      await Promise.all([loadDatasets(), loadHandbookDocuments()]);
+    } finally {
+      setIsWorkspaceLoading(false);
+    }
   }
 
   async function loadConversations(datasetId: string): Promise<void> {
@@ -4280,10 +4297,7 @@ export function PolicyAssistantApp() {
     setResetToken("");
     setDatasetPolicies({});
     setDetailView(null);
-    setPinnedAnswers([]);
     setView("assistant");
-    setIsSetupDismissed(false);
-    setSetupStep(1);
     setIsAccountMenuOpen(false);
   }
 
@@ -4442,11 +4456,21 @@ function renderRichText(text: string): ReactNode {
 }
 
 function parseNumberedSteps(content: string): string[] {
-  return stripLeadingSectionLabel(content)
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => line.replace(/^(?:[-*•]\s*|\d+[.)]\s*)/, "").replace(/^\*\*(\d+[.)])\s*/, ""));
+  const steps: string[] = [];
+  for (const raw of stripLeadingSectionLabel(content).split("\n")) {
+    const line = raw.trim();
+    if (!line) {
+      continue;
+    }
+    const isNewStep = /^(?:[-*•]\s+|\*\*?\d+[.)]\s*|\d+[.)]\s+)/.test(line);
+    const text = line.replace(/^(?:[-*•]\s*|\d+[.)]\s*)/, "").replace(/^\*\*(\d+[.)])\s*/, "");
+    if (isNewStep || steps.length === 0) {
+      steps.push(text);
+    } else {
+      steps[steps.length - 1] = `${steps[steps.length - 1]} ${line}`;
+    }
+  }
+  return steps;
 }
 
 function findPrecedingQuestion(
