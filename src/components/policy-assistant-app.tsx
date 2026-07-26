@@ -126,6 +126,8 @@ interface ChatMessage {
 interface AuthUser {
   id: string;
   email: string;
+  firstName: string;
+  lastName: string;
   districtName: string;
   createdAt: string;
   emailVerifiedAt: string | null;
@@ -520,6 +522,13 @@ export function PolicyAssistantApp() {
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authDistrictName, setAuthDistrictName] = useState("");
+  const [authFirstName, setAuthFirstName] = useState("");
+  const [authLastName, setAuthLastName] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraftFirst, setNameDraftFirst] = useState("");
+  const [nameDraftLast, setNameDraftLast] = useState("");
+  const [nameEditError, setNameEditError] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authInfo, setAuthInfo] = useState("");
   const [resetToken, setResetToken] = useState("");
@@ -1013,6 +1022,11 @@ export function PolicyAssistantApp() {
       return;
     }
 
+    if (authMode === "signup" && !authFirstName.trim()) {
+      setAuthError("First name is required.");
+      return;
+    }
+
     setIsAuthenticating(true);
 
     try {
@@ -1025,6 +1039,8 @@ export function PolicyAssistantApp() {
           email,
           password,
           districtName: authMode === "signup" ? districtName : undefined,
+          firstName: authMode === "signup" ? authFirstName.trim() : undefined,
+          lastName: authMode === "signup" ? authLastName.trim() : undefined,
         }),
       });
 
@@ -1047,6 +1063,8 @@ export function PolicyAssistantApp() {
       setAuthEmail("");
       setAuthPassword("");
       setAuthDistrictName("");
+      setAuthFirstName("");
+      setAuthLastName("");
       setAuthInfo(payload.message ?? "");
       setDatasets([]);
       setHandbookDocuments([]);
@@ -1250,6 +1268,45 @@ export function PolicyAssistantApp() {
       setAuthError(error instanceof Error ? error.message : "Could not resend verification email.");
     } finally {
       setIsResendingVerification(false);
+    }
+  };
+
+  const handleNameSave = async (): Promise<void> => {
+    const firstNameDraft = nameDraftFirst.trim();
+    if (!firstNameDraft) {
+      setNameEditError("First name is required.");
+      return;
+    }
+
+    setIsSavingName(true);
+    setNameEditError("");
+
+    try {
+      const response = await fetch("/api/policy-assistant/auth/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ firstName: firstNameDraft, lastName: nameDraftLast.trim() }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        user?: AuthUser;
+        error?: string;
+      };
+
+      if (response.status === 401) {
+        clearSessionState();
+        return;
+      }
+
+      if (!response.ok || !payload.user) {
+        throw new Error(payload.error ?? "Could not save your name.");
+      }
+
+      setAuthUser(payload.user);
+      setIsEditingName(false);
+    } catch (error) {
+      setNameEditError(error instanceof Error ? error.message : "Could not save your name.");
+    } finally {
+      setIsSavingName(false);
     }
   };
 
@@ -2317,8 +2374,11 @@ export function PolicyAssistantApp() {
   }
 
   const districtName = authUser?.districtName?.trim() || "your district";
-  const firstName = deriveFirstName(authUser?.email ?? "");
-  const initials = deriveInitials(authUser?.email ?? "", authUser?.districtName ?? "");
+  const firstName = authUser?.firstName?.trim() || deriveFirstName(authUser?.email ?? "");
+  const initials =
+    authUser?.firstName?.trim()
+      ? `${authUser.firstName.trim()[0]}${(authUser.lastName?.trim() || authUser.firstName.trim())[0]}`.toUpperCase()
+      : deriveInitials(authUser?.email ?? "", authUser?.districtName ?? "");
   const isSetupActive =
     Boolean(authUser?.emailVerifiedAt) && isSetupEngaged && !isSetupDismissed;
 
@@ -2368,18 +2428,45 @@ export function PolicyAssistantApp() {
 
             <form className="piq-form" onSubmit={handleAuthSubmit}>
               {authMode === "signup" ? (
-                <div className="piq-field">
-                  <label htmlFor="auth-district-name">District name</label>
-                  <input
-                    id="auth-district-name"
-                    type="text"
-                    autoComplete="organization"
-                    value={authDistrictName}
-                    onChange={(event) => setAuthDistrictName(event.target.value)}
-                    placeholder="Example: West Lafayette Community School Corporation"
-                    required
-                  />
-                </div>
+                <>
+                  <div className="piq-field-row">
+                    <div className="piq-field">
+                      <label htmlFor="auth-first-name">First name</label>
+                      <input
+                        id="auth-first-name"
+                        type="text"
+                        autoComplete="given-name"
+                        value={authFirstName}
+                        onChange={(event) => setAuthFirstName(event.target.value)}
+                        placeholder="Jordan"
+                        required
+                      />
+                    </div>
+                    <div className="piq-field">
+                      <label htmlFor="auth-last-name">Last name</label>
+                      <input
+                        id="auth-last-name"
+                        type="text"
+                        autoComplete="family-name"
+                        value={authLastName}
+                        onChange={(event) => setAuthLastName(event.target.value)}
+                        placeholder="Avery"
+                      />
+                    </div>
+                  </div>
+                  <div className="piq-field">
+                    <label htmlFor="auth-district-name">District name</label>
+                    <input
+                      id="auth-district-name"
+                      type="text"
+                      autoComplete="organization"
+                      value={authDistrictName}
+                      onChange={(event) => setAuthDistrictName(event.target.value)}
+                      placeholder="Example: West Lafayette Community School Corporation"
+                      required
+                    />
+                  </div>
+                </>
               ) : null}
 
               {showEmail ? (
@@ -3080,8 +3167,72 @@ export function PolicyAssistantApp() {
         onClick={() => setIsAccountMenuOpen(false)}
       />
       <div className="piq-account-menu" role="dialog" aria-label="Account">
+        {authUser.firstName ? (
+          <p className="piq-account-name">
+            {[authUser.firstName, authUser.lastName].filter(Boolean).join(" ")}
+          </p>
+        ) : null}
         <p className="piq-account-email">{authUser.email}</p>
         <p className="piq-account-district">{districtName}</p>
+        {isEditingName ? (
+          <div className="piq-account-name-form">
+            <div className="piq-field">
+              <label htmlFor="account-first-name">First name</label>
+              <input
+                id="account-first-name"
+                type="text"
+                autoComplete="given-name"
+                value={nameDraftFirst}
+                onChange={(event) => setNameDraftFirst(event.target.value)}
+              />
+            </div>
+            <div className="piq-field">
+              <label htmlFor="account-last-name">Last name</label>
+              <input
+                id="account-last-name"
+                type="text"
+                autoComplete="family-name"
+                value={nameDraftLast}
+                onChange={(event) => setNameDraftLast(event.target.value)}
+              />
+            </div>
+            {nameEditError ? <p className="piq-error">{nameEditError}</p> : null}
+            <div className="piq-account-name-actions">
+              <button
+                type="button"
+                className="piq-button piq-button-primary"
+                disabled={isSavingName}
+                onClick={() => void handleNameSave()}
+              >
+                {isSavingName ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                className="piq-button piq-button-ghost"
+                disabled={isSavingName}
+                onClick={() => {
+                  setIsEditingName(false);
+                  setNameEditError("");
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="piq-button piq-button-ghost piq-button-block"
+            onClick={() => {
+              setNameDraftFirst(authUser.firstName ?? "");
+              setNameDraftLast(authUser.lastName ?? "");
+              setNameEditError("");
+              setIsEditingName(true);
+            }}
+          >
+            {authUser.firstName ? "Edit name" : "Add your name"}
+          </button>
+        )}
         <button
           type="button"
           className="piq-button piq-button-ghost piq-button-block"
@@ -4294,6 +4445,12 @@ export function PolicyAssistantApp() {
     setAuthEmail("");
     setAuthPassword("");
     setAuthDistrictName("");
+    setAuthFirstName("");
+    setAuthLastName("");
+    setIsEditingName(false);
+    setNameDraftFirst("");
+    setNameDraftLast("");
+    setNameEditError("");
     setResetToken("");
     setDatasetPolicies({});
     setDetailView(null);

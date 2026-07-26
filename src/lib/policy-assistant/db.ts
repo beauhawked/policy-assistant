@@ -163,6 +163,8 @@ interface RawHandbookSearchCandidate extends RawStoredHandbookChunk {
 interface RawAuthUser {
   id: string;
   email: string;
+  first_name: string;
+  last_name: string;
   district_name: string;
   created_at: Date | string;
   email_verified_at: Date | string | null;
@@ -1274,6 +1276,8 @@ export async function createUserAccount(
   email: string,
   passwordHash: string,
   districtName: string,
+  firstName = "",
+  lastName = "",
 ): Promise<AuthUser> {
   await ensureSchema();
 
@@ -1283,11 +1287,11 @@ export async function createUserAccount(
 
   const result = await getPool().query<RawAuthUser>(
     `
-    INSERT INTO users (id, email, district_name, password_hash, email_verified_at)
-    VALUES ($1, $2, $3, $4, NULL)
-    RETURNING id, email, district_name, created_at, email_verified_at
+    INSERT INTO users (id, email, first_name, last_name, district_name, password_hash, email_verified_at)
+    VALUES ($1, $2, $3, $4, $5, $6, NULL)
+    RETURNING id, email, first_name, last_name, district_name, created_at, email_verified_at
     `,
-    [userId, normalizedEmail, normalizedDistrictName, passwordHash],
+    [userId, normalizedEmail, firstName.trim(), lastName.trim(), normalizedDistrictName, passwordHash],
   );
 
   return mapAuthUser(result.rows[0]);
@@ -1301,7 +1305,7 @@ export async function findUserByEmail(
   const normalizedEmail = normalizeEmail(email);
   const result = await getPool().query<RawAuthUserWithPassword>(
     `
-    SELECT id, email, district_name, password_hash, created_at, email_verified_at
+    SELECT id, email, first_name, last_name, district_name, password_hash, created_at, email_verified_at
     FROM users
     WHERE email = $1
     LIMIT 1
@@ -1325,7 +1329,7 @@ export async function findUserById(userId: string): Promise<AuthUser | null> {
 
   const result = await getPool().query<RawAuthUser>(
     `
-    SELECT id, email, district_name, created_at, email_verified_at
+    SELECT id, email, first_name, last_name, district_name, created_at, email_verified_at
     FROM users
     WHERE id = $1
     LIMIT 1
@@ -1345,9 +1349,30 @@ export async function setUserEmailVerified(userId: string): Promise<AuthUser | n
     UPDATE users
     SET email_verified_at = COALESCE(email_verified_at, NOW())
     WHERE id = $1
-    RETURNING id, email, district_name, created_at, email_verified_at
+    RETURNING id, email, first_name, last_name, district_name, created_at, email_verified_at
     `,
     [userId],
+  );
+
+  const row = result.rows[0];
+  return row ? mapAuthUser(row) : null;
+}
+
+export async function updateUserName(
+  userId: string,
+  firstName: string,
+  lastName: string,
+): Promise<AuthUser | null> {
+  await ensureSchema();
+
+  const result = await getPool().query<RawAuthUser>(
+    `
+    UPDATE users
+    SET first_name = $2, last_name = $3
+    WHERE id = $1
+    RETURNING id, email, first_name, last_name, district_name, created_at, email_verified_at
+    `,
+    [userId, firstName.trim(), lastName.trim()],
   );
 
   const row = result.rows[0];
@@ -1856,6 +1881,16 @@ async function ensureSchema(): Promise<void> {
       await client.query(`
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS district_name TEXT NOT NULL DEFAULT '';
+      `);
+
+      await client.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT '';
+      `);
+
+      await client.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT '';
       `);
 
       await client.query(`
@@ -2652,6 +2687,8 @@ function mapAuthUser(row: RawAuthUser): AuthUser {
   return {
     id: row.id,
     email: row.email,
+    firstName: row.first_name || "",
+    lastName: row.last_name || "",
     districtName: row.district_name || "",
     createdAt: formatTimestamp(row.created_at),
     emailVerifiedAt: row.email_verified_at ? formatTimestamp(row.email_verified_at) : null,

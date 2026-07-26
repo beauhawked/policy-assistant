@@ -18,9 +18,9 @@ interface PasswordResetEmailInput {
 export async function sendVerificationEmail(input: VerificationEmailInput): Promise<void> {
   await sendPolicyAssistantEmail({
     to: input.to,
-    subject: "Verify your School District Policy Assistant account",
+    subject: "Verify your Policy to Action account",
     text: [
-      "Welcome to School District Policy Assistant.",
+      "Welcome to Policy to Action.",
       "",
       "Please verify your email address by opening this link:",
       input.verificationLink,
@@ -28,7 +28,7 @@ export async function sendVerificationEmail(input: VerificationEmailInput): Prom
       "If you did not create this account, you can ignore this message.",
     ].join("\n"),
     html: [
-      "<p>Welcome to School District Policy Assistant.</p>",
+      "<p>Welcome to Policy to Action.</p>",
       `<p>Please verify your email address by selecting <a href="${escapeHtml(
         input.verificationLink,
       )}">Verify Email</a>.</p>`,
@@ -43,9 +43,9 @@ export async function sendVerificationEmail(input: VerificationEmailInput): Prom
 export async function sendPasswordResetEmail(input: PasswordResetEmailInput): Promise<void> {
   await sendPolicyAssistantEmail({
     to: input.to,
-    subject: "Reset your School District Policy Assistant password",
+    subject: "Reset your Policy to Action password",
     text: [
-      "A password reset request was received for your School District Policy Assistant account.",
+      "A password reset request was received for your Policy to Action account.",
       "",
       "Open this link to reset your password:",
       input.resetLink,
@@ -53,7 +53,7 @@ export async function sendPasswordResetEmail(input: PasswordResetEmailInput): Pr
       "If you did not request this, you can ignore this message.",
     ].join("\n"),
     html: [
-      "<p>A password reset request was received for your School District Policy Assistant account.</p>",
+      "<p>A password reset request was received for your Policy to Action account.</p>",
       `<p>Select <a href="${escapeHtml(input.resetLink)}">Reset Password</a> to continue.</p>`,
       `<p>If the button does not work, copy and paste this link into your browser:<br>${escapeHtml(
         input.resetLink,

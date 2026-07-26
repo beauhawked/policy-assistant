@@ -21,6 +21,8 @@ interface SignupPayload {
   email?: string;
   password?: string;
   districtName?: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -29,6 +31,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const email = normalizeEmail(payload.email);
     const password = payload.password?.trim() ?? "";
     const districtName = payload.districtName?.trim() ?? "";
+    const firstName = (payload.firstName ?? "").trim().slice(0, 80);
+    const lastName = (payload.lastName ?? "").trim().slice(0, 80);
 
     const rateLimit = await checkRateLimit({
       scope: "auth_signup",
@@ -55,6 +59,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!districtName) {
       return NextResponse.json({ error: "District name is required." }, { status: 400 });
+    }
+
+    if (!firstName) {
+      return NextResponse.json({ error: "First name is required." }, { status: 400 });
     }
 
     const existing = await findUserByEmail(email);
@@ -89,7 +97,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const passwordHash = await hashPassword(password);
-    const user = await createUserAccount(email, passwordHash, districtName);
+    const user = await createUserAccount(email, passwordHash, districtName, firstName, lastName);
     await issueEmailVerificationForUser(user, getRequestOrigin(request));
 
     const session = await createAuthSession(user.id);

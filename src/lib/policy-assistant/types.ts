@@ -40,6 +40,8 @@ export interface HandbookDocument {
 export interface AuthUser {
   id: string;
   email: string;
+  firstName: string;
+  lastName: string;
   districtName: string;
   createdAt: string;
   emailVerifiedAt: string | null;
