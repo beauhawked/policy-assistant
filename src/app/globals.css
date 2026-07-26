@@ -2893,7 +2893,8 @@ html.rm *::after {
 .pta-nav {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 14px 22px;
+  flex-wrap: wrap;
   padding: 18px clamp(20px, 5vw, 56px);
 }
 
@@ -2933,7 +2934,8 @@ html.rm *::after {
 .pta-nav-links {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 12px 18px;
+  flex-wrap: wrap;
 }
 
 .pta-nav-links a:not(.pta-button) {
