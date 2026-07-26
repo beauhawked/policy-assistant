@@ -1482,6 +1482,105 @@ export async function deleteAuthSession(sessionId: string): Promise<void> {
   await getPool().query(`DELETE FROM auth_sessions WHERE id = $1`, [sessionId]);
 }
 
+export async function deleteOtherAuthSessions(userId: string, keepSessionId: string): Promise<number> {
+  await ensureSchema();
+  const result = await getPool().query(
+    `DELETE FROM auth_sessions WHERE user_id = $1 AND id <> $2`,
+    [userId, keepSessionId],
+  );
+  return result.rowCount ?? 0;
+}
+
+export async function getUserPasswordHash(userId: string): Promise<string | null> {
+  await ensureSchema();
+  const result = await getPool().query<{ password_hash: string }>(
+    `SELECT password_hash FROM users WHERE id = $1 LIMIT 1`,
+    [userId],
+  );
+  return result.rows[0]?.password_hash ?? null;
+}
+
+export async function exportUserData(userId: string): Promise<{
+  conversations: Array<{
+    id: string;
+    datasetId: string;
+    title: string;
+    createdAt: string;
+    messages: Array<{ role: string; content: string; createdAt: string }>;
+  }>;
+  pinnedAnswers: Array<{ title: string; body: string; meta: string; pinnedAt: string }>;
+}> {
+  await ensureSchema();
+  const pool = getPool();
+
+  const conversationsResult = await pool.query<{
+    id: string;
+    dataset_id: string;
+    title: string;
+    created_at: Date | string;
+  }>(
+    `SELECT id, dataset_id, title, created_at FROM policy_conversations WHERE user_id = $1 ORDER BY created_at`,
+    [userId],
+  );
+
+  const conversations = [] as Array<{
+    id: string;
+    datasetId: string;
+    title: string;
+    createdAt: string;
+    messages: Array<{ role: string; content: string; createdAt: string }>;
+  }>;
+
+  for (const row of conversationsResult.rows) {
+    const messagesResult = await pool.query<{
+      role: string;
+      content: string;
+      created_at: Date | string;
+    }>(
+      `SELECT role, content, created_at FROM policy_conversation_messages WHERE conversation_id = $1 ORDER BY id`,
+      [row.id],
+    );
+    conversations.push({
+      id: row.id,
+      datasetId: row.dataset_id,
+      title: row.title,
+      createdAt: formatTimestamp(row.created_at),
+      messages: messagesResult.rows.map((message) => ({
+        role: message.role,
+        content: message.content,
+        createdAt: formatTimestamp(message.created_at),
+      })),
+    });
+  }
+
+  const pinsResult = await pool.query<{
+    title: string;
+    body: string;
+    meta: string;
+    created_at: Date | string;
+  }>(
+    `SELECT title, body, meta, created_at FROM pinned_answers WHERE user_id = $1 ORDER BY created_at`,
+    [userId],
+  );
+
+  return {
+    conversations,
+    pinnedAnswers: pinsResult.rows.map((pin) => ({
+      title: pin.title,
+      body: pin.body,
+      meta: pin.meta,
+      pinnedAt: formatTimestamp(pin.created_at),
+    })),
+  };
+}
+
+export async function deleteUserAccount(userId: string): Promise<void> {
+  await ensureSchema();
+  const pool = getPool();
+  await pool.query(`DELETE FROM model_call_logs WHERE user_id = $1`, [userId]);
+  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
+}
+
 export async function deleteAuthSessionsForUser(userId: string): Promise<void> {
   await ensureSchema();
   await getPool().query(`DELETE FROM auth_sessions WHERE user_id = $1`, [userId]);

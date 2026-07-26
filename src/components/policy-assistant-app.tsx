@@ -358,6 +358,16 @@ type LibraryFilter = "all" | "policies" | "student" | "staff";
 
 const MESSAGE_LIST_NEAR_BOTTOM_PX = 120;
 const HIGH_CONTRAST_STORAGE_KEY = "piq-hc";
+const TEXT_SIZE_STORAGE_KEY = "piq-textsize";
+const REDUCED_MOTION_STORAGE_KEY = "piq-reduced-motion";
+
+type TextSize = "standard" | "large" | "larger";
+
+const TEXT_SIZE_OPTIONS: Array<{ key: TextSize; label: string }> = [
+  { key: "standard", label: "Standard" },
+  { key: "large", label: "Large" },
+  { key: "larger", label: "Larger" },
+];
 
 // Retrieval debug is developer instrumentation: visible in local development,
 // hidden in production unless explicitly enabled via env flag.
@@ -599,6 +609,17 @@ export function PolicyAssistantApp() {
   const [profileError, setProfileError] = useState("");
   const [profileStatus, setProfileStatus] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [passwordCurrent, setPasswordCurrent] = useState("");
+  const [passwordNew, setPasswordNew] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [passwordStatus, setPasswordStatus] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [sessionsStatus, setSessionsStatus] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authInfo, setAuthInfo] = useState("");
   const [resetToken, setResetToken] = useState("");
@@ -656,6 +677,8 @@ export function PolicyAssistantApp() {
   const [isPinsLoading, setIsPinsLoading] = useState(false);
   const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
+  const [textSize, setTextSize] = useState<TextSize>("standard");
+  const [reducedMotion, setReducedMotion] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [librarySearchQuery, setLibrarySearchQuery] = useState("");
   const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>("all");
@@ -810,12 +833,42 @@ export function PolicyAssistantApp() {
     if (stored === "1") {
       setHighContrast(true);
     }
+
+    try {
+      const storedSize = window.localStorage.getItem(TEXT_SIZE_STORAGE_KEY);
+      if (storedSize === "large" || storedSize === "larger") {
+        setTextSize(storedSize);
+      }
+      if (window.localStorage.getItem(REDUCED_MOTION_STORAGE_KEY) === "1") {
+        setReducedMotion(true);
+      }
+    } catch {
+      // Ignore preference read failures.
+    }
   }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("hc", highContrast);
     document.documentElement.dataset.contrast = highContrast ? "high" : "default";
   }, [highContrast]);
+
+  useEffect(() => {
+    document.documentElement.dataset.textsize = textSize;
+    try {
+      window.localStorage.setItem(TEXT_SIZE_STORAGE_KEY, textSize);
+    } catch {
+      // Ignore persistence failures.
+    }
+  }, [textSize]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("rm", reducedMotion);
+    try {
+      window.localStorage.setItem(REDUCED_MOTION_STORAGE_KEY, reducedMotion ? "1" : "0");
+    } catch {
+      // Ignore persistence failures.
+    }
+  }, [reducedMotion]);
 
   useEffect(() => {
     const updateOnlineState = (): void => setIsOffline(!window.navigator.onLine);
@@ -2184,6 +2237,117 @@ export function PolicyAssistantApp() {
       }
       return next;
     });
+  };
+
+  const handleChangePassword = async (): Promise<void> => {
+    if (!passwordCurrent || !passwordNew) {
+      setPasswordError("Enter your current and new passwords.");
+      return;
+    }
+    if (passwordNew !== passwordConfirm) {
+      setPasswordError("The new passwords do not match.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setPasswordError("");
+    setPasswordStatus("");
+
+    try {
+      const response = await fetch("/api/policy-assistant/auth/change-password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ currentPassword: passwordCurrent, newPassword: passwordNew }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        error?: string;
+      };
+
+      if (response.status === 401) {
+        clearSessionState();
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Could not change your password.");
+      }
+
+      setPasswordCurrent("");
+      setPasswordNew("");
+      setPasswordConfirm("");
+      setPasswordStatus(payload.message ?? "Password updated.");
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : "Could not change your password.");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handleSignOutOthers = async (): Promise<void> => {
+    setSessionsStatus("");
+    try {
+      const response = await fetch("/api/policy-assistant/auth/sign-out-others", {
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        error?: string;
+      };
+      if (response.status === 401) {
+        clearSessionState();
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Could not sign out other sessions.");
+      }
+      setSessionsStatus(payload.message ?? "Other sessions signed out.");
+    } catch (error) {
+      setSessionsStatus(
+        error instanceof Error ? error.message : "Could not sign out other sessions.",
+      );
+    }
+  };
+
+  const handleExportData = (): void => {
+    window.location.assign("/api/policy-assistant/account/export");
+  };
+
+  const handleDeleteAccount = async (): Promise<void> => {
+    setDeleteError("");
+
+    if (deleteConfirmText.trim() !== "DELETE") {
+      setDeleteError("Type DELETE in the confirmation field to proceed.");
+      return;
+    }
+    if (!deletePassword) {
+      setDeleteError("Enter your password to confirm deletion.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "This permanently deletes your account, your uploaded sources, and every conversation and pinned answer. This cannot be undone. Continue?",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    try {
+      const response = await fetch("/api/policy-assistant/account", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password: deletePassword, confirmation: deleteConfirmText.trim() }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Could not delete your account.");
+      }
+      clearSessionState();
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Could not delete your account.");
+    } finally {
+      setIsDeletingAccount(false);
+    }
   };
 
   const openEvidence = async (evidence: EvidenceItem): Promise<void> => {
@@ -3823,6 +3987,179 @@ export function PolicyAssistantApp() {
               onClick={() => void handleProfileSave()}
             >
               {isSavingProfile ? "Saving\u2026" : "Save profile"}
+            </button>
+          </div>
+        </div>
+
+        <h2 className="piq-settings-heading">Appearance and accessibility</h2>
+        <div className="piq-settings-card">
+          <div className="piq-settings-row">
+            <div className="piq-settings-copy">
+              <b>High contrast</b>
+              <span>Solid surfaces and stronger outlines for maximum legibility.</span>
+            </div>
+            <button
+              type="button"
+              className={`piq-pill${highContrast ? " is-active" : ""}`}
+              aria-pressed={highContrast}
+              onClick={toggleHighContrast}
+            >
+              {highContrast ? "On" : "Off"}
+            </button>
+          </div>
+          <div className="piq-settings-row">
+            <div className="piq-settings-copy">
+              <b>Text size</b>
+              <span>Scales the whole interface.</span>
+            </div>
+            <div className="piq-pills piq-settings-pills">
+              {TEXT_SIZE_OPTIONS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className={`piq-pill${textSize === option.key ? " is-active" : ""}`}
+                  aria-pressed={textSize === option.key}
+                  onClick={() => setTextSize(option.key)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="piq-settings-row">
+            <div className="piq-settings-copy">
+              <b>Reduce motion</b>
+              <span>Turns off animations and transitions.</span>
+            </div>
+            <button
+              type="button"
+              className={`piq-pill${reducedMotion ? " is-active" : ""}`}
+              aria-pressed={reducedMotion}
+              onClick={() => setReducedMotion((previous) => !previous)}
+            >
+              {reducedMotion ? "On" : "Off"}
+            </button>
+          </div>
+        </div>
+
+        <h2 className="piq-settings-heading">Password and sessions</h2>
+        <div className="piq-settings-card">
+          <div className="piq-feedback" aria-live="polite">
+            {passwordStatus ? <p className="piq-status">{passwordStatus}</p> : null}
+            {passwordError ? <p className="piq-error">{passwordError}</p> : null}
+          </div>
+          <div className="piq-field">
+            <label htmlFor="password-current">Current password</label>
+            <input
+              id="password-current"
+              type="password"
+              autoComplete="current-password"
+              value={passwordCurrent}
+              onChange={(event) => setPasswordCurrent(event.target.value)}
+            />
+          </div>
+          <div className="piq-field-row">
+            <div className="piq-field">
+              <label htmlFor="password-new">New password</label>
+              <input
+                id="password-new"
+                type="password"
+                autoComplete="new-password"
+                value={passwordNew}
+                onChange={(event) => setPasswordNew(event.target.value)}
+              />
+            </div>
+            <div className="piq-field">
+              <label htmlFor="password-confirm">Confirm new password</label>
+              <input
+                id="password-confirm"
+                type="password"
+                autoComplete="new-password"
+                value={passwordConfirm}
+                onChange={(event) => setPasswordConfirm(event.target.value)}
+              />
+            </div>
+          </div>
+          <div className="piq-actions-right">
+            <button
+              type="button"
+              className="piq-button piq-button-ghost"
+              disabled={isChangingPassword}
+              onClick={() => void handleChangePassword()}
+            >
+              {isChangingPassword ? "Updating\u2026" : "Change password"}
+            </button>
+          </div>
+          <div className="piq-settings-row">
+            <div className="piq-settings-copy">
+              <b>Other devices</b>
+              <span>
+                {sessionsStatus ||
+                  "Signs out every session except this one, for example a shared office computer."}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="piq-button piq-button-ghost"
+              onClick={() => void handleSignOutOthers()}
+            >
+              Sign out everywhere else
+            </button>
+          </div>
+        </div>
+
+        <h2 className="piq-settings-heading">Your data</h2>
+        <div className="piq-settings-card">
+          <div className="piq-settings-row">
+            <div className="piq-settings-copy">
+              <b>Export my data</b>
+              <span>Downloads your conversations, pinned answers, and profile as a file.</span>
+            </div>
+            <button type="button" className="piq-button piq-button-ghost" onClick={handleExportData}>
+              Download export
+            </button>
+          </div>
+        </div>
+
+        <h2 className="piq-settings-heading piq-danger-heading">Delete account</h2>
+        <div className="piq-settings-card piq-danger-card">
+          <p className="piq-settings-note">
+            Permanently deletes your account, your uploaded sources, and every conversation and
+            pinned answer. This cannot be undone. Export your data first if you want a copy.
+          </p>
+          <div className="piq-feedback" aria-live="polite">
+            {deleteError ? <p className="piq-error">{deleteError}</p> : null}
+          </div>
+          <div className="piq-field-row">
+            <div className="piq-field">
+              <label htmlFor="delete-password">Your password</label>
+              <input
+                id="delete-password"
+                type="password"
+                autoComplete="current-password"
+                value={deletePassword}
+                onChange={(event) => setDeletePassword(event.target.value)}
+              />
+            </div>
+            <div className="piq-field">
+              <label htmlFor="delete-confirm">Type DELETE to confirm</label>
+              <input
+                id="delete-confirm"
+                type="text"
+                autoComplete="off"
+                value={deleteConfirmText}
+                onChange={(event) => setDeleteConfirmText(event.target.value)}
+              />
+            </div>
+          </div>
+          <div className="piq-actions-right">
+            <button
+              type="button"
+              className="piq-button piq-button-danger"
+              disabled={isDeletingAccount}
+              onClick={() => void handleDeleteAccount()}
+            >
+              {isDeletingAccount ? "Deleting\u2026" : "Delete my account"}
             </button>
           </div>
         </div>
