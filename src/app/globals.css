@@ -3279,18 +3279,19 @@ a.piq-brand-mark {
 /* ------------------------------------------------- In-app document reader */
 
 .piq-reader {
-  min-height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
   background: #dfe7ef;
 }
 
 .piq-reader-head {
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
+  gap: 10px;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
   background: #0f2c46;
   color: #ffffff;
 }
@@ -3318,6 +3319,8 @@ a.piq-brand-mark {
 }
 
 .piq-reader-title {
+  flex: 1;
+  min-width: 0;
   font-size: 15px;
   font-weight: 600;
   overflow: hidden;
@@ -3325,7 +3328,48 @@ a.piq-brand-mark {
   white-space: nowrap;
 }
 
+.piq-reader-zoom {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.piq-reader-zoom-button,
+.piq-reader-zoom-level {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.piq-reader-zoom-button {
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.piq-reader-zoom-level {
+  font-size: 12px;
+  padding: 8px 8px;
+  min-width: 48px;
+  text-align: center;
+}
+
+.piq-reader-zoom-button:hover,
+.piq-reader-zoom-level:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .piq-reader-body {
+  flex: 1;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 18px 14px calc(28px + env(safe-area-inset-bottom, 0px));
 }
 

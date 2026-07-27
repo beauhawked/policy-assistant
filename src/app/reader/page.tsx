@@ -2,23 +2,32 @@
 
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * In-app document reader.
  *
  * Renders a same-origin PDF page by page onto canvases inside the app's own
- * chrome, so documents never leave Policy to Action. Pinch-to-zoom works
- * because this is an ordinary HTML page (unlike the webview's inline PDF
- * display, which cannot zoom reliably on iOS). Pages render lazily as they
- * approach the viewport to keep memory in check on large documents.
+ * chrome, so documents never leave Policy to Action. Zoom is implemented by
+ * the reader itself (pinch, double-tap, and header buttons) because the
+ * native webview refuses page-level zoom regardless of viewport settings.
+ * Pages render lazily as they approach the viewport to bound memory use.
  */
 
 const APP_ROUTE = "/policy-assistant";
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 4;
 
 function titleFromPath(path: string): string {
   const name = decodeURIComponent(path.split("/").pop() ?? "");
   return name.replace(/\.pdf$/i, "").replace(/[-_]+/g, " ").replace(/^Policy to Action /i, "");
+}
+
+function touchDistance(touches: TouchList): number {
+  return Math.hypot(
+    touches[0].clientX - touches[1].clientX,
+    touches[0].clientY - touches[1].clientY,
+  );
 }
 
 function ReaderInner() {
@@ -31,10 +40,108 @@ function ReaderInner() {
       ? rawFile
       : "";
 
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const pagesRef = useRef<HTMLDivElement | null>(null);
+  const zoomRef = useRef(1);
+  const [zoomPercent, setZoomPercent] = useState(100);
   const [error, setError] = useState("");
   const [pageCount, setPageCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  /** Set the zoom level, keeping the given viewport point visually fixed. */
+  const applyZoom = useCallback((next: number, centerX?: number, centerY?: number): void => {
+    const scroller = scrollRef.current;
+    const pages = pagesRef.current;
+    if (!scroller || !pages) {
+      return;
+    }
+    const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
+    const previous = zoomRef.current;
+    if (Math.abs(clamped - previous) < 0.001) {
+      return;
+    }
+    const rect = scroller.getBoundingClientRect();
+    const anchorX = centerX ?? rect.width / 2;
+    const anchorY = centerY ?? rect.height / 2;
+    const ratio = clamped / previous;
+    const nextScrollLeft = (scroller.scrollLeft + anchorX) * ratio - anchorX;
+    const nextScrollTop = (scroller.scrollTop + anchorY) * ratio - anchorY;
+    zoomRef.current = clamped;
+    pages.style.width = `${clamped * 100}%`;
+    pages.style.maxWidth = clamped > 1.001 ? "none" : "";
+    scroller.scrollLeft = nextScrollLeft;
+    scroller.scrollTop = nextScrollTop;
+    setZoomPercent(Math.round(clamped * 100));
+  }, []);
+
+  /* Pinch and double-tap gestures, handled by the reader itself. */
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller) {
+      return;
+    }
+    let pinchStartDistance = 0;
+    let pinchStartZoom = 1;
+    let lastTapTime = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+
+    const onTouchStart = (event: TouchEvent): void => {
+      if (event.touches.length === 2) {
+        pinchStartDistance = touchDistance(event.touches);
+        pinchStartZoom = zoomRef.current;
+      }
+    };
+
+    const onTouchMove = (event: TouchEvent): void => {
+      if (event.touches.length === 2 && pinchStartDistance > 0) {
+        event.preventDefault();
+        const rect = scroller.getBoundingClientRect();
+        const centerX =
+          (event.touches[0].clientX + event.touches[1].clientX) / 2 - rect.left;
+        const centerY =
+          (event.touches[0].clientY + event.touches[1].clientY) / 2 - rect.top;
+        const nextZoom = pinchStartZoom * (touchDistance(event.touches) / pinchStartDistance);
+        applyZoom(nextZoom, centerX, centerY);
+      }
+    };
+
+    const onTouchEnd = (event: TouchEvent): void => {
+      if (event.touches.length < 2) {
+        pinchStartDistance = 0;
+      }
+      if (event.changedTouches.length === 1 && event.touches.length === 0) {
+        const now = Date.now();
+        const touch = event.changedTouches[0];
+        const isDoubleTap =
+          now - lastTapTime < 300 &&
+          Math.abs(touch.clientX - lastTapX) < 40 &&
+          Math.abs(touch.clientY - lastTapY) < 40;
+        if (isDoubleTap) {
+          const rect = scroller.getBoundingClientRect();
+          applyZoom(
+            zoomRef.current > 1.05 ? 1 : 2.2,
+            touch.clientX - rect.left,
+            touch.clientY - rect.top,
+          );
+          lastTapTime = 0;
+        } else {
+          lastTapTime = now;
+          lastTapX = touch.clientX;
+          lastTapY = touch.clientY;
+        }
+      }
+    };
+
+    scroller.addEventListener("touchstart", onTouchStart, { passive: true });
+    scroller.addEventListener("touchmove", onTouchMove, { passive: false });
+    scroller.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      scroller.removeEventListener("touchstart", onTouchStart);
+      scroller.removeEventListener("touchmove", onTouchMove);
+      scroller.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [applyZoom]);
 
   useEffect(() => {
     if (!file) {
@@ -74,7 +181,7 @@ function ReaderInner() {
             slot.style.aspectRatio = `${base.width} / ${base.height}`;
             const cssWidth = slot.clientWidth || container.clientWidth;
             const scale = cssWidth / base.width;
-            // Render at up to 3x the CSS size so pinch-zooming stays sharp
+            // Render at up to 3x the CSS size so zooming stays sharp
             // without exhausting canvas memory on long documents.
             const outputScale = Math.min(window.devicePixelRatio || 1, 3);
             const viewport = page.getViewport({ scale });
@@ -113,7 +220,7 @@ function ReaderInner() {
             }
           },
           // Begin rendering well before a page scrolls into view.
-          { rootMargin: "150% 0px" },
+          { root: scrollRef.current, rootMargin: "150% 0px" },
         );
 
         for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
@@ -156,8 +263,34 @@ function ReaderInner() {
         </button>
         <Image src="/logo-icon.png" alt="" width={24} height={20} className="piq-reader-logo" />
         <span className="piq-reader-title">{file ? titleFromPath(file) : "Document"}</span>
+        <div className="piq-reader-zoom" role="group" aria-label="Zoom">
+          <button
+            type="button"
+            className="piq-reader-zoom-button"
+            aria-label="Zoom out"
+            onClick={() => applyZoom(zoomRef.current - 0.5)}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className="piq-reader-zoom-level"
+            aria-label="Reset zoom"
+            onClick={() => applyZoom(1)}
+          >
+            {zoomPercent}%
+          </button>
+          <button
+            type="button"
+            className="piq-reader-zoom-button"
+            aria-label="Zoom in"
+            onClick={() => applyZoom(zoomRef.current + 0.5)}
+          >
+            +
+          </button>
+        </div>
       </header>
-      <main className="piq-reader-body">
+      <div ref={scrollRef} className="piq-reader-body">
         {isLoading ? <p className="piq-reader-status">Loading document…</p> : null}
         {error ? <p className="piq-reader-status is-error">{error}</p> : null}
         <div ref={pagesRef} className="piq-reader-pages" />
@@ -166,7 +299,7 @@ function ReaderInner() {
             {pageCount} {pageCount === 1 ? "page" : "pages"}. Pinch or double-tap to zoom.
           </p>
         ) : null}
-      </main>
+      </div>
     </div>
   );
 }
