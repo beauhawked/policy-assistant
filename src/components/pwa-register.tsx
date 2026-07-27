@@ -29,16 +29,52 @@ export function PwaRegister() {
       if (!/\.pdf($|[?#])/i.test(href)) {
         return;
       }
-      event.preventDefault();
+      let browser: { open: (options: { url: string }) => Promise<void> } | undefined;
       try {
-        const browser = window.Capacitor?.registerPlugin?.("Browser");
-        void browser?.open({ url: href });
+        browser = window.Capacitor?.registerPlugin?.("Browser");
       } catch {
-        // If the sheet cannot open, do nothing rather than trapping the user.
+        browser = undefined;
       }
+      if (!browser) {
+        // No sheet available: let the default navigation happen so the tap
+        // is never a silent no-op.
+        return;
+      }
+      event.preventDefault();
+      browser.open({ url: href }).catch(() => {
+        // Native plugin missing or failed: fall back to plain navigation.
+        window.location.href = href;
+      });
     };
     document.addEventListener("click", onDocumentClick, true);
-    return () => document.removeEventListener("click", onDocumentClick, true);
+
+    // iOS scrolls the webview when the keyboard appears and does not always
+    // restore it afterward, leaving the header wedged under the status bar.
+    // After editing ends, nudge the scroll position back to the top.
+    const onFocusOut = (): void => {
+      if (!window.Capacitor?.isNativePlatform?.()) {
+        return;
+      }
+      window.setTimeout(() => {
+        const active = document.activeElement;
+        const stillEditing =
+          active instanceof HTMLElement &&
+          (active.tagName === "INPUT" ||
+            active.tagName === "TEXTAREA" ||
+            active.isContentEditable);
+        if (!stillEditing) {
+          window.scrollTo(0, 0);
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+        }
+      }, 250);
+    };
+    document.addEventListener("focusout", onFocusOut, true);
+
+    return () => {
+      document.removeEventListener("click", onDocumentClick, true);
+      document.removeEventListener("focusout", onFocusOut, true);
+    };
   }, []);
 
   useEffect(() => {

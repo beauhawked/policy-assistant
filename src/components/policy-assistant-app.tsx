@@ -2162,6 +2162,16 @@ export function PolicyAssistantApp() {
     }
   };
 
+  const focusComposer = (): void => {
+    // On touch devices, programmatic focus summons the keyboard uninvited and
+    // iOS shifts the whole webview upward to make room, wedging the header
+    // under the status bar. Only auto-focus where a physical keyboard is likely.
+    if (typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches) {
+      return;
+    }
+    composerRef.current?.focus();
+  };
+
   const handleStartNewConversation = (): void => {
     setSelectedConversationId("");
     setMessages([]);
@@ -2171,7 +2181,7 @@ export function PolicyAssistantApp() {
     setRetrievalDebug(null);
     setEvidenceOpen(false);
     setActiveEvidence(null);
-    composerRef.current?.focus();
+    focusComposer();
   };
 
   const handleConversationOpen = (conversationId: string): void => {
@@ -4752,7 +4762,7 @@ export function PolicyAssistantApp() {
                     `About policy ${[detailView.code, detailView.title].filter(Boolean).join(" — ")}: `,
                   );
                   setView("assistant");
-                  window.setTimeout(() => composerRef.current?.focus(), 0);
+                  window.setTimeout(focusComposer, 0);
                 }}
               >
                 Ask about this policy
