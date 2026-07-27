@@ -128,16 +128,16 @@ export default function LandingPage() {
           </p>
           <ul>
             <li>
-              <a href="/help/Policy-to-Action-Quick-Start-Participants.pdf">Quick-Start Guide (PDF)</a>
+              <a href="/help/Policy-to-Action-Quick-Start-Participants.pdf" target="_blank" rel="noreferrer">Quick-Start Guide (PDF)</a>
             </li>
             <li>
-              <a href="/help/Policy-to-Action-District-Setup-Guide.pdf">District Setup Guide (PDF)</a>
+              <a href="/help/Policy-to-Action-District-Setup-Guide.pdf" target="_blank" rel="noreferrer">District Setup Guide (PDF)</a>
             </li>
             <li>
-              <a href="/help/Policy-to-Action-User-Manual.pdf">User Manual (PDF)</a>
+              <a href="/help/Policy-to-Action-User-Manual.pdf" target="_blank" rel="noreferrer">User Manual (PDF)</a>
             </li>
             <li>
-              <a href="/help/Policy-to-Action-Technical-Blueprint.pdf">
+              <a href="/help/Policy-to-Action-Technical-Blueprint.pdf" target="_blank" rel="noreferrer">
                 Technical Blueprint for District IT (PDF)
               </a>
             </li>

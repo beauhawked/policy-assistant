@@ -2,8 +2,44 @@
 
 import { useEffect, useState } from "react";
 
+declare global {
+  interface Window {
+    Capacitor?: {
+      isNativePlatform?: () => boolean;
+      registerPlugin?: (name: string) => { open: (options: { url: string }) => Promise<void> };
+    };
+  }
+}
+
 export function PwaRegister() {
   const [offline, setOffline] = useState(false);
+
+  useEffect(() => {
+    // Inside the native mobile shell, documents must not hijack the webview:
+    // open PDFs in the in-app system browser sheet, which has a Done button.
+    const onDocumentClick = (event: MouseEvent): void => {
+      if (!window.Capacitor?.isNativePlatform?.()) {
+        return;
+      }
+      const anchor = (event.target as HTMLElement | null)?.closest?.("a[href]");
+      if (!(anchor instanceof HTMLAnchorElement)) {
+        return;
+      }
+      const href = anchor.href;
+      if (!/\.pdf($|[?#])/i.test(href)) {
+        return;
+      }
+      event.preventDefault();
+      try {
+        const browser = window.Capacitor?.registerPlugin?.("Browser");
+        void browser?.open({ url: href });
+      } catch {
+        // If the sheet cannot open, do nothing rather than trapping the user.
+      }
+    };
+    document.addEventListener("click", onDocumentClick, true);
+    return () => document.removeEventListener("click", onDocumentClick, true);
+  }, []);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {

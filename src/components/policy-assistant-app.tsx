@@ -4225,7 +4225,7 @@ export function PolicyAssistantApp() {
             <ul className="piq-help-downloads">
               {HELP_DOWNLOADS.map((doc) => (
                 <li key={doc.file}>
-                  <a href={doc.file} download>
+                  <a href={doc.file} target="_blank" rel="noreferrer">
                     {doc.label}
                   </a>
                 </li>
