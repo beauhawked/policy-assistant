@@ -6,7 +6,6 @@ declare global {
   interface Window {
     Capacitor?: {
       isNativePlatform?: () => boolean;
-      registerPlugin?: (name: string) => { open: (options: { url: string }) => Promise<void> };
     };
   }
 }
@@ -15,8 +14,9 @@ export function PwaRegister() {
   const [offline, setOffline] = useState(false);
 
   useEffect(() => {
-    // Inside the native mobile shell, documents must not hijack the webview:
-    // open PDFs in the in-app system browser sheet, which has a Done button.
+    // Inside the native mobile shell, documents open in the app's own
+    // webview, where iOS renders PDFs natively. The standard left-edge
+    // swipe (enabled in the iOS shell) navigates back to the app.
     const onDocumentClick = (event: MouseEvent): void => {
       if (!window.Capacitor?.isNativePlatform?.()) {
         return;
@@ -29,22 +29,8 @@ export function PwaRegister() {
       if (!/\.pdf($|[?#])/i.test(href)) {
         return;
       }
-      let browser: { open: (options: { url: string }) => Promise<void> } | undefined;
-      try {
-        browser = window.Capacitor?.registerPlugin?.("Browser");
-      } catch {
-        browser = undefined;
-      }
-      if (!browser) {
-        // No sheet available: let the default navigation happen so the tap
-        // is never a silent no-op.
-        return;
-      }
       event.preventDefault();
-      browser.open({ url: href }).catch(() => {
-        // Native plugin missing or failed: fall back to plain navigation.
-        window.location.href = href;
-      });
+      window.location.href = href;
     };
     document.addEventListener("click", onDocumentClick, true);
 

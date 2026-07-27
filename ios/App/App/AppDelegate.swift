@@ -1,4 +1,5 @@
 import UIKit
+import WebKit
 import Capacitor
 
 @UIApplicationMain
@@ -26,7 +27,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        // Honor the standard iOS edge-swipe gestures for back and forward
+        // navigation inside the webview, matching what users expect from
+        // native apps. Idempotent, so re-running on each foreground is fine.
+        if let bridgeViewController = window?.rootViewController as? CAPBridgeViewController {
+            bridgeViewController.webView?.allowsBackForwardNavigationGestures = true
+        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

@@ -703,6 +703,42 @@ export function PolicyAssistantApp() {
   const lastFocusedBeforeDrawerRef = useRef<HTMLElement | null>(null);
   const nearBottomRef = useRef(true);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const historyPopRef = useRef(false);
+
+  /* ------------------------------------------- History and swipe-back */
+  // Every page change becomes a real browser history entry, so the iOS
+  // edge swipe (and the Back button on the web) returns to the previously
+  // viewed page, and a forward swipe only works after having gone back.
+  useEffect(() => {
+    const existing = (window.history.state ?? {}) as Record<string, unknown>;
+    if (!existing.piqView) {
+      window.history.replaceState({ ...existing, piqView: viewRef.current }, "");
+    }
+    const onPopState = (event: PopStateEvent): void => {
+      const target = (event.state as { piqView?: AppView } | null)?.piqView;
+      if (!target || target === viewRef.current) {
+        return;
+      }
+      historyPopRef.current = true;
+      setView(target);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (historyPopRef.current) {
+      historyPopRef.current = false;
+      return;
+    }
+    const current = (window.history.state as { piqView?: AppView } | null)?.piqView;
+    if (current === view) {
+      return;
+    }
+    window.history.pushState({ piqView: view }, "");
+  }, [view]);
 
   const activeDatasets = useMemo(
     () => datasets.filter((dataset) => !dataset.archivedAt),
@@ -6156,5 +6192,7 @@ function clearAuthQueryParams(): void {
   const url = new URL(window.location.href);
   url.searchParams.delete("verifyToken");
   url.searchParams.delete("resetToken");
-  window.history.replaceState({}, "", url.toString());
+  // Preserve any existing history state (the navigation integration tags
+  // entries with the active page) while stripping auth tokens from the URL.
+  window.history.replaceState(window.history.state, "", url.toString());
 }
