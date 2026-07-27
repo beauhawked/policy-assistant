@@ -3422,3 +3422,51 @@ html.hc .piq-reader-slot {
   border: 1px solid #0f2c46;
   box-shadow: none;
 }
+
+/* --------------------------------------------------------- Legal pages */
+
+a.pta-brand {
+  text-decoration: none;
+  color: inherit;
+}
+
+.pta-legal {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 48px 24px 72px;
+}
+
+.pta-legal h1 {
+  font-family: var(--font-schibsted), sans-serif;
+  font-size: 34px;
+  margin: 0 0 6px;
+  color: #0f2c46;
+}
+
+.pta-legal-date {
+  color: #5b7186;
+  font-size: 14px;
+  margin: 0 0 28px;
+}
+
+.pta-legal h2 {
+  font-family: var(--font-schibsted), sans-serif;
+  font-size: 20px;
+  margin: 30px 0 10px;
+  color: #0f2c46;
+}
+
+.pta-legal p {
+  line-height: 1.65;
+  color: #2c4257;
+  margin: 0 0 14px;
+}
+
+.pta-legal-note {
+  margin-top: 30px;
+  padding: 14px 16px;
+  border-left: 3px solid #0f2c46;
+  background: #eef3f8;
+  border-radius: 0 8px 8px 0;
+  font-size: 14px;
+}

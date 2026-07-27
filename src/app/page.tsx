@@ -154,7 +154,8 @@ export default function LandingPage() {
         </span>
         <p>
           A Scarlet Fire LLC product. Guidance is generated from your district&rsquo;s uploaded
-          policies and is not legal advice; verify critical decisions against the cited source.
+          policies and is not legal advice; verify critical decisions against the cited source.{" "}
+          <Link href={"/privacy" as Route}>Privacy Policy</Link>
         </p>
       </footer>
     </div>
