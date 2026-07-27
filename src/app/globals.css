@@ -2748,6 +2748,14 @@ html.hc .piq-detail-body{
     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
   }
 
+  /* iOS zooms the page when a focused control's text is under 16px.
+     Keep form controls at 16px on phones so focus never triggers zoom. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
   /* Phones: the mobile header carries the brand, so the chat header
      drops its duplicate lockup, and the sources pill truncates
      instead of overflowing. */
