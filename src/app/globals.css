@@ -3248,3 +3248,22 @@ a.piq-brand-mark {
     display: none;
   }
 }
+
+/* Pinned cards open their source conversation. */
+.piq-pin-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.piq-pin-main:hover .piq-pin-title {
+  color: var(--accent-deep);
+}

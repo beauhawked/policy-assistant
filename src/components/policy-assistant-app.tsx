@@ -4389,8 +4389,18 @@ export function PolicyAssistantApp() {
           <div className="piq-pin-grid">
             {pinnedAnswers.map((pin) => (
               <article className="piq-pin-card" key={pin.messageId}>
-                <span className="piq-pin-title">{pin.title}</span>
-                <span className="piq-pin-body">{pin.body}</span>
+                <button
+                  type="button"
+                  className="piq-pin-main"
+                  onClick={() => {
+                    if (pin.conversationId) {
+                      handleConversationOpen(pin.conversationId);
+                    }
+                  }}
+                >
+                  <span className="piq-pin-title">{pin.title}</span>
+                  <span className="piq-pin-body">{pin.body}</span>
+                </button>
                 <span className="piq-pin-foot">
                   <span className="piq-pin-meta">{pin.meta}</span>
                   <button
