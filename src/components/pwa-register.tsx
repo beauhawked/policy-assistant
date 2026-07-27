@@ -15,8 +15,8 @@ export function PwaRegister() {
 
   useEffect(() => {
     // Inside the native mobile shell, documents open in the app's own
-    // webview, where iOS renders PDFs natively. The standard left-edge
-    // swipe (enabled in the iOS shell) navigates back to the app.
+    // reader page, which renders PDFs with full pinch-to-zoom and a Back
+    // button. (The webview's inline PDF display cannot zoom reliably.)
     const onDocumentClick = (event: MouseEvent): void => {
       if (!window.Capacitor?.isNativePlatform?.()) {
         return;
@@ -25,12 +25,14 @@ export function PwaRegister() {
       if (!(anchor instanceof HTMLAnchorElement)) {
         return;
       }
-      const href = anchor.href;
-      if (!/\.pdf($|[?#])/i.test(href)) {
+      if (anchor.origin !== window.location.origin) {
+        return;
+      }
+      if (!/\.pdf($|[?#])/i.test(anchor.href)) {
         return;
       }
       event.preventDefault();
-      window.location.href = href;
+      window.location.href = `/reader?file=${encodeURIComponent(anchor.pathname)}`;
     };
     document.addEventListener("click", onDocumentClick, true);
 

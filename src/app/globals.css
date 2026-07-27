@@ -3275,3 +3275,106 @@ a.piq-brand-mark {
 .piq-pin-main:hover .piq-pin-title {
   color: var(--accent-deep);
 }
+
+/* ------------------------------------------------- In-app document reader */
+
+.piq-reader {
+  min-height: 100vh;
+  background: #dfe7ef;
+}
+
+.piq-reader-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
+  background: #0f2c46;
+  color: #ffffff;
+}
+
+.piq-reader-back {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 7px 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.piq-reader-back:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.piq-reader-logo {
+  flex-shrink: 0;
+}
+
+.piq-reader-title {
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.piq-reader-body {
+  padding: 18px 14px calc(28px + env(safe-area-inset-bottom, 0px));
+}
+
+.piq-reader-pages {
+  max-width: 980px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.piq-reader-slot {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 8px 26px rgba(15, 44, 70, 0.14);
+  overflow: hidden;
+}
+
+.piq-reader-slot.is-failed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #41576d;
+  font-size: 14px;
+}
+
+.piq-reader-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.piq-reader-status {
+  text-align: center;
+  color: #41576d;
+  font-size: 14px;
+  padding: 14px 0;
+}
+
+.piq-reader-status.is-error {
+  color: #8f2f3b;
+}
+
+html.hc .piq-reader {
+  background: #ffffff;
+}
+
+html.hc .piq-reader-slot {
+  border: 1px solid #0f2c46;
+  box-shadow: none;
+}
