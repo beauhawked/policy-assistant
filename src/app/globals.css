@@ -2743,6 +2743,8 @@ html.hc .piq-detail-body{
   }
 
   .piq-rail {
+    /* On phones the rail is the bottom bar: no top inset belongs here. */
+    padding-top: 8px;
     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
   }
 
