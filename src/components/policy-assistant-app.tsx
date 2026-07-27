@@ -713,7 +713,20 @@ export function PolicyAssistantApp() {
   // viewed page, and a forward swipe only works after having gone back.
   useEffect(() => {
     const existing = (window.history.state ?? {}) as Record<string, unknown>;
-    if (!existing.piqView) {
+    const savedView =
+      typeof existing.piqView === "string" &&
+      ["assistant", "history", "pinned", "library", "policy", "source", "help", "profile"].includes(
+        existing.piqView,
+      )
+        ? (existing.piqView as AppView)
+        : null;
+    if (savedView && savedView !== viewRef.current) {
+      // Coming back from an in-webview document (such as a PDF) reloads the
+      // app; reopen the page the user was actually on instead of the default.
+      historyPopRef.current = true;
+      setView(savedView);
+    }
+    if (!savedView) {
       window.history.replaceState({ ...existing, piqView: viewRef.current }, "");
     }
     const onPopState = (event: PopStateEvent): void => {

@@ -38,11 +38,13 @@ export const metadata: Metadata = {
   },
 };
 
+// Note: no maximumScale here. Pinch-to-zoom must stay available for
+// accessibility and for reading PDFs; the iOS focus-zoom quirk is prevented
+// by keeping mobile form controls at a 16px font instead.
 export const viewport: Viewport = {
   themeColor: "#0f2c46",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
 };
 
