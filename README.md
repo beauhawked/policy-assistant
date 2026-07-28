@@ -1,8 +1,11 @@
-# School District Policy Assistant
+# Policy to Action
 
-This Next.js app now supports two workflows:
+Policy to Action (formerly "School District Policy Assistant") is decision support for school district administrators: describe a real scenario in plain language and receive structured, citation-backed guidance built exclusively from the district's own board policies and handbooks.
 
-1. `Policy Assistant` (primary flow)
+The platform now spans four surfaces:
+
+1. `Public landing site` — the home route `/` serves the marketing landing page with resources and the privacy policy at `/privacy`. The signed-in app lives at `/policy-assistant`.
+2. `Policy Assistant` (primary flow)
 - Upload a district policy `.csv` file
 - Upload student and staff handbook documents (`.pdf`, `.txt`, `.md`)
 - Store policies in a Postgres database
@@ -10,8 +13,9 @@ This Next.js app now supports two workflows:
 - Verify email before activating the workspace
 - Reset password securely via email
 - Ask scenario-based questions and receive guidance grounded in policies plus student/staff handbook context using OpenAI
-
-2. `Policy Scraper` (existing flow)
+- Read documents in the branded in-app reader at `/reader` (PDF.js, pinch and button zoom)
+3. `iOS app` — a Capacitor shell (`ios/`) around the production site, distributed via TestFlight and the App Store. See `docs/mobile/mobile-release-log-2026-07-27.md` for architecture, runbooks, and distribution state, and `docs/mobile/App-Store-Listing-Kit.md` for the listing copy. Web deploys reach the app automatically; only changes under `ios/` need an Xcode rebuild.
+4. `Policy Scraper` (existing flow)
 - Scrape district policies from BoardDocs, table-based policy pages, or accordion pages with PDF policy links
 - Export results as CSV for upload into the assistant
 
@@ -51,7 +55,11 @@ On Vercel with Vercel Postgres, `POSTGRES_URL` is provided automatically, so
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The home route redirects to `/policy-assistant`.
+Open [http://localhost:3000](http://localhost:3000). The home route serves the public landing page; the signed-in app is at [/policy-assistant](http://localhost:3000/policy-assistant).
+
+## Deploying
+
+Production deploys run from this folder with `vercel --prod`. The iOS app loads the deployed site, so a web deploy is also an app update; users pick it up on next launch.
 
 ## Semantic retrieval (hybrid search)
 
@@ -82,7 +90,7 @@ automatically falls back to lexical retrieval, so chat never breaks.
 ## Account access
 
 - Users create an account and sign in at `/policy-assistant`.
-- New signup requires a district name, which is stored on the user profile.
+- New signup requires first and last name plus a district name; the platform greets users by name and tailors guidance using the optional role profile in Settings.
 - New accounts must verify email before uploading datasets or chatting.
 - Policy datasets are scoped to the signed-in account.
 - Handbook documents are scoped to the signed-in account.
@@ -92,13 +100,17 @@ automatically falls back to lexical retrieval, so chat never breaks.
 - Conversation history is saved per user and per dataset.
 - Users can reopen prior conversations after signing back in.
 - Password reset links are one-time and time-limited.
+- Settings offer password change, sign-out-everywhere, data export, account deletion, and accessibility controls (contrast, text size, reduced motion).
 
-## Security controls
+## Security and privacy controls
 
 - Email verification tokens are single-use and expire after 24 hours.
 - Password reset tokens are single-use and expire after 60 minutes.
 - Basic rate limiting is enabled for auth endpoints, uploads, and chat calls.
 - Policy assistant routes set `no-store` caching and security response headers.
+- Every model request is written to an append-only `model_call_logs` audit table.
+- An executed OpenAI Data Processing Agreement is archived in `docs/compliance/`; OpenAI does not train on platform content.
+- The public privacy policy lives at `/privacy`; the in-app Help section carries Getting started, FAQ, and Trust and privacy pages.
 
 ## Policy Assistant CSV mapping
 
@@ -161,3 +173,10 @@ Example URLs:
 - BoardDocs: `https://go.boarddocs.com/in/blm/Board.nsf/Public`
 - Table-based: `https://www.sarasotacountyschools.net/page/school-board-policies`
 - Accordion + PDF: `https://www.isd186.org/district-home-page/district-policies`
+
+## Documentation map
+
+- `docs/onboarding/` — the onboarding suite: participant quick start, district setup guide, user manual, technical blueprint, video script, plus the source kit to regenerate the PDFs.
+- `docs/mobile/` — iOS deployment guide, the mobile release log, and the App Store listing kit.
+- `docs/compliance/` — the executed OpenAI DPA.
+- `docs/security-audit-2026-07-14.md` and `docs/ux-design-audit-2026-07-24.md` — dated audit records.
