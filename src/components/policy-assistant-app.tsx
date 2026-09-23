@@ -30,6 +30,7 @@ import {
   LoadedReferenceDetail,
   NormalizedPolicyRow,
   PinnedAnswer,
+  PolicyAnswerEvidenceSnapshot,
   PolicyDataset,
   PolicyImportPreview,
   PolicyImportQuality,
