@@ -268,7 +268,7 @@ textarea::placeholder {
   flex: 1;
 }
 
-.piq-card-micro-label {
+.piq-microlabel {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -276,7 +276,7 @@ textarea::placeholder {
   text-transform: uppercase;
 }
 
-.piq-btn {
+.piq-button {
   border: 1px solid transparent;
   border-radius: 9px;
   padding: 9px 18px;
@@ -287,39 +287,39 @@ textarea::placeholder {
   transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
-.piq-btn-accent {
+.piq-button-primary {
   background: var(--accent);
   color: #fff;
 }
 
-.piq-btn-accent:hover:not(:disabled) {
+.piq-button-primary:hover:not(:disabled) {
   background: var(--accent-deep);
 }
 
-.piq-btn-ghost {
+.piq-button-ghost {
   background: var(--surface);
   border-color: var(--line-mid);
   color: var(--accent-deep);
 }
 
-.piq-btn-ghost:hover:not(:disabled) {
+.piq-button-ghost:hover:not(:disabled) {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
 
-.piq-btn-full {
+.piq-button-block {
   display: block;
   width: 100%;
   padding: 11px 0;
   text-align: center;
 }
 
-.piq-btn:disabled {
+.piq-button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.piq-link-btn {
+.piq-link {
   border: none;
   background: none;
   padding: 0;
@@ -329,12 +329,12 @@ textarea::placeholder {
   text-decoration: none;
 }
 
-.piq-link-btn:hover {
+.piq-link:hover {
   color: var(--accent);
   text-decoration: underline;
 }
 
-html.hc .piq-link-btn{
+html.hc .piq-link{
   text-decoration: underline;
 }
 
@@ -369,7 +369,7 @@ html.hc .piq-link-btn{
   font-size: 13px;
 }
 
-.piq-checkbox-label {
+.piq-checkbox {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -378,7 +378,7 @@ html.hc .piq-link-btn{
   cursor: pointer;
 }
 
-.piq-page-sub {
+.piq-note {
   color: var(--muted2);
   font-size: 13px;
   margin: 0;
@@ -388,7 +388,7 @@ html.hc .piq-link-btn{
   margin-top: -6px;
 }
 
-.piq-empty-title {
+.piq-lead {
   color: var(--muted2);
   margin: -4px 0 0;
 }
@@ -398,18 +398,18 @@ html.hc .piq-link-btn{
   font-size: 13px;
 }
 
-.piq-banner {
+.piq-feedback {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.piq-banner:empty {
+.piq-feedback:empty {
   display: none;
 }
 
 .piq-status,
-.piq-banner-error {
+.piq-error {
   margin: 0;
   border-radius: 9px;
   padding: 8px 12px;
@@ -422,13 +422,13 @@ html.hc .piq-link-btn{
   color: var(--accent-deep);
 }
 
-.piq-banner-error {
+.piq-error {
   background: var(--danger-soft);
   border: 1px solid var(--danger-line);
   color: var(--danger);
 }
 
-.piq-status-dot {
+.piq-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -436,7 +436,7 @@ html.hc .piq-link-btn{
   flex: none;
 }
 
-.piq-status-dot.is-warn {
+.piq-dot.is-warn {
   background: var(--warn);
 }
 
@@ -457,7 +457,7 @@ html.hc .piq-link-btn{
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 
-.piq-pulse-dot {
+.piq-spinner {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -466,7 +466,7 @@ html.hc .piq-link-btn{
   animation: piq-spin 700ms linear infinite;
 }
 
-.piq-brand-header {
+.piq-brand {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -500,7 +500,7 @@ html.hc .piq-link-btn{
   font-size: 13px;
 }
 
-.piq-brand-name {
+.piq-brand-word {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 17px;
@@ -511,7 +511,7 @@ html.hc .piq-link-btn{
    Boot + split (auth) screens
    ========================================================================= */
 
-.piq-loading-screen {
+.piq-boot {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -533,17 +533,17 @@ html.hc .piq-link-btn{
   overflow: hidden;
 }
 
-.piq-loading-screen p {
+.piq-boot p {
   margin: 0;
 }
 
-.piq-auth-page {
+.piq-split {
   display: flex;
   min-height: 100dvh;
   background: #f6f8fa;
 }
 
-.piq-auth-brand-panel {
+.piq-split-brand {
   width: 44%;
   background: var(--navy);
   color: #fff;
@@ -554,14 +554,14 @@ html.hc .piq-link-btn{
   padding: calc(44px + env(safe-area-inset-top, 0px)) 48px 44px 48px;
 }
 
-.piq-brand-hero {
+.piq-split-pitch {
   display: flex;
   flex-direction: column;
   gap: 14px;
   max-width: 400px;
 }
 
-.piq-brand-hero h1 {
+.piq-split-pitch h1 {
   margin: 0;
   font-family: var(--font-display);
   font-weight: 700;
@@ -570,23 +570,23 @@ html.hc .piq-link-btn{
   letter-spacing: -0.015em;
 }
 
-.piq-brand-hero p {
+.piq-split-pitch p {
   margin: 0;
   color: var(--on-navy);
   font-size: 15px;
 }
 
-.piq-brand-footer {
+.piq-split-footnote {
   margin: 0;
   color: #5c7791;
   font-size: 12.5px;
 }
 
-html.hc .piq-brand-footer{
+html.hc .piq-split-footnote{
   color: var(--on-navy);
 }
 
-.piq-auth-form-panel {
+.piq-split-body {
   flex: 1;
   display: flex;
   align-items: center;
@@ -622,31 +622,31 @@ html.hc .piq-brand-footer{
   gap: 14px;
 }
 
-.piq-form-group {
+.piq-field {
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
 
-.piq-form-row {
+.piq-field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
 @media (max-width: 480px) {
-  .piq-form-row {
+  .piq-field-row {
     grid-template-columns: 1fr;
   }
 }
 
-.piq-form-group label {
+.piq-field label {
   font-size: 12.5px;
   font-weight: 600;
   color: var(--text-soft);
 }
 
-.piq-form-group input {
+.piq-field input {
   border: 1px solid var(--line-strong);
   border-radius: 9px;
   padding: 10px 13px;
@@ -668,14 +668,14 @@ html.hc .piq-brand-footer{
    First-run setup
    ========================================================================= */
 
-.piq-setup-container {
+.piq-setup {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: #f6f8fa;
 }
 
-.piq-setup-header {
+.piq-setup-bar {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -684,7 +684,7 @@ html.hc .piq-brand-footer{
   background: var(--surface);
 }
 
-.piq-setup-progress {
+.piq-setup-title {
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 15px;
@@ -715,7 +715,7 @@ html.hc .piq-brand-footer{
   gap: 2px;
 }
 
-.piq-step-item {
+.piq-step {
   display: flex;
   gap: 12px;
   align-items: center;
@@ -730,12 +730,12 @@ html.hc .piq-brand-footer{
   color: inherit;
 }
 
-.piq-step-item.is-current {
+.piq-step.is-current {
   background: var(--surface);
   border-color: var(--chip-line);
 }
 
-.piq-step-num {
+.piq-step-marker {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -749,12 +749,12 @@ html.hc .piq-brand-footer{
   flex: none;
 }
 
-.piq-step-num.is-current {
+.piq-step-marker.is-current {
   border-color: var(--accent);
   color: var(--accent-deep);
 }
 
-.piq-step-num.is-done {
+.piq-step-marker.is-done {
   background: var(--good);
   border-color: var(--good);
   color: #fff;
@@ -771,7 +771,7 @@ html.hc .piq-brand-footer{
   font-size: 12.5px;
 }
 
-.piq-step-line {
+.piq-step-connector {
   display: block;
   width: 2px;
   height: 14px;
@@ -808,7 +808,7 @@ html.hc .piq-brand-footer{
    App shell
    ========================================================================= */
 
-.piq-app-layout {
+.piq-app {
   display: flex;
   height: 100dvh;
   overflow: hidden;
@@ -825,7 +825,7 @@ html.hc .piq-brand-footer{
   padding: 14px 0;
 }
 
-.piq-logo-mark {
+.piq-rail-mark {
   margin-bottom: 12px;
 }
 
@@ -835,7 +835,7 @@ html.hc .piq-brand-footer{
   gap: 6px;
 }
 
-.piq-rail-btn {
+.piq-rail-button {
   width: 36px;
   height: 36px;
   border: none;
@@ -851,21 +851,21 @@ html.hc .piq-brand-footer{
   transition: background 140ms ease, color 140ms ease;
 }
 
-.piq-rail-btn:hover {
+.piq-rail-button:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 
-.piq-rail-btn.is-active {
+.piq-rail-button.is-active {
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
 }
 
-.piq-rail-tooltip {
+.piq-rail-label {
   display: none;
 }
 
-.piq-rail-avatar {
+.piq-avatar {
   width: 30px;
   height: 30px;
   border: none;
@@ -881,12 +881,12 @@ html.hc .piq-brand-footer{
   margin-top: 4px;
 }
 
-.piq-rail-avatar.is-light {
+.piq-avatar.is-light {
   background: #dce7ef;
   color: var(--navy);
 }
 
-.piq-modal-overlay {
+.piq-scrim {
   position: fixed;
   inset: 0;
   border: none;
@@ -936,7 +936,7 @@ html.hc .piq-brand-footer{
   gap: 8px;
 }
 
-.piq-account-name-actions .piq-btn {
+.piq-account-name-actions .piq-button {
   flex: 1;
   padding: 8px 0;
   text-align: center;
@@ -948,7 +948,7 @@ html.hc .piq-brand-footer{
   font-size: 12.5px;
 }
 
-.piq-workspace-content {
+.piq-main {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -962,13 +962,13 @@ html.hc .piq-brand-footer{
    Assistant
    ========================================================================= */
 
-.piq-assistant-layout {
+.piq-assistant {
   flex: 1;
   display: flex;
   min-width: 0;
 }
 
-.piq-chat-column {
+.piq-chat {
   position: relative;
   flex: 1;
   min-width: 0;
@@ -977,7 +977,7 @@ html.hc .piq-brand-footer{
   background: var(--chat-bg);
 }
 
-.piq-offline-banner {
+.piq-offline {
   flex: none;
   display: flex;
   align-items: center;
@@ -991,7 +991,7 @@ html.hc .piq-brand-footer{
   font-weight: 600;
 }
 
-.piq-chat-header {
+.piq-chat-head {
   flex: none;
   display: flex;
   align-items: center;
@@ -1003,7 +1003,7 @@ html.hc .piq-brand-footer{
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
 }
 
-.piq-header-title {
+.piq-thread-title {
   margin: 0;
   font-family: var(--font-display);
   font-weight: 600;
@@ -1027,7 +1027,7 @@ html.hc .piq-brand-footer{
   white-space: nowrap;
 }
 
-.piq-message-list {
+.piq-messages {
   flex: 1;
   overflow-y: auto;
   padding: 22px 28px;
@@ -1036,7 +1036,7 @@ html.hc .piq-brand-footer{
   gap: 18px;
 }
 
-.piq-user-bubble {
+.piq-bubble-user {
   align-self: flex-end;
   max-width: 64%;
   background:
@@ -1075,19 +1075,19 @@ html.hc .piq-brand-footer{
   animation: piq-fade-up 0.3s ease;
 }
 
-.piq-thinking-card {
+.piq-answer-pending {
   flex-direction: row;
   align-items: center;
   gap: 10px;
   color: var(--muted2);
 }
 
-.piq-thinking-indicator {
+.piq-typing {
   display: inline-flex;
   gap: 4px;
 }
 
-.piq-thinking-indicator i {
+.piq-typing i {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -1095,11 +1095,11 @@ html.hc .piq-brand-footer{
   animation: piq-typing 1.2s ease-in-out infinite;
 }
 
-.piq-thinking-indicator i:nth-child(2) {
+.piq-typing i:nth-child(2) {
   animation-delay: 0.15s;
 }
 
-.piq-thinking-indicator i:nth-child(3) {
+.piq-typing i:nth-child(3) {
   animation-delay: 0.3s;
 }
 
@@ -1113,7 +1113,7 @@ html.hc .piq-brand-footer{
   margin: 0;
 }
 
-.piq-citation-chips {
+.piq-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -1136,7 +1136,7 @@ html.hc .piq-brand-footer{
   border-color: var(--accent);
 }
 
-.piq-action-block,
+.piq-recommended,
 .piq-implications {
   display: flex;
   flex-direction: column;
@@ -1150,12 +1150,12 @@ html.hc .piq-brand-footer{
   border-left-color: var(--accent);
 }
 
-.piq-action-block p,
+.piq-recommended p,
 .piq-implications p {
   margin: 0;
 }
 
-.piq-action-block b {
+.piq-recommended b {
   color: var(--good);
 }
 
@@ -1165,13 +1165,13 @@ html.hc .piq-brand-footer{
   font-size: 12.5px;
 }
 
-.piq-card-footer {
+.piq-answer-meta {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
 }
 
-.piq-empty-state {
+.piq-empty {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1181,7 +1181,7 @@ html.hc .piq-brand-footer{
   text-align: center;
 }
 
-.piq-empty-state h2 {
+.piq-empty h2 {
   margin: 0;
   font-family: var(--font-display);
   font-weight: 700;
@@ -1189,19 +1189,19 @@ html.hc .piq-brand-footer{
   letter-spacing: -0.015em;
 }
 
-.piq-empty-state p {
+.piq-empty p {
   margin: 0;
   color: var(--muted2);
   max-width: 46ch;
 }
 
-.piq-empty-state .piq-empty-sub {
+.piq-empty .piq-empty-hint {
   font-size: 12.5px;
   color: var(--muted);
   max-width: 52ch;
 }
 
-.piq-starter-prompts {
+.piq-starters {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -1209,7 +1209,7 @@ html.hc .piq-brand-footer{
   max-width: 560px;
 }
 
-.piq-starter-btn {
+.piq-starter {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1221,7 +1221,7 @@ html.hc .piq-brand-footer{
   transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
 
-.piq-starter-btn:hover {
+.piq-starter:hover {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent-deep);
@@ -1256,7 +1256,7 @@ html.hc .piq-brand-footer{
   height: 42px;
 }
 
-.piq-scroll-bottom-btn {
+.piq-jump {
   position: absolute;
   right: 30px;
   bottom: 118px;
@@ -1272,7 +1272,7 @@ html.hc .piq-brand-footer{
   box-shadow: var(--shadow-bubble);
 }
 
-.piq-composer-container {
+.piq-composer-wrap {
   flex: none;
   padding: 14px 28px 18px;
   display: flex;
@@ -1280,7 +1280,7 @@ html.hc .piq-brand-footer{
   gap: 8px;
 }
 
-.piq-composer-card {
+.piq-composer {
   display: flex;
   align-items: flex-end;
   gap: 10px;
@@ -1297,16 +1297,16 @@ html.hc .piq-brand-footer{
     var(--shadow-card);
 }
 
-.piq-composer-card:focus-within {
+.piq-composer:focus-within {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.piq-composer-card textarea:focus-visible {
+.piq-composer textarea:focus-visible {
   outline: none;
 }
 
-.piq-composer-card textarea {
+.piq-composer textarea {
   flex: 1;
   border: none;
   resize: none;
@@ -1317,7 +1317,7 @@ html.hc .piq-brand-footer{
   line-height: 1.5;
 }
 
-.piq-composer-disclaimer {
+.piq-composer-note {
   margin: 0;
   text-align: center;
   color: var(--muted);
@@ -1350,7 +1350,7 @@ html.hc .piq-brand-footer{
 
 /* ------------------------------------------------------- Evidence drawer */
 
-.piq-evidence-drawer {
+.piq-drawer {
   width: 280px;
   flex: none;
   border-left: 1px solid var(--line);
@@ -1362,12 +1362,12 @@ html.hc .piq-brand-footer{
   overflow-y: auto;
 }
 
-.piq-evidence-header {
+.piq-drawer-head {
   display: flex;
   align-items: center;
 }
 
-.piq-evidence-close {
+.piq-drawer-close {
   border: none;
   background: none;
   color: var(--muted);
@@ -1376,7 +1376,7 @@ html.hc .piq-brand-footer{
   cursor: pointer;
 }
 
-.piq-evidence-close:hover {
+.piq-drawer-close:hover {
   color: var(--text);
 }
 
@@ -1404,7 +1404,7 @@ html.hc .piq-brand-footer{
   font-size: 11.5px;
 }
 
-.piq-evidence-disclaimer {
+.piq-evidence-explainer {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
@@ -1415,13 +1415,13 @@ html.hc .piq-brand-footer{
    Page views (history, pinned, library, detail, add source)
    ========================================================================= */
 
-.piq-page-frame {
+.piq-page {
   flex: 1;
   background: var(--surface);
   overflow-y: auto;
 }
 
-.piq-page-frame {
+.piq-page-inner {
   max-width: 760px;
   margin: 0 auto;
   padding: 34px 24px;
@@ -1430,11 +1430,11 @@ html.hc .piq-brand-footer{
   gap: 16px;
 }
 
-.piq-page-frame.is-wide {
+.piq-page-inner.is-wide {
   max-width: 880px;
 }
 
-.piq-page-frame.is-narrow {
+.piq-page-inner.is-narrow {
   max-width: 720px;
   gap: 14px;
 }
@@ -1447,24 +1447,24 @@ html.hc .piq-brand-footer{
   letter-spacing: -0.01em;
 }
 
-.piq-empty-card {
+.piq-empty-note {
   margin: 0;
   color: var(--muted);
 }
 
-.piq-history-list {
+.piq-rows {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.piq-history-row {
+.piq-row {
   display: flex;
   align-items: stretch;
   gap: 8px;
 }
 
-.piq-history-main {
+.piq-row-main {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -1482,7 +1482,7 @@ html.hc .piq-brand-footer{
   transition: border-color 140ms ease, background 140ms ease;
 }
 
-.piq-history-main:hover {
+.piq-row-main:hover {
   border-color: var(--accent);
   background: var(--surface-soft);
 }
@@ -1499,13 +1499,13 @@ html.hc .piq-brand-footer{
   font-size: 12.5px;
 }
 
-.piq-history-date {
+.piq-row-when {
   flex: none;
   color: var(--muted);
   font-size: 12.5px;
 }
 
-.piq-icon-btn {
+.piq-icon-button {
   width: 30px;
   height: 30px;
   flex: none;
@@ -1522,42 +1522,42 @@ html.hc .piq-brand-footer{
   transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
 
-a.piq-icon-btn:hover {
+a.piq-icon-button:hover {
   text-decoration: none;
 }
 
-.piq-icon-btn:hover:not(:disabled) {
+.piq-icon-button:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent-deep);
   background: var(--accent-soft);
 }
 
-.piq-icon-btn.is-danger:hover:not(:disabled) {
+.piq-icon-button.is-danger:hover:not(:disabled) {
   border-color: var(--danger-line);
   color: var(--danger);
   background: var(--danger-soft);
 }
 
-.piq-icon-btn.is-active {
+.piq-icon-button.is-active {
   border-color: var(--accent);
   color: var(--accent-deep);
   background: var(--accent-soft);
 }
 
-.piq-icon-btn:disabled {
+.piq-icon-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 /* --------------------------------------------------------------- Pinned */
 
-.piq-pinned-grid {
+.piq-pin-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
-.piq-pinned-card {
+.piq-pin-card {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 16px;
@@ -1567,20 +1567,20 @@ a.piq-icon-btn:hover {
   transition: border-color 140ms ease;
 }
 
-.piq-pinned-card:hover {
+.piq-pin-card:hover {
   border-color: var(--accent);
 }
 
-.piq-pinned-title {
+.piq-pin-title {
   font-weight: 600;
 }
 
-.piq-pinned-body {
+.piq-pin-body {
   color: var(--text-soft);
   font-size: 13px;
 }
 
-.piq-pinned-footer {
+.piq-pin-foot {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1595,13 +1595,13 @@ a.piq-icon-btn:hover {
 
 /* -------------------------------------------------------------- Library */
 
-.piq-page-header {
+.piq-library-head {
   display: flex;
   align-items: center;
   gap: 14px;
 }
 
-.piq-search-input {
+.piq-search {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1612,16 +1612,16 @@ a.piq-icon-btn:hover {
   color: var(--muted);
 }
 
-.piq-search-input:focus-within {
+.piq-search:focus-within {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.piq-search-input input:focus-visible {
+.piq-search input:focus-visible {
   outline: none;
 }
 
-.piq-search-input input {
+.piq-search input {
   flex: 1;
   min-width: 0;
   border: none;
@@ -1629,13 +1629,13 @@ a.piq-icon-btn:hover {
   color: var(--text);
 }
 
-.piq-filter-bar {
+.piq-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.piq-filter-pill {
+.piq-pill {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 5px 13px;
@@ -1647,11 +1647,11 @@ a.piq-icon-btn:hover {
   transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
 
-.piq-filter-pill:hover {
+.piq-pill:hover {
   color: var(--text);
 }
 
-.piq-filter-pill.is-active {
+.piq-pill.is-active {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent-deep);
@@ -1698,7 +1698,7 @@ a.piq-icon-btn:hover {
   background: var(--surface-soft);
 }
 
-.piq-table-title-cell {
+.piq-table-title {
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -1706,7 +1706,7 @@ a.piq-icon-btn:hover {
   min-width: 0;
 }
 
-.piq-active-badge {
+.piq-active-tag {
   font-style: normal;
   font-size: 10.5px;
   font-weight: 600;
@@ -1719,7 +1719,7 @@ a.piq-icon-btn:hover {
   padding: 1px 7px;
 }
 
-.piq-health-badge {
+.piq-health {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -1729,7 +1729,7 @@ a.piq-icon-btn:hover {
   color: var(--muted2);
 }
 
-.piq-row-actions {
+.piq-table-actions {
   display: inline-flex;
   gap: 4px;
   justify-content: flex-end;
@@ -1743,7 +1743,7 @@ a.piq-icon-btn:hover {
   font-size: 13px;
 }
 
-.piq-callout-card {
+.piq-callout {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1759,11 +1759,11 @@ a.piq-icon-btn:hover {
   font-weight: 600;
 }
 
-.piq-callout-card .piq-callout-content {
+.piq-callout .piq-callout-text {
   flex: 1;
 }
 
-.piq-callout-card .piq-btn {
+.piq-callout .piq-button {
   flex: none;
   padding: 6px 14px;
   font-size: 13px;
@@ -1805,7 +1805,7 @@ a.piq-icon-btn:hover {
 
 /* -------------------------------------------------------- Policy detail */
 
-.piq-detail-nav {
+.piq-back {
   align-self: flex-start;
   border: none;
   background: none;
@@ -1816,12 +1816,12 @@ a.piq-icon-btn:hover {
   cursor: pointer;
 }
 
-.piq-detail-nav:hover {
+.piq-back:hover {
   color: var(--accent-deep);
   text-decoration: underline;
 }
 
-.piq-detail-header {
+.piq-detail-head {
   display: flex;
   align-items: baseline;
   gap: 12px;
@@ -1841,7 +1841,7 @@ a.piq-icon-btn:hover {
   color: var(--accent-deep);
 }
 
-.piq-detail-meta-bar {
+.piq-detail-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1876,7 +1876,7 @@ html.hc .piq-detail-body{
   gap: 8px;
 }
 
-.piq-detail-related {
+.piq-related {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1891,12 +1891,12 @@ html.hc .piq-detail-body{
 
 /* ----------------------------------------------------------- Add source */
 
-.piq-source-tabs {
+.piq-tabs {
   display: flex;
   gap: 10px;
 }
 
-.piq-source-tab {
+.piq-tab {
   flex: 1;
   padding: 12px 14px;
   border: 1px solid var(--line);
@@ -1910,29 +1910,29 @@ html.hc .piq-detail-body{
   transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
 
-.piq-source-tab:hover {
+.piq-tab:hover {
   border-color: var(--accent);
 }
 
-.piq-source-tab.is-active {
+.piq-tab.is-active {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent-deep);
   font-weight: 600;
 }
 
-.piq-importer-panel {
+.piq-import-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.piq-input-row {
+.piq-import-row {
   display: flex;
   gap: 10px;
 }
 
-.piq-input-row .piq-btn {
+.piq-import-row .piq-button {
   padding: 0 22px;
 }
 
@@ -1951,7 +1951,7 @@ html.hc .piq-detail-body{
   font-size: 13px;
 }
 
-.piq-handbook-grid {
+.piq-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
@@ -2003,13 +2003,13 @@ html.hc .piq-detail-body{
   pointer-events: none;
 }
 
-.piq-preview-card {
+.piq-preview {
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
 }
 
-.piq-preview-header {
+.piq-preview-head {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -2100,7 +2100,7 @@ html.hc .piq-detail-body{
   padding-left: 34px;
 }
 
-.piq-meta-actions {
+.piq-actions-right {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
@@ -2112,17 +2112,17 @@ html.hc .piq-detail-body{
    ========================================================================= */
 
 @media (max-width: 980px) {
-  .piq-auth-page {
+  .piq-split {
     flex-direction: column;
   }
 
-  .piq-auth-brand-panel {
+  .piq-split-brand {
     width: 100%;
     padding: calc(28px + env(safe-area-inset-top, 0px)) 24px 28px 24px;
     gap: 20px;
   }
 
-  .piq-brand-hero h1 {
+  .piq-split-pitch h1 {
     font-size: 24px;
   }
 
@@ -2138,7 +2138,7 @@ html.hc .piq-detail-body{
     overflow-x: auto;
   }
 
-  .piq-step-line {
+  .piq-step-connector {
     display: none;
   }
 
@@ -2146,8 +2146,8 @@ html.hc .piq-detail-body{
     max-width: none;
   }
 
-  .piq-handbook-grid,
-  .piq-pinned-grid {
+  .piq-grid-2,
+  .piq-pin-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2160,7 +2160,7 @@ html.hc .piq-detail-body{
     row-gap: 4px;
   }
 
-  .piq-row-actions {
+  .piq-table-actions {
     grid-row: 1 / span 3;
     grid-column: 2;
     align-self: start;
@@ -2168,7 +2168,7 @@ html.hc .piq-detail-body{
 }
 
 @media (max-width: 768px) {
-  .piq-app-layout {
+  .piq-app {
     flex-direction: column;
   }
 
@@ -2193,7 +2193,7 @@ html.hc .piq-detail-body{
     padding: 2px 9px;
   }
 
-  .piq-workspace-content {
+  .piq-main {
     order: 1;
     min-height: 0;
   }
@@ -2209,9 +2209,9 @@ html.hc .piq-detail-body{
     border-top: 1px solid var(--line);
   }
 
-  .piq-logo-mark,
+  .piq-rail-mark,
   .piq-rail-hc,
-  .piq-rail .piq-rail-avatar,
+  .piq-rail .piq-avatar,
   .piq-rail .piq-spacer {
     display: none;
   }
@@ -2221,7 +2221,7 @@ html.hc .piq-detail-body{
     flex-direction: row;
   }
 
-  .piq-rail-btn {
+  .piq-rail-button {
     flex: 1;
     flex-direction: column;
     gap: 2px;
@@ -2232,13 +2232,13 @@ html.hc .piq-detail-body{
     color: var(--muted);
   }
 
-  .piq-rail-btn:hover,
-  .piq-rail-btn.is-active {
+  .piq-rail-button:hover,
+  .piq-rail-button.is-active {
     background: var(--accent-soft);
     color: var(--accent-deep);
   }
 
-  .piq-rail-tooltip {
+  .piq-rail-label {
     display: block;
     font-size: 10.5px;
     font-weight: 600;
@@ -2251,12 +2251,12 @@ html.hc .piq-detail-body{
     bottom: auto;
   }
 
-  .piq-message-list {
+  .piq-messages {
     padding: 16px;
     gap: 14px;
   }
 
-  .piq-user-bubble {
+  .piq-bubble-user {
     max-width: 82%;
   }
 
@@ -2264,19 +2264,19 @@ html.hc .piq-detail-body{
     max-width: 96%;
   }
 
-  .piq-composer-container {
+  .piq-composer-wrap {
     padding: 10px 14px 14px;
   }
 
-  .piq-chat-header {
+  .piq-chat-head {
     padding: 10px 14px;
   }
 
-  .piq-chat-header .piq-sources-pill {
+  .piq-chat-head .piq-sources-pill {
     display: none;
   }
 
-  .piq-evidence-drawer {
+  .piq-drawer {
     position: fixed;
     left: 0;
     right: 0;
@@ -2290,24 +2290,24 @@ html.hc .piq-detail-body{
     z-index: 30;
   }
 
-  .piq-page-frame {
+  .piq-page-inner {
     padding: 20px 16px;
   }
 
-  .piq-page-header {
+  .piq-library-head {
     flex-wrap: wrap;
   }
 
-  .piq-search-input {
+  .piq-search {
     width: 100%;
     order: 3;
   }
 
-  .piq-source-tabs {
+  .piq-tabs {
     flex-direction: column;
   }
 
-  .piq-scroll-bottom-btn {
+  .piq-jump {
     bottom: 132px;
     right: 16px;
   }
@@ -2587,11 +2587,11 @@ html.hc .piq-detail-body{
     white-space: normal;
   }
 
-  .piq-input-row {
+  .piq-import-row {
     flex-wrap: wrap;
   }
 
-  .piq-callout-card {
+  .piq-callout {
     flex-wrap: wrap;
   }
 
@@ -2601,11 +2601,11 @@ html.hc .piq-detail-body{
     z-index: 40;
   }
 
-  .piq-evidence-drawer {
+  .piq-drawer {
     bottom: 58px;
   }
 
-  .piq-step-item {
+  .piq-step {
     flex: none;
   }
 }
@@ -2622,34 +2622,34 @@ html.hc .piq-detail-body{
    ========================================================================= */
 
 @media print {
-  .piq-app-layout,
-  .piq-workspace-content,
-  .piq-assistant-layout,
-  .piq-chat-column,
-  .piq-message-list {
+  .piq-app,
+  .piq-main,
+  .piq-assistant,
+  .piq-chat,
+  .piq-messages {
     display: block;
     height: auto;
     overflow: visible;
   }
 
-  .piq-chat-column {
+  .piq-chat {
     background: #fff;
   }
 
   .piq-rail,
   .piq-mobile-header,
-  .piq-composer-container,
+  .piq-composer-wrap,
   .piq-disclaimer,
-  .piq-evidence-drawer,
+  .piq-drawer,
   .piq-debug,
-  .piq-chat-header .piq-icon-btn,
+  .piq-chat-head .piq-icon-button,
   .piq-bubble-actions {
     display: none !important;
   }
 
-  .piq-user-bubble,
-  .piq-assistant-card,
-  .piq-pinned-card {
+  .piq-bubble-user,
+  .piq-answer-card,
+  .piq-pin-card {
     max-width: 100%;
     box-shadow: none;
     break-inside: avoid;
@@ -2687,7 +2687,7 @@ html.hc .piq-detail-body{
   color: var(--accent-deep);
 }
 
-.piq-help-downloads-grid {
+.piq-help-downloads {
   margin: 0;
   padding-left: 20px;
   display: flex;
@@ -2733,7 +2733,7 @@ html.hc .piq-detail-body{
   padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
 }
 
-.piq-chat-header {
+.piq-chat-head {
   padding-top: calc(11px + env(safe-area-inset-top, 0px) * 0.5);
 }
 
@@ -2759,8 +2759,8 @@ html.hc .piq-detail-body{
   /* Phones: the mobile header carries the brand, so the chat header
      drops its duplicate lockup, and the sources pill truncates
      instead of overflowing. */
-  .piq-chat-header .piq-head-brand,
-  .piq-chat-header .piq-head-divider {
+  .piq-chat-head .piq-head-brand,
+  .piq-chat-head .piq-head-divider {
     display: none;
   }
 
@@ -2772,13 +2772,13 @@ html.hc .piq-detail-body{
     white-space: nowrap;
   }
 
-  .piq-sources-pill .piq-status-dot {
+  .piq-sources-pill .piq-dot {
     display: inline-block;
     vertical-align: middle;
     margin-right: 5px;
   }
 
-  .piq-composer-container {
+  .piq-composer-wrap {
     padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px) * 0.6);
   }
 }
@@ -2800,7 +2800,7 @@ html.hc .piq-detail-body{
   line-height: 1.5;
 }
 
-.piq-hint {
+.piq-field-hint {
   font-size: 11.5px;
   color: var(--muted);
 }
@@ -2819,7 +2819,7 @@ html.hc .piq-detail-body{
   color: var(--danger);
 }
 
-.piq-settings-section {
+.piq-settings-card {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -2859,7 +2859,7 @@ html.hc .piq-detail-body{
   color: var(--muted);
 }
 
-.piq-settings-options {
+.piq-settings-pills {
   margin: 0;
 }
 
@@ -2869,12 +2869,12 @@ html.hc .piq-detail-body{
   color: var(--danger);
 }
 
-.piq-btn-danger {
+.piq-button-danger {
   background: var(--danger);
   color: #ffffff;
 }
 
-.piq-btn-danger:hover:not(:disabled) {
+.piq-button-danger:hover:not(:disabled) {
   background: #922c22;
 }
 
@@ -4074,7 +4074,7 @@ a.piq-brand-mark {
 }
 
 /* Pinned cards open their source conversation. */
-.piq-pinned-header {
+.piq-pin-main {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -4088,7 +4088,7 @@ a.piq-brand-mark {
   cursor: pointer;
 }
 
-.piq-pinned-header:hover .piq-pinned-title {
+.piq-pin-main:hover .piq-pin-title {
   color: var(--accent-deep);
 }
 
@@ -4719,391 +4719,4 @@ a.pta-brand {
   .admin-audit-time {
     min-width: 0;
   }
-}
-
-/* =========================================================================
-   Componentization additions — 2026-09-23
-   The 2026-09-11 refactor introduced a new class vocabulary. Most of it was
-   renamed onto the existing proven rules; this section supplies the classes
-   that had no counterpart. Values come from
-   design_handoff_policyiq_rebuild/README.md (high-fidelity handoff).
-   ========================================================================= */
-
-/* ------------------------------------------------------------ Form labels */
-.piq-label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-soft);
-}
-.piq-checkbox-group {
-  display: flex;
-  align-items: flex-end;
-}
-
-/* --------------------------------------------------------- Banner variants */
-.piq-banner-info {
-  background: var(--accent-soft);
-  border-color: var(--chip-line);
-  color: var(--accent-deep);
-}
-.piq-banner-success {
-  background: #eef8f1;
-  border-color: #cfe8d9;
-  color: #1f6b41;
-}
-
-/* ------------------------------------------------------- Button extensions */
-.piq-btn-sm {
-  padding: 6px 12px;
-  font-size: 12.5px;
-  border-radius: 7px;
-}
-.piq-btn-row,
-.piq-btn-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-.piq-text-btn {
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--accent-deep);
-  cursor: pointer;
-}
-.piq-text-btn:hover {
-  text-decoration: underline;
-  color: var(--accent);
-}
-.piq-icon-btn.piq-danger-btn:hover:not(:disabled) {
-  border-color: #e7b4ac;
-  background: #fdefed;
-  color: #b0362a;
-}
-.piq-dot-sep {
-  color: var(--muted);
-  margin: 0 2px;
-}
-.piq-divider {
-  border: 0;
-  border-top: 1px solid var(--line);
-  margin: 22px 0;
-}
-
-/* --------------------------------------------------------- Page furniture */
-.piq-header-right,
-.piq-header-actions,
-.piq-meta-actions,
-.piq-preview-actions,
-.piq-evidence-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.piq-evidence-actions {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-  margin-top: 12px;
-}
-.piq-archived-pill {
-  margin-left: auto;
-}
-.piq-callout-icon {
-  color: var(--warn);
-  font-size: 15px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-/* -------------------------------------------------------------- Rail parts */
-.piq-rail-brand {
-  border: 0;
-  background: none;
-  padding: 0;
-  margin-bottom: 12px;
-  cursor: pointer;
-  display: flex;
-  justify-content: center;
-}
-.piq-rail-footer {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding-bottom: 14px;
-}
-
-/* The logo square appears in the rail, on the auth split, in the setup
-   header and on the boot screen. One class, four contexts. */
-.piq-logo-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  font-family: var(--font-schibsted), "Schibsted Grotesk", sans-serif;
-  font-weight: 700;
-  font-size: 16px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.piq-loading-screen .piq-logo-mark {
-  width: 40px;
-  height: 40px;
-  font-size: 20px;
-}
-
-/* ------------------------------------------------------------ Chat column */
-.piq-message-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.piq-action-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.piq-action-list li {
-  font-size: 13.5px;
-  line-height: 1.55;
-}
-/* Green bold numerals for recommended actions; the setup stepper uses the
-   same class name for its circled step number, so scope this one. */
-.piq-action-list .piq-step-num {
-  all: unset;
-  color: var(--good);
-  font-weight: 700;
-  margin-right: 2px;
-}
-.piq-composer-textarea {
-  flex: 1;
-  border: 0;
-  outline: none;
-  background: none;
-  resize: none;
-  font: inherit;
-  font-size: 14px;
-  line-height: 1.5;
-  color: inherit;
-  padding: 8px 0;
-  max-height: 160px;
-}
-.piq-composer-textarea::placeholder {
-  color: var(--muted);
-}
-.piq-send-btn {
-  flex-shrink: 0;
-  align-self: flex-end;
-}
-.piq-chat-error {
-  margin: 0 28px 12px;
-  padding: 10px 14px;
-  border: 1px solid #e7b4ac;
-  border-radius: 10px;
-  background: #fdefed;
-  color: #b0362a;
-  font-size: 13px;
-}
-
-/* --------------------------------------------------------- Evidence drawer */
-.piq-evidence-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.piq-evidence-card-header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-.piq-evidence-chip-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--accent-deep);
-}
-.piq-evidence-loading {
-  font-size: 12.5px;
-  color: var(--muted);
-  font-style: italic;
-}
-
-/* ----------------------------------------------------------------- History */
-.piq-history-title {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
-.piq-history-meta {
-  font-size: 12.5px;
-  color: var(--muted);
-  margin-top: 2px;
-}
-
-/* ----------------------------------------------------------------- Tables */
-.piq-table-container,
-.piq-preview-table-container {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  overflow: hidden;
-}
-.piq-preview-table-container {
-  max-height: 340px;
-  overflow-y: auto;
-}
-.piq-table-sm {
-  font-size: 12.5px;
-}
-.piq-table-sm th,
-.piq-table-sm td {
-  padding: 8px 12px;
-}
-
-/* --------------------------------------------------------- Policy detail */
-.piq-meta-item {
-  font-size: 13px;
-  color: var(--muted2);
-}
-.piq-meta-label {
-  font-weight: 600;
-  color: var(--muted);
-}
-.piq-meta-val {
-  color: var(--text-soft);
-}
-
-/* ------------------------------------------------------------- Add source */
-.piq-preview-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 12px 14px;
-  border-top: 1px solid var(--line-soft);
-}
-.piq-handbook-card {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 16px;
-  background: #fff;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-/* ------------------------------------------------------------------- Help */
-.piq-help-download-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
-  color: inherit;
-  font-size: 13.5px;
-  transition: border-color 140ms ease, background 140ms ease;
-}
-.piq-help-download-card:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  text-decoration: none;
-}
-.piq-doc-icon { font-size: 16px; line-height: 1; }
-.piq-doc-label { flex: 1; font-weight: 600; }
-.piq-doc-arrow { color: var(--muted); }
-
-.piq-faq-accordion {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.piq-faq-question {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  border: 0;
-  background: none;
-  padding: 12px 14px;
-  font: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-.piq-faq-arrow {
-  color: var(--muted);
-  font-size: 10px;
-  flex-shrink: 0;
-}
-.piq-faq-answer {
-  padding: 0 14px 13px;
-  font-size: 13.5px;
-  line-height: 1.6;
-  color: var(--text-soft);
-}
-
-/* ------------------------------------------------------------ Profile modal */
-.piq-modal-card {
-  width: min(560px, calc(100vw - 32px));
-  max-height: calc(100vh - 64px);
-  display: flex;
-  flex-direction: column;
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 8px 28px rgba(15, 44, 70, 0.18);
-  overflow: hidden;
-}
-.piq-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--line);
-}
-.piq-modal-header h2 {
-  margin: 0;
-  font-family: var(--font-schibsted), "Schibsted Grotesk", sans-serif;
-  font-size: 17px;
-  font-weight: 600;
-}
-.piq-modal-close {
-  border: 0;
-  background: none;
-  padding: 4px;
-  font-size: 18px;
-  line-height: 1;
-  color: var(--muted);
-  cursor: pointer;
-}
-.piq-modal-close:hover { color: var(--text-soft); }
-.piq-modal-body {
-  padding: 20px;
-  overflow-y: auto;
-}
-.piq-modal-footer-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
 }
