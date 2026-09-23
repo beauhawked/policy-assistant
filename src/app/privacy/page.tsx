@@ -3,9 +3,9 @@ import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Policy to Action",
+  title: "Privacy Policy — Policy Aligned",
   description:
-    "How Policy to Action collects, uses, protects, and deletes information for school district workspaces.",
+    "How Policy Aligned collects, uses, protects, and deletes information for school district workspaces.",
 };
 
 const APP_ROUTE = "/policy-assistant" as Route;
@@ -18,7 +18,7 @@ export default function PrivacyPage() {
           <span className="pta-brand-chip">
             <Image src="/logo-icon.png" alt="" width={40} height={34} />
           </span>
-          <span className="pta-brand-word">Policy to Action</span>
+          <span className="pta-brand-word">Policy Aligned</span>
         </Link>
         <nav className="pta-nav-links" aria-label="Privacy navigation">
           <Link className="pta-button pta-button-ghost" href={APP_ROUTE}>
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         <p className="pta-legal-date">Effective July 27, 2026</p>
 
         <p>
-          Policy to Action is a decision-support platform for school district administrators,
+          Policy Aligned is a decision-support platform for school district administrators,
           operated by Scarlet Fire LLC. It answers scenario questions using only the board
           policies and handbooks a district uploads to its own workspace, with citations to the
           source text. This policy explains what information the platform collects, how it is
@@ -96,7 +96,7 @@ export default function PrivacyPage() {
 
         <h2>Students and children</h2>
         <p>
-          Policy to Action is a professional tool for adult school administrators and is not
+          Policy Aligned is a professional tool for adult school administrators and is not
           directed at children. We encourage users to describe scenarios using placeholders such
           as Student A rather than real student names, and the platform reminds users to do so.
         </p>
@@ -120,7 +120,7 @@ export default function PrivacyPage() {
           <span className="pta-brand-chip is-small">
             <Image src="/logo-icon.png" alt="" width={26} height={22} />
           </span>
-          <span className="pta-brand-word">Policy to Action</span>
+          <span className="pta-brand-word">Policy Aligned</span>
         </span>
         <p>A Scarlet Fire LLC product.</p>
       </footer>

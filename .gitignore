@@ -19,3 +19,5 @@ coverage
 .env.local.bak*
 _to_delete/
 .vercel
+.claude/settings.local.json
+.codex/screenshots/

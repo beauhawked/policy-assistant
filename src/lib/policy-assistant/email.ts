@@ -18,9 +18,9 @@ interface PasswordResetEmailInput {
 export async function sendVerificationEmail(input: VerificationEmailInput): Promise<void> {
   await sendPolicyAssistantEmail({
     to: input.to,
-    subject: "Verify your Policy to Action account",
+    subject: "Verify your Policy Aligned account",
     text: [
-      "Welcome to Policy to Action.",
+      "Welcome to Policy Aligned.",
       "",
       "Please verify your email address by opening this link:",
       input.verificationLink,
@@ -28,7 +28,7 @@ export async function sendVerificationEmail(input: VerificationEmailInput): Prom
       "If you did not create this account, you can ignore this message.",
     ].join("\n"),
     html: [
-      "<p>Welcome to Policy to Action.</p>",
+      "<p>Welcome to Policy Aligned.</p>",
       `<p>Please verify your email address by selecting <a href="${escapeHtml(
         input.verificationLink,
       )}">Verify Email</a>.</p>`,
@@ -43,9 +43,9 @@ export async function sendVerificationEmail(input: VerificationEmailInput): Prom
 export async function sendPasswordResetEmail(input: PasswordResetEmailInput): Promise<void> {
   await sendPolicyAssistantEmail({
     to: input.to,
-    subject: "Reset your Policy to Action password",
+    subject: "Reset your Policy Aligned password",
     text: [
-      "A password reset request was received for your Policy to Action account.",
+      "A password reset request was received for your Policy Aligned account.",
       "",
       "Open this link to reset your password:",
       input.resetLink,
@@ -53,7 +53,7 @@ export async function sendPasswordResetEmail(input: PasswordResetEmailInput): Pr
       "If you did not request this, you can ignore this message.",
     ].join("\n"),
     html: [
-      "<p>A password reset request was received for your Policy to Action account.</p>",
+      "<p>A password reset request was received for your Policy Aligned account.</p>",
       `<p>Select <a href="${escapeHtml(input.resetLink)}">Reset Password</a> to continue.</p>`,
       `<p>If the button does not work, copy and paste this link into your browser:<br>${escapeHtml(
         input.resetLink,
@@ -66,7 +66,7 @@ export async function sendPasswordResetEmail(input: PasswordResetEmailInput): Pr
 export async function sendPolicyAssistantEmail(input: SendPolicyEmailInput): Promise<void> {
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const fromAddress =
-    process.env.POLICY_ASSISTANT_FROM_EMAIL?.trim() || "Policy Assistant <onboarding@resend.dev>";
+    process.env.POLICY_ASSISTANT_FROM_EMAIL?.trim() || "Policy Aligned <onboarding@resend.dev>";
 
   if (!resendApiKey) {
     const fallbackMessage = [

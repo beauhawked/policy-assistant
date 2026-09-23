@@ -19,14 +19,39 @@ const display = Schibsted_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "School District Policy Assistant",
+  metadataBase: new URL(
+    process.env.POLICY_ASSISTANT_APP_ORIGIN || "https://policytoaction.beauhawked.com",
+  ),
+  title: "Policy Aligned — Policy-grounded decision support for school districts",
   description:
-    "Upload school district policies from CSV into a database and get AI-guided, policy-grounded decision support.",
-  applicationName: "Policy to Action",
+    "Turn district policy into defensible next steps with structured guidance grounded in your district's own board policies and handbooks.",
+  applicationName: "Policy Aligned",
   manifest: "/manifest.webmanifest",
+  openGraph: {
+    type: "website",
+    siteName: "Policy Aligned",
+    title: "Policy Aligned — Policy-grounded decision support for school districts",
+    description:
+      "Turn district policy into defensible next steps with visible evidence from your district's own policies and handbooks.",
+    images: [
+      {
+        url: "/og-policy-aligned.png",
+        width: 1200,
+        height: 630,
+        alt: "Policy Aligned: Turn district policy into defensible next steps.",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Policy Aligned — Policy-grounded decision support",
+    description:
+      "Turn district policy into defensible next steps with visible evidence from your district's own sources.",
+    images: ["/og-policy-aligned.png"],
+  },
   appleWebApp: {
     capable: true,
-    title: "Policy to Action",
+    title: "Policy Aligned",
     statusBarStyle: "default",
   },
   icons: {

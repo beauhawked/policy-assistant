@@ -1,4 +1,4 @@
-// Conservative service worker for Policy to Action.
+// Conservative service worker for Policy Aligned.
 // Network-first for navigations with an offline fallback; cache-first only for
 // static icons. App chunks (/_next/*) and API calls are NOT cached, so this is
 // safe to run during development and never serves stale code.

@@ -43,6 +43,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    if (verifiedUser.deactivatedAt) {
+      return NextResponse.json(
+        { error: "This account has been deactivated. Contact your administrator." },
+        { status: 403 },
+      );
+    }
+
     const session = await createSessionForVerifiedUser(verifiedUser);
     const response = NextResponse.json(
       {

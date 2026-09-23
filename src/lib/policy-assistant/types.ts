@@ -37,6 +37,8 @@ export interface HandbookDocument {
   archivedAt: string | null;
 }
 
+export type UserAccountRole = "member" | "admin";
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -47,6 +49,28 @@ export interface AuthUser {
   districtName: string;
   createdAt: string;
   emailVerifiedAt: string | null;
+  accountRole: UserAccountRole;
+  deactivatedAt: string | null;
+}
+
+export interface AdminUserSummary extends AuthUser {
+  conversationCount: number;
+  messageCount: number;
+  datasetCount: number;
+  handbookCount: number;
+  lastActiveAt: string | null;
+}
+
+export interface AuditEvent {
+  id: number;
+  actorUserId: string | null;
+  actorEmail: string;
+  action: string;
+  targetUserId: string | null;
+  targetEmail: string;
+  details: Record<string, unknown>;
+  ipAddress: string;
+  createdAt: string;
 }
 
 export type ConversationRole = "user" | "assistant";

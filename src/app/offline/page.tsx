@@ -62,7 +62,7 @@ export default function OfflinePage() {
         </span>
         <h1 style={{ fontSize: 22, margin: "0 0 0.4rem" }}>You&rsquo;re offline</h1>
         <p style={{ color: "#51647a", lineHeight: 1.5, margin: 0 }}>
-          Policy to Action needs a connection to sign in and generate new policy guidance. Reconnect
+          Policy Aligned needs a connection to sign in and generate new policy guidance. Reconnect
           and try again — anything you&rsquo;ve already loaded will still be here.
         </p>
       </div>

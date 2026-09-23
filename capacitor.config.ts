@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "com.scarletfire.policytoaction",
-  appName: "Policy to Action",
+  appName: "Policy Aligned",
   webDir: "mobile-shell",
   server: {
     url: "https://policytoaction.beauhawked.com/policy-assistant",

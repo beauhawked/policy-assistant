@@ -1,6 +1,6 @@
-# Policy to Action
+# Policy Aligned
 
-Policy to Action (formerly "School District Policy Assistant") is decision support for school district administrators: describe a real scenario in plain language and receive structured, citation-backed guidance built exclusively from the district's own board policies and handbooks.
+Policy Aligned (formerly "Policy to Action" and "School District Policy Assistant") is decision support for school district administrators: describe a real scenario in plain language and receive structured, citation-backed guidance built exclusively from the district's own board policies and handbooks.
 
 The platform now spans four surfaces:
 

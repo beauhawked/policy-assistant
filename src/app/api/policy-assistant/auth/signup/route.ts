@@ -75,6 +75,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
       }
 
+      if (existing.user.deactivatedAt) {
+        return NextResponse.json(
+          { error: "This account has been deactivated. Contact your administrator." },
+          { status: 403 },
+        );
+      }
+
       if (existing.user.emailVerifiedAt) {
         return NextResponse.json(
           { error: "An account with this email already exists. Please sign in." },

@@ -1,0 +1,3 @@
+## Imported Claude Cowork project instructions
+
+This project is designed to create a platform which school building and district administrators will use to help them address specific situations that arise in their building or district. It will ingest school board policies, staff, student, and parent handbooks. The user will then enter prompts that include specific details on the situations that arise within their districts. The platform will then return responses that include specific policy aligned guidance to help them make defensible decisions on what the best course of action is based on their policies.

@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Policy to Action — District Policy Assistant",
-    short_name: "Policy to Action",
+    name: "Policy Aligned — District Policy Assistant",
+    short_name: "Policy Aligned",
     description:
       "Ask scenario questions and get guidance grounded in your district's policies and handbooks.",
     start_url: "/policy-assistant",

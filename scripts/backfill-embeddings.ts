@@ -14,7 +14,7 @@ async function main(): Promise<void> {
     "../src/lib/policy-assistant/embedding-indexer"
   );
 
-  console.log("Policy to Action — embedding backfill");
+  console.log("Policy Aligned — embedding backfill");
   console.log("=====================================");
 
   if (!isEmbeddingsEnabled()) {

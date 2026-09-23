@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
 
 import type {
+  AdminUserSummary,
+  AuditEvent,
   AuthUser,
   ConversationRole,
   EmbeddingCoverage,
@@ -20,6 +22,7 @@ import type {
   PolicySemanticCandidate,
   StoredHandbookChunk,
   StoredPolicy,
+  UserAccountRole,
 } from "@/lib/policy-assistant/types";
 
 interface CreatePolicyDatasetInput {
@@ -170,6 +173,28 @@ interface RawAuthUser {
   district_name: string;
   created_at: Date | string;
   email_verified_at: Date | string | null;
+  account_role: string;
+  deactivated_at: Date | string | null;
+}
+
+interface RawAdminUserSummary extends RawAuthUser {
+  conversation_count: number | string | null;
+  message_count: number | string | null;
+  dataset_count: number | string | null;
+  handbook_count: number | string | null;
+  last_active_at: Date | string | null;
+}
+
+interface RawAuditEvent {
+  id: number | string;
+  actor_user_id: string | null;
+  actor_email: string;
+  action: string;
+  target_user_id: string | null;
+  target_email: string;
+  details: unknown;
+  ip_address: string;
+  created_at: Date | string;
 }
 
 interface RawAuthUserWithPassword extends RawAuthUser {
@@ -1291,7 +1316,7 @@ export async function createUserAccount(
     `
     INSERT INTO users (id, email, first_name, last_name, district_name, password_hash, email_verified_at)
     VALUES ($1, $2, $3, $4, $5, $6, NULL)
-    RETURNING id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at
+    RETURNING id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at, account_role, deactivated_at
     `,
     [userId, normalizedEmail, firstName.trim(), lastName.trim(), normalizedDistrictName, passwordHash],
   );
@@ -1307,7 +1332,7 @@ export async function findUserByEmail(
   const normalizedEmail = normalizeEmail(email);
   const result = await getPool().query<RawAuthUserWithPassword>(
     `
-    SELECT id, email, first_name, last_name, role_title, profile_context, district_name, password_hash, created_at, email_verified_at
+    SELECT id, email, first_name, last_name, role_title, profile_context, district_name, password_hash, created_at, email_verified_at, account_role, deactivated_at
     FROM users
     WHERE email = $1
     LIMIT 1
@@ -1331,7 +1356,7 @@ export async function findUserById(userId: string): Promise<AuthUser | null> {
 
   const result = await getPool().query<RawAuthUser>(
     `
-    SELECT id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at
+    SELECT id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at, account_role, deactivated_at
     FROM users
     WHERE id = $1
     LIMIT 1
@@ -1351,7 +1376,7 @@ export async function setUserEmailVerified(userId: string): Promise<AuthUser | n
     UPDATE users
     SET email_verified_at = COALESCE(email_verified_at, NOW())
     WHERE id = $1
-    RETURNING id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at
+    RETURNING id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at, account_role, deactivated_at
     `,
     [userId],
   );
@@ -1381,7 +1406,7 @@ export async function updateUserProfile(
         role_title = $5,
         profile_context = $6
     WHERE id = $1
-    RETURNING id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at
+    RETURNING id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at, account_role, deactivated_at
     `,
     [
       userId,
@@ -1463,11 +1488,12 @@ export async function getUserBySessionId(sessionId: string): Promise<AuthUser | 
 
   const result = await getPool().query<RawAuthUser>(
     `
-    SELECT u.id, u.email, u.first_name, u.last_name, u.role_title, u.profile_context, u.district_name, u.created_at, u.email_verified_at
+    SELECT u.id, u.email, u.first_name, u.last_name, u.role_title, u.profile_context, u.district_name, u.created_at, u.email_verified_at, u.account_role, u.deactivated_at
     FROM auth_sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.id = $1
     AND s.expires_at > NOW()
+    AND u.deactivated_at IS NULL
     LIMIT 1
     `,
     [sessionId],
@@ -1578,12 +1604,161 @@ export async function deleteUserAccount(userId: string): Promise<void> {
   await ensureSchema();
   const pool = getPool();
   await pool.query(`DELETE FROM model_call_logs WHERE user_id = $1`, [userId]);
+  // Explicit delete: on databases where policy_datasets.user_id was added via
+  // ALTER TABLE it has no foreign key, so ON DELETE CASCADE would not cover it.
+  await pool.query(`DELETE FROM policy_datasets WHERE user_id = $1`, [userId]);
   await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
 }
 
 export async function deleteAuthSessionsForUser(userId: string): Promise<void> {
   await ensureSchema();
   await getPool().query(`DELETE FROM auth_sessions WHERE user_id = $1`, [userId]);
+}
+
+export async function listAllUsersWithStats(): Promise<AdminUserSummary[]> {
+  await ensureSchema();
+
+  const result = await getPool().query<RawAdminUserSummary>(
+    `
+    SELECT
+      u.id, u.email, u.first_name, u.last_name, u.role_title, u.profile_context,
+      u.district_name, u.created_at, u.email_verified_at, u.account_role, u.deactivated_at,
+      COALESCE(c.conversation_count, 0) AS conversation_count,
+      COALESCE(m.message_count, 0) AS message_count,
+      COALESCE(d.dataset_count, 0) AS dataset_count,
+      COALESCE(h.handbook_count, 0) AS handbook_count,
+      GREATEST(c.last_conversation_at, s.last_session_at) AS last_active_at
+    FROM users u
+    LEFT JOIN (
+      SELECT user_id, COUNT(*) AS conversation_count, MAX(updated_at) AS last_conversation_at
+      FROM policy_conversations
+      GROUP BY user_id
+    ) c ON c.user_id = u.id
+    LEFT JOIN (
+      SELECT pc.user_id, COUNT(*) AS message_count
+      FROM policy_conversation_messages pcm
+      JOIN policy_conversations pc ON pc.id = pcm.conversation_id
+      GROUP BY pc.user_id
+    ) m ON m.user_id = u.id
+    LEFT JOIN (
+      SELECT user_id, COUNT(*) AS dataset_count
+      FROM policy_datasets
+      GROUP BY user_id
+    ) d ON d.user_id = u.id
+    LEFT JOIN (
+      SELECT user_id, COUNT(*) AS handbook_count
+      FROM handbook_documents
+      GROUP BY user_id
+    ) h ON h.user_id = u.id
+    LEFT JOIN (
+      SELECT user_id, MAX(created_at) AS last_session_at
+      FROM auth_sessions
+      GROUP BY user_id
+    ) s ON s.user_id = u.id
+    ORDER BY u.created_at DESC
+    `,
+  );
+
+  return result.rows.map(mapAdminUserSummary);
+}
+
+export async function setUserAccountRoleByEmail(
+  email: string,
+  role: UserAccountRole,
+): Promise<AuthUser | null> {
+  await ensureSchema();
+
+  const result = await getPool().query<RawAuthUser>(
+    `
+    UPDATE users
+    SET account_role = $2
+    WHERE email = $1
+    RETURNING id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at, account_role, deactivated_at
+    `,
+    [normalizeEmail(email), role],
+  );
+
+  const row = result.rows[0];
+  return row ? mapAuthUser(row) : null;
+}
+
+export async function setUserAccountDeactivated(
+  userId: string,
+  deactivated: boolean,
+): Promise<AuthUser | null> {
+  await ensureSchema();
+
+  const result = await getPool().query<RawAuthUser>(
+    `
+    UPDATE users
+    SET deactivated_at = CASE WHEN $2 THEN COALESCE(deactivated_at, NOW()) ELSE NULL END
+    WHERE id = $1
+    RETURNING id, email, first_name, last_name, role_title, profile_context, district_name, created_at, email_verified_at, account_role, deactivated_at
+    `,
+    [userId, deactivated],
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  // Clear sessions on both transitions: deactivation revokes access immediately,
+  // and reactivation invalidates any session minted while the account was deactivated.
+  await getPool().query(`DELETE FROM auth_sessions WHERE user_id = $1`, [userId]);
+
+  return mapAuthUser(row);
+}
+
+export async function recordAuditEvent(entry: {
+  actorUserId: string | null;
+  actorEmail: string;
+  action: string;
+  targetUserId?: string | null;
+  targetEmail?: string;
+  details?: Record<string, unknown>;
+  ipAddress?: string;
+}): Promise<void> {
+  await ensureSchema();
+
+  // Best effort by design: a failed audit insert is logged to the server console
+  // rather than failing the admin action that already completed.
+  try {
+    await getPool().query(
+      `
+      INSERT INTO audit_events (actor_user_id, actor_email, action, target_user_id, target_email, details, ip_address)
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+      `,
+      [
+        entry.actorUserId,
+        entry.actorEmail,
+        entry.action,
+        entry.targetUserId ?? null,
+        entry.targetEmail ?? "",
+        JSON.stringify(entry.details ?? {}),
+        entry.ipAddress ?? "",
+      ],
+    );
+  } catch (error) {
+    console.error(`[audit_events] failed to record ${entry.action}`, error);
+  }
+}
+
+export async function listAuditEvents(limit = 50): Promise<AuditEvent[]> {
+  await ensureSchema();
+
+  const safeLimit = Math.min(200, Math.max(1, Math.floor(limit)));
+  const result = await getPool().query<RawAuditEvent>(
+    `
+    SELECT id, actor_user_id, actor_email, action, target_user_id, target_email, details, ip_address, created_at
+    FROM audit_events
+    ORDER BY created_at DESC, id DESC
+    LIMIT $1
+    `,
+    [safeLimit],
+  );
+
+  return result.rows.map(mapAuditEvent);
 }
 
 export async function createEmailVerificationTokenRecord(
@@ -2046,6 +2221,40 @@ async function ensureSchema(): Promise<void> {
       await client.query(`
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS profile_context TEXT NOT NULL DEFAULT '';
+      `);
+
+      await client.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS account_role TEXT NOT NULL DEFAULT 'member';
+      `);
+
+      await client.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMPTZ;
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS audit_events (
+          id BIGSERIAL PRIMARY KEY,
+          actor_user_id TEXT,
+          actor_email TEXT NOT NULL DEFAULT '',
+          action TEXT NOT NULL,
+          target_user_id TEXT,
+          target_email TEXT NOT NULL DEFAULT '',
+          details JSONB NOT NULL DEFAULT '{}'::jsonb,
+          ip_address TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_audit_events_created_at
+        ON audit_events(created_at DESC);
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_audit_events_target_user_id
+        ON audit_events(target_user_id);
       `);
 
       await client.query(`
@@ -2868,6 +3077,33 @@ function mapAuthUser(row: RawAuthUser): AuthUser {
     districtName: row.district_name || "",
     createdAt: formatTimestamp(row.created_at),
     emailVerifiedAt: row.email_verified_at ? formatTimestamp(row.email_verified_at) : null,
+    accountRole: row.account_role === "admin" ? "admin" : "member",
+    deactivatedAt: row.deactivated_at ? formatTimestamp(row.deactivated_at) : null,
+  };
+}
+
+function mapAdminUserSummary(row: RawAdminUserSummary): AdminUserSummary {
+  return {
+    ...mapAuthUser(row),
+    conversationCount: normalizeNumber(row.conversation_count, 0),
+    messageCount: normalizeNumber(row.message_count, 0),
+    datasetCount: normalizeNumber(row.dataset_count, 0),
+    handbookCount: normalizeNumber(row.handbook_count, 0),
+    lastActiveAt: row.last_active_at ? formatTimestamp(row.last_active_at) : null,
+  };
+}
+
+function mapAuditEvent(row: RawAuditEvent): AuditEvent {
+  return {
+    id: normalizeNumber(row.id, 0),
+    actorUserId: row.actor_user_id,
+    actorEmail: row.actor_email || "",
+    action: row.action,
+    targetUserId: row.target_user_id,
+    targetEmail: row.target_email || "",
+    details: isRecord(row.details) ? row.details : {},
+    ipAddress: row.ip_address || "",
+    createdAt: formatTimestamp(row.created_at),
   };
 }
 

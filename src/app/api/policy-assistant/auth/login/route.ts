@@ -53,6 +53,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
 
+    if (existing.user.deactivatedAt) {
+      return NextResponse.json(
+        { error: "This account has been deactivated. Contact your administrator." },
+        { status: 403 },
+      );
+    }
+
     if (!existing.user.emailVerifiedAt) {
       await issueEmailVerificationForUser(existing.user, getRequestOrigin(request));
       return NextResponse.json(

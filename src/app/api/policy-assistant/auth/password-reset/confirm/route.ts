@@ -59,6 +59,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    if (user.deactivatedAt) {
+      return NextResponse.json(
+        { error: "This account has been deactivated. Contact your administrator." },
+        { status: 403 },
+      );
+    }
+
     const passwordHash = await hashPassword(password);
     await updateUserPasswordHash(user.id, passwordHash);
     await deleteAuthSessionsForUser(user.id);

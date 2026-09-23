@@ -9,6 +9,12 @@ import {
   scrapeBoardDocsPolicies,
   type PolicyCsvRow,
 } from "@/lib/boarddocs-policy-scraper";
+import {
+  isParentSquarePolicyListingHtml,
+  parentSquarePolicyRowsToCsv,
+  scrapeParentSquarePolicies,
+  type ParentSquarePolicyCsvRow,
+} from "@/lib/parentsquare-policy-scraper";
 import type { NormalizedPolicyRow } from "@/lib/policy-assistant/types";
 import {
   isTableLinkedPolicyListingHtml,
@@ -20,7 +26,12 @@ import {
 const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
-export type RequestedPolicyPlatform = "auto" | "boarddocs" | "table-link" | "accordion-pdf";
+export type RequestedPolicyPlatform =
+  | "auto"
+  | "boarddocs"
+  | "table-link"
+  | "accordion-pdf"
+  | "parentsquare";
 export type ResolvedPolicyPlatform = Exclude<RequestedPolicyPlatform, "auto">;
 
 export interface ScrapePoliciesInput {
@@ -80,6 +91,15 @@ type RawScrapeResult =
       sourceLabel: string;
       failedCount: number;
       legacyBookCount: number;
+    }
+  | {
+      platform: "parentsquare";
+      baseUrl: string;
+      rows: ParentSquarePolicyCsvRow[];
+      sourceCount: number;
+      sourceLabel: string;
+      failedCount: number;
+      legacyBookCount: number;
     };
 
 export async function scrapePoliciesForExport(
@@ -93,6 +113,8 @@ export async function scrapePoliciesForExport(
     csv = policyRowsToCsv(result.rows);
   } else if (result.platform === "table-link") {
     csv = tableLinkedPolicyRowsToCsv(result.rows);
+  } else if (result.platform === "parentsquare") {
+    csv = parentSquarePolicyRowsToCsv(result.rows);
   } else {
     csv = accordionPdfPolicyRowsToCsv(result.rows);
   }
@@ -133,7 +155,12 @@ export async function scrapePoliciesForImport(
 export function normalizeRequestedPolicyPlatform(
   value: string | undefined,
 ): RequestedPolicyPlatform {
-  if (value === "boarddocs" || value === "table-link" || value === "accordion-pdf") {
+  if (
+    value === "boarddocs" ||
+    value === "table-link" ||
+    value === "accordion-pdf" ||
+    value === "parentsquare"
+  ) {
     return value;
   }
   return "auto";
@@ -146,6 +173,10 @@ export function formatPolicyPlatform(platform: ResolvedPolicyPlatform): string {
 
   if (platform === "accordion-pdf") {
     return "Accordion + PDF";
+  }
+
+  if (platform === "parentsquare") {
+    return "ParentSquare";
   }
 
   return "BoardDocs";
@@ -171,6 +202,23 @@ async function scrapePolicies(input: ScrapePoliciesInput): Promise<RawScrapeResu
       sourceLabel: "book(s)",
       failedCount: result.failedItems.length,
       legacyBookCount: result.selectedBooks.length,
+    };
+  }
+
+  if (resolvedPlatform === "parentsquare") {
+    const result = await scrapeParentSquarePolicies({
+      sourceUrl: normalizedSourceUrl,
+      concurrency: 6,
+    });
+
+    return {
+      platform: "parentsquare",
+      baseUrl: result.listingUrl,
+      rows: result.rows,
+      sourceCount: result.discoveredPolicyLinks,
+      sourceLabel: "policy link(s)",
+      failedCount: result.failedItems.length,
+      legacyBookCount: 0,
     };
   }
 
@@ -216,6 +264,21 @@ function normalizeRowsForImport(result: RawScrapeResult): NormalizedPolicyRow[] 
         adoptedDate: normalizeText(row.adoptedDate),
         revisedDate: normalizeText(row.revisedDate),
         policyStatus: normalizeText(row.status),
+        policyTitle: normalizeText(row.policyTitle),
+        policyWording: normalizeLongText(row.policyWording),
+        sourceRowIndex: index + 2,
+      }))
+      .filter(isImportablePolicyRow);
+  }
+
+  if (result.platform === "parentsquare") {
+    return result.rows
+      .map((row, index) => ({
+        policySection: normalizeText(row.series),
+        policyCode: normalizeText(row.policyNumber),
+        adoptedDate: normalizeText(row.adoptedDate),
+        revisedDate: normalizeText(row.revisionHistory),
+        policyStatus: "",
         policyTitle: normalizeText(row.policyTitle),
         policyWording: normalizeLongText(row.policyWording),
         sourceRowIndex: index + 2,
@@ -288,6 +351,18 @@ function headersForPlatform(platform: ResolvedPolicyPlatform): string[] {
     ];
   }
 
+  if (platform === "parentsquare") {
+    return [
+      "Series",
+      "Policy Number",
+      "Policy Title",
+      "Adopted Date",
+      "Revision History",
+      "Policy Wording",
+      "Source URL",
+    ];
+  }
+
   return [
     "Board Policy Number",
     "Title",
@@ -315,6 +390,10 @@ async function resolvePolicyPlatform(
 
   const listingHtml = await fetchListingHtmlForDetection(sourceUrl).catch(() => "");
   if (listingHtml) {
+    if (isParentSquarePolicyListingHtml(listingHtml)) {
+      return "parentsquare";
+    }
+
     if (isAccordionPdfPolicyListingHtml(listingHtml)) {
       return "accordion-pdf";
     }

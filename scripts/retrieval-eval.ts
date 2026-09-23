@@ -169,7 +169,7 @@ async function main(): Promise<void> {
 
   const coverage = await getEmbeddingCoverage();
 
-  console.log("Policy to Action — retrieval benchmark");
+  console.log("Policy Aligned — retrieval benchmark");
   console.log("=======================================");
   console.log(`Account: ${email}`);
   console.log(`Dataset: ${title} (${policyCount} policies)`);

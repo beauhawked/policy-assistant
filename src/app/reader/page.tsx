@@ -8,7 +8,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
  * In-app document reader.
  *
  * Renders a same-origin PDF page by page onto canvases inside the app's own
- * chrome, so documents never leave Policy to Action. Zoom is implemented by
+ * chrome, so documents never leave Policy Aligned. Zoom is implemented by
  * the reader itself (pinch, double-tap, and header buttons) because the
  * native webview refuses page-level zoom regardless of viewport settings.
  * Pages render lazily as they approach the viewport to bound memory use.
@@ -20,7 +20,10 @@ const MAX_ZOOM = 4;
 
 function titleFromPath(path: string): string {
   const name = decodeURIComponent(path.split("/").pop() ?? "");
-  return name.replace(/\.pdf$/i, "").replace(/[-_]+/g, " ").replace(/^Policy to Action /i, "");
+  return name
+    .replace(/\.pdf$/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/^Policy (?:to Action|Aligned) /i, "");
 }
 
 function touchDistance(touches: TouchList): number {
