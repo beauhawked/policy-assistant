@@ -39,7 +39,7 @@ interface HandbookDocument {
   archivedAt: string | null;
 }
 
-type PolicyPlatform = "auto" | "boarddocs" | "table-link" | "accordion-pdf";
+type PolicyPlatform = "auto" | "boarddocs" | "table-link" | "accordion-pdf" | "parentsquare";
 
 interface PolicyImportSummary {
   platform: Exclude<PolicyPlatform, "auto">;
@@ -3036,6 +3036,7 @@ export function PolicyAssistantApp() {
               <option value="boarddocs">BoardDocs</option>
               <option value="table-link">Table-based</option>
               <option value="accordion-pdf">Accordion + PDF</option>
+              <option value="parentsquare">ParentSquare</option>
             </select>
           </span>
 
@@ -6150,6 +6151,10 @@ function formatDatasetSourcePlatform(sourcePlatform: string): string {
 
   if (sourcePlatform === "accordion-pdf") {
     return "Accordion + PDF";
+  }
+
+  if (sourcePlatform === "parentsquare") {
+    return "ParentSquare";
   }
 
   return sourcePlatform.trim();
