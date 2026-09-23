@@ -21,3 +21,4 @@ _to_delete/
 .vercel
 .claude/settings.local.json
 .codex/screenshots/
+Claude outputs/

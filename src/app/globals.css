@@ -268,7 +268,7 @@ textarea::placeholder {
   flex: 1;
 }
 
-.piq-microlabel {
+.piq-card-micro-label {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -276,7 +276,7 @@ textarea::placeholder {
   text-transform: uppercase;
 }
 
-.piq-button {
+.piq-btn {
   border: 1px solid transparent;
   border-radius: 9px;
   padding: 9px 18px;
@@ -287,39 +287,39 @@ textarea::placeholder {
   transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
-.piq-button-primary {
+.piq-btn-accent {
   background: var(--accent);
   color: #fff;
 }
 
-.piq-button-primary:hover:not(:disabled) {
+.piq-btn-accent:hover:not(:disabled) {
   background: var(--accent-deep);
 }
 
-.piq-button-ghost {
+.piq-btn-ghost {
   background: var(--surface);
   border-color: var(--line-mid);
   color: var(--accent-deep);
 }
 
-.piq-button-ghost:hover:not(:disabled) {
+.piq-btn-ghost:hover:not(:disabled) {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
 
-.piq-button-block {
+.piq-btn-full {
   display: block;
   width: 100%;
   padding: 11px 0;
   text-align: center;
 }
 
-.piq-button:disabled {
+.piq-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.piq-link {
+.piq-link-btn {
   border: none;
   background: none;
   padding: 0;
@@ -329,12 +329,12 @@ textarea::placeholder {
   text-decoration: none;
 }
 
-.piq-link:hover {
+.piq-link-btn:hover {
   color: var(--accent);
   text-decoration: underline;
 }
 
-html.hc .piq-link{
+html.hc .piq-link-btn{
   text-decoration: underline;
 }
 
@@ -369,7 +369,7 @@ html.hc .piq-link{
   font-size: 13px;
 }
 
-.piq-checkbox {
+.piq-checkbox-label {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -378,7 +378,7 @@ html.hc .piq-link{
   cursor: pointer;
 }
 
-.piq-note {
+.piq-page-sub {
   color: var(--muted2);
   font-size: 13px;
   margin: 0;
@@ -388,7 +388,7 @@ html.hc .piq-link{
   margin-top: -6px;
 }
 
-.piq-lead {
+.piq-empty-title {
   color: var(--muted2);
   margin: -4px 0 0;
 }
@@ -398,18 +398,18 @@ html.hc .piq-link{
   font-size: 13px;
 }
 
-.piq-feedback {
+.piq-banner {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.piq-feedback:empty {
+.piq-banner:empty {
   display: none;
 }
 
 .piq-status,
-.piq-error {
+.piq-banner-error {
   margin: 0;
   border-radius: 9px;
   padding: 8px 12px;
@@ -422,13 +422,13 @@ html.hc .piq-link{
   color: var(--accent-deep);
 }
 
-.piq-error {
+.piq-banner-error {
   background: var(--danger-soft);
   border: 1px solid var(--danger-line);
   color: var(--danger);
 }
 
-.piq-dot {
+.piq-status-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -436,7 +436,7 @@ html.hc .piq-link{
   flex: none;
 }
 
-.piq-dot.is-warn {
+.piq-status-dot.is-warn {
   background: var(--warn);
 }
 
@@ -457,7 +457,7 @@ html.hc .piq-link{
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 
-.piq-spinner {
+.piq-pulse-dot {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -466,7 +466,7 @@ html.hc .piq-link{
   animation: piq-spin 700ms linear infinite;
 }
 
-.piq-brand {
+.piq-brand-header {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -500,7 +500,7 @@ html.hc .piq-link{
   font-size: 13px;
 }
 
-.piq-brand-word {
+.piq-brand-name {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 17px;
@@ -511,7 +511,7 @@ html.hc .piq-link{
    Boot + split (auth) screens
    ========================================================================= */
 
-.piq-boot {
+.piq-loading-screen {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -533,17 +533,17 @@ html.hc .piq-link{
   overflow: hidden;
 }
 
-.piq-boot p {
+.piq-loading-screen p {
   margin: 0;
 }
 
-.piq-split {
+.piq-auth-page {
   display: flex;
   min-height: 100dvh;
   background: #f6f8fa;
 }
 
-.piq-split-brand {
+.piq-auth-brand-panel {
   width: 44%;
   background: var(--navy);
   color: #fff;
@@ -554,14 +554,14 @@ html.hc .piq-link{
   padding: calc(44px + env(safe-area-inset-top, 0px)) 48px 44px 48px;
 }
 
-.piq-split-pitch {
+.piq-brand-hero {
   display: flex;
   flex-direction: column;
   gap: 14px;
   max-width: 400px;
 }
 
-.piq-split-pitch h1 {
+.piq-brand-hero h1 {
   margin: 0;
   font-family: var(--font-display);
   font-weight: 700;
@@ -570,23 +570,23 @@ html.hc .piq-link{
   letter-spacing: -0.015em;
 }
 
-.piq-split-pitch p {
+.piq-brand-hero p {
   margin: 0;
   color: var(--on-navy);
   font-size: 15px;
 }
 
-.piq-split-footnote {
+.piq-brand-footer {
   margin: 0;
   color: #5c7791;
   font-size: 12.5px;
 }
 
-html.hc .piq-split-footnote{
+html.hc .piq-brand-footer{
   color: var(--on-navy);
 }
 
-.piq-split-body {
+.piq-auth-form-panel {
   flex: 1;
   display: flex;
   align-items: center;
@@ -622,31 +622,31 @@ html.hc .piq-split-footnote{
   gap: 14px;
 }
 
-.piq-field {
+.piq-form-group {
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
 
-.piq-field-row {
+.piq-form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
 @media (max-width: 480px) {
-  .piq-field-row {
+  .piq-form-row {
     grid-template-columns: 1fr;
   }
 }
 
-.piq-field label {
+.piq-form-group label {
   font-size: 12.5px;
   font-weight: 600;
   color: var(--text-soft);
 }
 
-.piq-field input {
+.piq-form-group input {
   border: 1px solid var(--line-strong);
   border-radius: 9px;
   padding: 10px 13px;
@@ -668,14 +668,14 @@ html.hc .piq-split-footnote{
    First-run setup
    ========================================================================= */
 
-.piq-setup {
+.piq-setup-container {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: #f6f8fa;
 }
 
-.piq-setup-bar {
+.piq-setup-header {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -684,7 +684,7 @@ html.hc .piq-split-footnote{
   background: var(--surface);
 }
 
-.piq-setup-title {
+.piq-setup-progress {
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 15px;
@@ -715,7 +715,7 @@ html.hc .piq-split-footnote{
   gap: 2px;
 }
 
-.piq-step {
+.piq-step-item {
   display: flex;
   gap: 12px;
   align-items: center;
@@ -730,12 +730,12 @@ html.hc .piq-split-footnote{
   color: inherit;
 }
 
-.piq-step.is-current {
+.piq-step-item.is-current {
   background: var(--surface);
   border-color: var(--chip-line);
 }
 
-.piq-step-marker {
+.piq-step-num {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -749,12 +749,12 @@ html.hc .piq-split-footnote{
   flex: none;
 }
 
-.piq-step-marker.is-current {
+.piq-step-num.is-current {
   border-color: var(--accent);
   color: var(--accent-deep);
 }
 
-.piq-step-marker.is-done {
+.piq-step-num.is-done {
   background: var(--good);
   border-color: var(--good);
   color: #fff;
@@ -771,7 +771,7 @@ html.hc .piq-split-footnote{
   font-size: 12.5px;
 }
 
-.piq-step-connector {
+.piq-step-line {
   display: block;
   width: 2px;
   height: 14px;
@@ -808,7 +808,7 @@ html.hc .piq-split-footnote{
    App shell
    ========================================================================= */
 
-.piq-app {
+.piq-app-layout {
   display: flex;
   height: 100dvh;
   overflow: hidden;
@@ -825,7 +825,7 @@ html.hc .piq-split-footnote{
   padding: 14px 0;
 }
 
-.piq-rail-mark {
+.piq-logo-mark {
   margin-bottom: 12px;
 }
 
@@ -835,7 +835,7 @@ html.hc .piq-split-footnote{
   gap: 6px;
 }
 
-.piq-rail-button {
+.piq-rail-btn {
   width: 36px;
   height: 36px;
   border: none;
@@ -851,21 +851,21 @@ html.hc .piq-split-footnote{
   transition: background 140ms ease, color 140ms ease;
 }
 
-.piq-rail-button:hover {
+.piq-rail-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 
-.piq-rail-button.is-active {
+.piq-rail-btn.is-active {
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
 }
 
-.piq-rail-label {
+.piq-rail-tooltip {
   display: none;
 }
 
-.piq-avatar {
+.piq-rail-avatar {
   width: 30px;
   height: 30px;
   border: none;
@@ -881,12 +881,12 @@ html.hc .piq-split-footnote{
   margin-top: 4px;
 }
 
-.piq-avatar.is-light {
+.piq-rail-avatar.is-light {
   background: #dce7ef;
   color: var(--navy);
 }
 
-.piq-scrim {
+.piq-modal-overlay {
   position: fixed;
   inset: 0;
   border: none;
@@ -936,7 +936,7 @@ html.hc .piq-split-footnote{
   gap: 8px;
 }
 
-.piq-account-name-actions .piq-button {
+.piq-account-name-actions .piq-btn {
   flex: 1;
   padding: 8px 0;
   text-align: center;
@@ -948,7 +948,7 @@ html.hc .piq-split-footnote{
   font-size: 12.5px;
 }
 
-.piq-main {
+.piq-workspace-content {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -962,13 +962,13 @@ html.hc .piq-split-footnote{
    Assistant
    ========================================================================= */
 
-.piq-assistant {
+.piq-assistant-layout {
   flex: 1;
   display: flex;
   min-width: 0;
 }
 
-.piq-chat {
+.piq-chat-column {
   position: relative;
   flex: 1;
   min-width: 0;
@@ -977,7 +977,7 @@ html.hc .piq-split-footnote{
   background: var(--chat-bg);
 }
 
-.piq-offline {
+.piq-offline-banner {
   flex: none;
   display: flex;
   align-items: center;
@@ -991,7 +991,7 @@ html.hc .piq-split-footnote{
   font-weight: 600;
 }
 
-.piq-chat-head {
+.piq-chat-header {
   flex: none;
   display: flex;
   align-items: center;
@@ -1003,7 +1003,7 @@ html.hc .piq-split-footnote{
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
 }
 
-.piq-thread-title {
+.piq-header-title {
   margin: 0;
   font-family: var(--font-display);
   font-weight: 600;
@@ -1027,7 +1027,7 @@ html.hc .piq-split-footnote{
   white-space: nowrap;
 }
 
-.piq-messages {
+.piq-message-list {
   flex: 1;
   overflow-y: auto;
   padding: 22px 28px;
@@ -1036,7 +1036,7 @@ html.hc .piq-split-footnote{
   gap: 18px;
 }
 
-.piq-bubble-user {
+.piq-user-bubble {
   align-self: flex-end;
   max-width: 64%;
   background:
@@ -1075,19 +1075,19 @@ html.hc .piq-split-footnote{
   animation: piq-fade-up 0.3s ease;
 }
 
-.piq-answer-pending {
+.piq-thinking-card {
   flex-direction: row;
   align-items: center;
   gap: 10px;
   color: var(--muted2);
 }
 
-.piq-typing {
+.piq-thinking-indicator {
   display: inline-flex;
   gap: 4px;
 }
 
-.piq-typing i {
+.piq-thinking-indicator i {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -1095,11 +1095,11 @@ html.hc .piq-split-footnote{
   animation: piq-typing 1.2s ease-in-out infinite;
 }
 
-.piq-typing i:nth-child(2) {
+.piq-thinking-indicator i:nth-child(2) {
   animation-delay: 0.15s;
 }
 
-.piq-typing i:nth-child(3) {
+.piq-thinking-indicator i:nth-child(3) {
   animation-delay: 0.3s;
 }
 
@@ -1113,7 +1113,7 @@ html.hc .piq-split-footnote{
   margin: 0;
 }
 
-.piq-chips {
+.piq-citation-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -1136,7 +1136,7 @@ html.hc .piq-split-footnote{
   border-color: var(--accent);
 }
 
-.piq-recommended,
+.piq-action-block,
 .piq-implications {
   display: flex;
   flex-direction: column;
@@ -1150,12 +1150,12 @@ html.hc .piq-split-footnote{
   border-left-color: var(--accent);
 }
 
-.piq-recommended p,
+.piq-action-block p,
 .piq-implications p {
   margin: 0;
 }
 
-.piq-recommended b {
+.piq-action-block b {
   color: var(--good);
 }
 
@@ -1165,13 +1165,13 @@ html.hc .piq-split-footnote{
   font-size: 12.5px;
 }
 
-.piq-answer-meta {
+.piq-card-footer {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
 }
 
-.piq-empty {
+.piq-empty-state {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1181,7 +1181,7 @@ html.hc .piq-split-footnote{
   text-align: center;
 }
 
-.piq-empty h2 {
+.piq-empty-state h2 {
   margin: 0;
   font-family: var(--font-display);
   font-weight: 700;
@@ -1189,19 +1189,19 @@ html.hc .piq-split-footnote{
   letter-spacing: -0.015em;
 }
 
-.piq-empty p {
+.piq-empty-state p {
   margin: 0;
   color: var(--muted2);
   max-width: 46ch;
 }
 
-.piq-empty .piq-empty-hint {
+.piq-empty-state .piq-empty-sub {
   font-size: 12.5px;
   color: var(--muted);
   max-width: 52ch;
 }
 
-.piq-starters {
+.piq-starter-prompts {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -1209,7 +1209,7 @@ html.hc .piq-split-footnote{
   max-width: 560px;
 }
 
-.piq-starter {
+.piq-starter-btn {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1221,7 +1221,7 @@ html.hc .piq-split-footnote{
   transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
 
-.piq-starter:hover {
+.piq-starter-btn:hover {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent-deep);
@@ -1256,7 +1256,7 @@ html.hc .piq-split-footnote{
   height: 42px;
 }
 
-.piq-jump {
+.piq-scroll-bottom-btn {
   position: absolute;
   right: 30px;
   bottom: 118px;
@@ -1272,7 +1272,7 @@ html.hc .piq-split-footnote{
   box-shadow: var(--shadow-bubble);
 }
 
-.piq-composer-wrap {
+.piq-composer-container {
   flex: none;
   padding: 14px 28px 18px;
   display: flex;
@@ -1280,7 +1280,7 @@ html.hc .piq-split-footnote{
   gap: 8px;
 }
 
-.piq-composer {
+.piq-composer-card {
   display: flex;
   align-items: flex-end;
   gap: 10px;
@@ -1297,16 +1297,16 @@ html.hc .piq-split-footnote{
     var(--shadow-card);
 }
 
-.piq-composer:focus-within {
+.piq-composer-card:focus-within {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.piq-composer textarea:focus-visible {
+.piq-composer-card textarea:focus-visible {
   outline: none;
 }
 
-.piq-composer textarea {
+.piq-composer-card textarea {
   flex: 1;
   border: none;
   resize: none;
@@ -1317,7 +1317,7 @@ html.hc .piq-split-footnote{
   line-height: 1.5;
 }
 
-.piq-composer-note {
+.piq-composer-disclaimer {
   margin: 0;
   text-align: center;
   color: var(--muted);
@@ -1350,7 +1350,7 @@ html.hc .piq-split-footnote{
 
 /* ------------------------------------------------------- Evidence drawer */
 
-.piq-drawer {
+.piq-evidence-drawer {
   width: 280px;
   flex: none;
   border-left: 1px solid var(--line);
@@ -1362,12 +1362,12 @@ html.hc .piq-split-footnote{
   overflow-y: auto;
 }
 
-.piq-drawer-head {
+.piq-evidence-header {
   display: flex;
   align-items: center;
 }
 
-.piq-drawer-close {
+.piq-evidence-close {
   border: none;
   background: none;
   color: var(--muted);
@@ -1376,7 +1376,7 @@ html.hc .piq-split-footnote{
   cursor: pointer;
 }
 
-.piq-drawer-close:hover {
+.piq-evidence-close:hover {
   color: var(--text);
 }
 
@@ -1404,7 +1404,7 @@ html.hc .piq-split-footnote{
   font-size: 11.5px;
 }
 
-.piq-evidence-explainer {
+.piq-evidence-disclaimer {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
@@ -1415,13 +1415,13 @@ html.hc .piq-split-footnote{
    Page views (history, pinned, library, detail, add source)
    ========================================================================= */
 
-.piq-page {
+.piq-page-frame {
   flex: 1;
   background: var(--surface);
   overflow-y: auto;
 }
 
-.piq-page-inner {
+.piq-page-frame {
   max-width: 760px;
   margin: 0 auto;
   padding: 34px 24px;
@@ -1430,11 +1430,11 @@ html.hc .piq-split-footnote{
   gap: 16px;
 }
 
-.piq-page-inner.is-wide {
+.piq-page-frame.is-wide {
   max-width: 880px;
 }
 
-.piq-page-inner.is-narrow {
+.piq-page-frame.is-narrow {
   max-width: 720px;
   gap: 14px;
 }
@@ -1447,24 +1447,24 @@ html.hc .piq-split-footnote{
   letter-spacing: -0.01em;
 }
 
-.piq-empty-note {
+.piq-empty-card {
   margin: 0;
   color: var(--muted);
 }
 
-.piq-rows {
+.piq-history-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.piq-row {
+.piq-history-row {
   display: flex;
   align-items: stretch;
   gap: 8px;
 }
 
-.piq-row-main {
+.piq-history-main {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -1482,7 +1482,7 @@ html.hc .piq-split-footnote{
   transition: border-color 140ms ease, background 140ms ease;
 }
 
-.piq-row-main:hover {
+.piq-history-main:hover {
   border-color: var(--accent);
   background: var(--surface-soft);
 }
@@ -1499,13 +1499,13 @@ html.hc .piq-split-footnote{
   font-size: 12.5px;
 }
 
-.piq-row-when {
+.piq-history-date {
   flex: none;
   color: var(--muted);
   font-size: 12.5px;
 }
 
-.piq-icon-button {
+.piq-icon-btn {
   width: 30px;
   height: 30px;
   flex: none;
@@ -1522,42 +1522,42 @@ html.hc .piq-split-footnote{
   transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
 
-a.piq-icon-button:hover {
+a.piq-icon-btn:hover {
   text-decoration: none;
 }
 
-.piq-icon-button:hover:not(:disabled) {
+.piq-icon-btn:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent-deep);
   background: var(--accent-soft);
 }
 
-.piq-icon-button.is-danger:hover:not(:disabled) {
+.piq-icon-btn.is-danger:hover:not(:disabled) {
   border-color: var(--danger-line);
   color: var(--danger);
   background: var(--danger-soft);
 }
 
-.piq-icon-button.is-active {
+.piq-icon-btn.is-active {
   border-color: var(--accent);
   color: var(--accent-deep);
   background: var(--accent-soft);
 }
 
-.piq-icon-button:disabled {
+.piq-icon-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 /* --------------------------------------------------------------- Pinned */
 
-.piq-pin-grid {
+.piq-pinned-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
-.piq-pin-card {
+.piq-pinned-card {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 16px;
@@ -1567,20 +1567,20 @@ a.piq-icon-button:hover {
   transition: border-color 140ms ease;
 }
 
-.piq-pin-card:hover {
+.piq-pinned-card:hover {
   border-color: var(--accent);
 }
 
-.piq-pin-title {
+.piq-pinned-title {
   font-weight: 600;
 }
 
-.piq-pin-body {
+.piq-pinned-body {
   color: var(--text-soft);
   font-size: 13px;
 }
 
-.piq-pin-foot {
+.piq-pinned-footer {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1595,13 +1595,13 @@ a.piq-icon-button:hover {
 
 /* -------------------------------------------------------------- Library */
 
-.piq-library-head {
+.piq-page-header {
   display: flex;
   align-items: center;
   gap: 14px;
 }
 
-.piq-search {
+.piq-search-input {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1612,16 +1612,16 @@ a.piq-icon-button:hover {
   color: var(--muted);
 }
 
-.piq-search:focus-within {
+.piq-search-input:focus-within {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.piq-search input:focus-visible {
+.piq-search-input input:focus-visible {
   outline: none;
 }
 
-.piq-search input {
+.piq-search-input input {
   flex: 1;
   min-width: 0;
   border: none;
@@ -1629,13 +1629,13 @@ a.piq-icon-button:hover {
   color: var(--text);
 }
 
-.piq-pills {
+.piq-filter-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.piq-pill {
+.piq-filter-pill {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 5px 13px;
@@ -1647,11 +1647,11 @@ a.piq-icon-button:hover {
   transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
 
-.piq-pill:hover {
+.piq-filter-pill:hover {
   color: var(--text);
 }
 
-.piq-pill.is-active {
+.piq-filter-pill.is-active {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent-deep);
@@ -1698,7 +1698,7 @@ a.piq-icon-button:hover {
   background: var(--surface-soft);
 }
 
-.piq-table-title {
+.piq-table-title-cell {
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -1706,7 +1706,7 @@ a.piq-icon-button:hover {
   min-width: 0;
 }
 
-.piq-active-tag {
+.piq-active-badge {
   font-style: normal;
   font-size: 10.5px;
   font-weight: 600;
@@ -1719,7 +1719,7 @@ a.piq-icon-button:hover {
   padding: 1px 7px;
 }
 
-.piq-health {
+.piq-health-badge {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -1729,7 +1729,7 @@ a.piq-icon-button:hover {
   color: var(--muted2);
 }
 
-.piq-table-actions {
+.piq-row-actions {
   display: inline-flex;
   gap: 4px;
   justify-content: flex-end;
@@ -1743,7 +1743,7 @@ a.piq-icon-button:hover {
   font-size: 13px;
 }
 
-.piq-callout {
+.piq-callout-card {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1759,11 +1759,11 @@ a.piq-icon-button:hover {
   font-weight: 600;
 }
 
-.piq-callout .piq-callout-text {
+.piq-callout-card .piq-callout-content {
   flex: 1;
 }
 
-.piq-callout .piq-button {
+.piq-callout-card .piq-btn {
   flex: none;
   padding: 6px 14px;
   font-size: 13px;
@@ -1805,7 +1805,7 @@ a.piq-icon-button:hover {
 
 /* -------------------------------------------------------- Policy detail */
 
-.piq-back {
+.piq-detail-nav {
   align-self: flex-start;
   border: none;
   background: none;
@@ -1816,12 +1816,12 @@ a.piq-icon-button:hover {
   cursor: pointer;
 }
 
-.piq-back:hover {
+.piq-detail-nav:hover {
   color: var(--accent-deep);
   text-decoration: underline;
 }
 
-.piq-detail-head {
+.piq-detail-header {
   display: flex;
   align-items: baseline;
   gap: 12px;
@@ -1841,7 +1841,7 @@ a.piq-icon-button:hover {
   color: var(--accent-deep);
 }
 
-.piq-detail-meta {
+.piq-detail-meta-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1876,7 +1876,7 @@ html.hc .piq-detail-body{
   gap: 8px;
 }
 
-.piq-related {
+.piq-detail-related {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1891,12 +1891,12 @@ html.hc .piq-detail-body{
 
 /* ----------------------------------------------------------- Add source */
 
-.piq-tabs {
+.piq-source-tabs {
   display: flex;
   gap: 10px;
 }
 
-.piq-tab {
+.piq-source-tab {
   flex: 1;
   padding: 12px 14px;
   border: 1px solid var(--line);
@@ -1910,29 +1910,29 @@ html.hc .piq-detail-body{
   transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
 
-.piq-tab:hover {
+.piq-source-tab:hover {
   border-color: var(--accent);
 }
 
-.piq-tab.is-active {
+.piq-source-tab.is-active {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent-deep);
   font-weight: 600;
 }
 
-.piq-import-form {
+.piq-importer-panel {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.piq-import-row {
+.piq-input-row {
   display: flex;
   gap: 10px;
 }
 
-.piq-import-row .piq-button {
+.piq-input-row .piq-btn {
   padding: 0 22px;
 }
 
@@ -1951,7 +1951,7 @@ html.hc .piq-detail-body{
   font-size: 13px;
 }
 
-.piq-grid-2 {
+.piq-handbook-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
@@ -2003,13 +2003,13 @@ html.hc .piq-detail-body{
   pointer-events: none;
 }
 
-.piq-preview {
+.piq-preview-card {
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
 }
 
-.piq-preview-head {
+.piq-preview-header {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -2100,7 +2100,7 @@ html.hc .piq-detail-body{
   padding-left: 34px;
 }
 
-.piq-actions-right {
+.piq-meta-actions {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
@@ -2112,17 +2112,17 @@ html.hc .piq-detail-body{
    ========================================================================= */
 
 @media (max-width: 980px) {
-  .piq-split {
+  .piq-auth-page {
     flex-direction: column;
   }
 
-  .piq-split-brand {
+  .piq-auth-brand-panel {
     width: 100%;
     padding: calc(28px + env(safe-area-inset-top, 0px)) 24px 28px 24px;
     gap: 20px;
   }
 
-  .piq-split-pitch h1 {
+  .piq-brand-hero h1 {
     font-size: 24px;
   }
 
@@ -2138,7 +2138,7 @@ html.hc .piq-detail-body{
     overflow-x: auto;
   }
 
-  .piq-step-connector {
+  .piq-step-line {
     display: none;
   }
 
@@ -2146,8 +2146,8 @@ html.hc .piq-detail-body{
     max-width: none;
   }
 
-  .piq-grid-2,
-  .piq-pin-grid {
+  .piq-handbook-grid,
+  .piq-pinned-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2160,7 +2160,7 @@ html.hc .piq-detail-body{
     row-gap: 4px;
   }
 
-  .piq-table-actions {
+  .piq-row-actions {
     grid-row: 1 / span 3;
     grid-column: 2;
     align-self: start;
@@ -2168,7 +2168,7 @@ html.hc .piq-detail-body{
 }
 
 @media (max-width: 768px) {
-  .piq-app {
+  .piq-app-layout {
     flex-direction: column;
   }
 
@@ -2193,7 +2193,7 @@ html.hc .piq-detail-body{
     padding: 2px 9px;
   }
 
-  .piq-main {
+  .piq-workspace-content {
     order: 1;
     min-height: 0;
   }
@@ -2209,9 +2209,9 @@ html.hc .piq-detail-body{
     border-top: 1px solid var(--line);
   }
 
-  .piq-rail-mark,
+  .piq-logo-mark,
   .piq-rail-hc,
-  .piq-rail .piq-avatar,
+  .piq-rail .piq-rail-avatar,
   .piq-rail .piq-spacer {
     display: none;
   }
@@ -2221,7 +2221,7 @@ html.hc .piq-detail-body{
     flex-direction: row;
   }
 
-  .piq-rail-button {
+  .piq-rail-btn {
     flex: 1;
     flex-direction: column;
     gap: 2px;
@@ -2232,13 +2232,13 @@ html.hc .piq-detail-body{
     color: var(--muted);
   }
 
-  .piq-rail-button:hover,
-  .piq-rail-button.is-active {
+  .piq-rail-btn:hover,
+  .piq-rail-btn.is-active {
     background: var(--accent-soft);
     color: var(--accent-deep);
   }
 
-  .piq-rail-label {
+  .piq-rail-tooltip {
     display: block;
     font-size: 10.5px;
     font-weight: 600;
@@ -2251,12 +2251,12 @@ html.hc .piq-detail-body{
     bottom: auto;
   }
 
-  .piq-messages {
+  .piq-message-list {
     padding: 16px;
     gap: 14px;
   }
 
-  .piq-bubble-user {
+  .piq-user-bubble {
     max-width: 82%;
   }
 
@@ -2264,19 +2264,19 @@ html.hc .piq-detail-body{
     max-width: 96%;
   }
 
-  .piq-composer-wrap {
+  .piq-composer-container {
     padding: 10px 14px 14px;
   }
 
-  .piq-chat-head {
+  .piq-chat-header {
     padding: 10px 14px;
   }
 
-  .piq-chat-head .piq-sources-pill {
+  .piq-chat-header .piq-sources-pill {
     display: none;
   }
 
-  .piq-drawer {
+  .piq-evidence-drawer {
     position: fixed;
     left: 0;
     right: 0;
@@ -2290,24 +2290,24 @@ html.hc .piq-detail-body{
     z-index: 30;
   }
 
-  .piq-page-inner {
+  .piq-page-frame {
     padding: 20px 16px;
   }
 
-  .piq-library-head {
+  .piq-page-header {
     flex-wrap: wrap;
   }
 
-  .piq-search {
+  .piq-search-input {
     width: 100%;
     order: 3;
   }
 
-  .piq-tabs {
+  .piq-source-tabs {
     flex-direction: column;
   }
 
-  .piq-jump {
+  .piq-scroll-bottom-btn {
     bottom: 132px;
     right: 16px;
   }
@@ -2587,11 +2587,11 @@ html.hc .piq-detail-body{
     white-space: normal;
   }
 
-  .piq-import-row {
+  .piq-input-row {
     flex-wrap: wrap;
   }
 
-  .piq-callout {
+  .piq-callout-card {
     flex-wrap: wrap;
   }
 
@@ -2601,11 +2601,11 @@ html.hc .piq-detail-body{
     z-index: 40;
   }
 
-  .piq-drawer {
+  .piq-evidence-drawer {
     bottom: 58px;
   }
 
-  .piq-step {
+  .piq-step-item {
     flex: none;
   }
 }
@@ -2622,34 +2622,34 @@ html.hc .piq-detail-body{
    ========================================================================= */
 
 @media print {
-  .piq-app,
-  .piq-main,
-  .piq-assistant,
-  .piq-chat,
-  .piq-messages {
+  .piq-app-layout,
+  .piq-workspace-content,
+  .piq-assistant-layout,
+  .piq-chat-column,
+  .piq-message-list {
     display: block;
     height: auto;
     overflow: visible;
   }
 
-  .piq-chat {
+  .piq-chat-column {
     background: #fff;
   }
 
   .piq-rail,
   .piq-mobile-header,
-  .piq-composer-wrap,
+  .piq-composer-container,
   .piq-disclaimer,
-  .piq-drawer,
+  .piq-evidence-drawer,
   .piq-debug,
-  .piq-chat-head .piq-icon-button,
+  .piq-chat-header .piq-icon-btn,
   .piq-bubble-actions {
     display: none !important;
   }
 
-  .piq-bubble-user,
-  .piq-answer-card,
-  .piq-pin-card {
+  .piq-user-bubble,
+  .piq-assistant-card,
+  .piq-pinned-card {
     max-width: 100%;
     box-shadow: none;
     break-inside: avoid;
@@ -2687,7 +2687,7 @@ html.hc .piq-detail-body{
   color: var(--accent-deep);
 }
 
-.piq-help-downloads {
+.piq-help-downloads-grid {
   margin: 0;
   padding-left: 20px;
   display: flex;
@@ -2733,7 +2733,7 @@ html.hc .piq-detail-body{
   padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
 }
 
-.piq-chat-head {
+.piq-chat-header {
   padding-top: calc(11px + env(safe-area-inset-top, 0px) * 0.5);
 }
 
@@ -2759,8 +2759,8 @@ html.hc .piq-detail-body{
   /* Phones: the mobile header carries the brand, so the chat header
      drops its duplicate lockup, and the sources pill truncates
      instead of overflowing. */
-  .piq-chat-head .piq-head-brand,
-  .piq-chat-head .piq-head-divider {
+  .piq-chat-header .piq-head-brand,
+  .piq-chat-header .piq-head-divider {
     display: none;
   }
 
@@ -2772,13 +2772,13 @@ html.hc .piq-detail-body{
     white-space: nowrap;
   }
 
-  .piq-sources-pill .piq-dot {
+  .piq-sources-pill .piq-status-dot {
     display: inline-block;
     vertical-align: middle;
     margin-right: 5px;
   }
 
-  .piq-composer-wrap {
+  .piq-composer-container {
     padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px) * 0.6);
   }
 }
@@ -2800,7 +2800,7 @@ html.hc .piq-detail-body{
   line-height: 1.5;
 }
 
-.piq-field-hint {
+.piq-hint {
   font-size: 11.5px;
   color: var(--muted);
 }
@@ -2819,7 +2819,7 @@ html.hc .piq-detail-body{
   color: var(--danger);
 }
 
-.piq-settings-card {
+.piq-settings-section {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -2859,7 +2859,7 @@ html.hc .piq-detail-body{
   color: var(--muted);
 }
 
-.piq-settings-pills {
+.piq-settings-options {
   margin: 0;
 }
 
@@ -2869,12 +2869,12 @@ html.hc .piq-detail-body{
   color: var(--danger);
 }
 
-.piq-button-danger {
+.piq-btn-danger {
   background: var(--danger);
   color: #ffffff;
 }
 
-.piq-button-danger:hover:not(:disabled) {
+.piq-btn-danger:hover:not(:disabled) {
   background: #922c22;
 }
 
@@ -4074,7 +4074,7 @@ a.piq-brand-mark {
 }
 
 /* Pinned cards open their source conversation. */
-.piq-pin-main {
+.piq-pinned-header {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -4088,7 +4088,7 @@ a.piq-brand-mark {
   cursor: pointer;
 }
 
-.piq-pin-main:hover .piq-pin-title {
+.piq-pinned-header:hover .piq-pinned-title {
   color: var(--accent-deep);
 }
 
@@ -4719,4 +4719,391 @@ a.pta-brand {
   .admin-audit-time {
     min-width: 0;
   }
+}
+
+/* =========================================================================
+   Componentization additions — 2026-09-23
+   The 2026-09-11 refactor introduced a new class vocabulary. Most of it was
+   renamed onto the existing proven rules; this section supplies the classes
+   that had no counterpart. Values come from
+   design_handoff_policyiq_rebuild/README.md (high-fidelity handoff).
+   ========================================================================= */
+
+/* ------------------------------------------------------------ Form labels */
+.piq-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.piq-checkbox-group {
+  display: flex;
+  align-items: flex-end;
+}
+
+/* --------------------------------------------------------- Banner variants */
+.piq-banner-info {
+  background: var(--accent-soft);
+  border-color: var(--chip-line);
+  color: var(--accent-deep);
+}
+.piq-banner-success {
+  background: #eef8f1;
+  border-color: #cfe8d9;
+  color: #1f6b41;
+}
+
+/* ------------------------------------------------------- Button extensions */
+.piq-btn-sm {
+  padding: 6px 12px;
+  font-size: 12.5px;
+  border-radius: 7px;
+}
+.piq-btn-row,
+.piq-btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.piq-text-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-deep);
+  cursor: pointer;
+}
+.piq-text-btn:hover {
+  text-decoration: underline;
+  color: var(--accent);
+}
+.piq-icon-btn.piq-danger-btn:hover:not(:disabled) {
+  border-color: #e7b4ac;
+  background: #fdefed;
+  color: #b0362a;
+}
+.piq-dot-sep {
+  color: var(--muted);
+  margin: 0 2px;
+}
+.piq-divider {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 22px 0;
+}
+
+/* --------------------------------------------------------- Page furniture */
+.piq-header-right,
+.piq-header-actions,
+.piq-meta-actions,
+.piq-preview-actions,
+.piq-evidence-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.piq-evidence-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 12px;
+}
+.piq-archived-pill {
+  margin-left: auto;
+}
+.piq-callout-icon {
+  color: var(--warn);
+  font-size: 15px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* -------------------------------------------------------------- Rail parts */
+.piq-rail-brand {
+  border: 0;
+  background: none;
+  padding: 0;
+  margin-bottom: 12px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+}
+.piq-rail-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 14px;
+}
+
+/* The logo square appears in the rail, on the auth split, in the setup
+   header and on the boot screen. One class, four contexts. */
+.piq-logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-schibsted), "Schibsted Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.piq-loading-screen .piq-logo-mark {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+}
+
+/* ------------------------------------------------------------ Chat column */
+.piq-message-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.piq-action-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.piq-action-list li {
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+/* Green bold numerals for recommended actions; the setup stepper uses the
+   same class name for its circled step number, so scope this one. */
+.piq-action-list .piq-step-num {
+  all: unset;
+  color: var(--good);
+  font-weight: 700;
+  margin-right: 2px;
+}
+.piq-composer-textarea {
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: none;
+  resize: none;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: inherit;
+  padding: 8px 0;
+  max-height: 160px;
+}
+.piq-composer-textarea::placeholder {
+  color: var(--muted);
+}
+.piq-send-btn {
+  flex-shrink: 0;
+  align-self: flex-end;
+}
+.piq-chat-error {
+  margin: 0 28px 12px;
+  padding: 10px 14px;
+  border: 1px solid #e7b4ac;
+  border-radius: 10px;
+  background: #fdefed;
+  color: #b0362a;
+  font-size: 13px;
+}
+
+/* --------------------------------------------------------- Evidence drawer */
+.piq-evidence-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.piq-evidence-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.piq-evidence-chip-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-deep);
+}
+.piq-evidence-loading {
+  font-size: 12.5px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ----------------------------------------------------------------- History */
+.piq-history-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.piq-history-meta {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ----------------------------------------------------------------- Tables */
+.piq-table-container,
+.piq-preview-table-container {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.piq-preview-table-container {
+  max-height: 340px;
+  overflow-y: auto;
+}
+.piq-table-sm {
+  font-size: 12.5px;
+}
+.piq-table-sm th,
+.piq-table-sm td {
+  padding: 8px 12px;
+}
+
+/* --------------------------------------------------------- Policy detail */
+.piq-meta-item {
+  font-size: 13px;
+  color: var(--muted2);
+}
+.piq-meta-label {
+  font-weight: 600;
+  color: var(--muted);
+}
+.piq-meta-val {
+  color: var(--text-soft);
+}
+
+/* ------------------------------------------------------------- Add source */
+.piq-preview-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.piq-handbook-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ------------------------------------------------------------------- Help */
+.piq-help-download-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  font-size: 13.5px;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.piq-help-download-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  text-decoration: none;
+}
+.piq-doc-icon { font-size: 16px; line-height: 1; }
+.piq-doc-label { flex: 1; font-weight: 600; }
+.piq-doc-arrow { color: var(--muted); }
+
+.piq-faq-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.piq-faq-question {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 0;
+  background: none;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.piq-faq-arrow {
+  color: var(--muted);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.piq-faq-answer {
+  padding: 0 14px 13px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-soft);
+}
+
+/* ------------------------------------------------------------ Profile modal */
+.piq-modal-card {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(15, 44, 70, 0.18);
+  overflow: hidden;
+}
+.piq-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.piq-modal-header h2 {
+  margin: 0;
+  font-family: var(--font-schibsted), "Schibsted Grotesk", sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+}
+.piq-modal-close {
+  border: 0;
+  background: none;
+  padding: 4px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+.piq-modal-close:hover { color: var(--text-soft); }
+.piq-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+.piq-modal-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
