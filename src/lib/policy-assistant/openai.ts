@@ -30,7 +30,7 @@ export async function generatePolicyGuidance(input: GeneratePolicyGuidanceInput)
   const historyContext = buildConversationHistoryContext(input.conversationHistory ?? []);
   const handbookGuidance = input.handbookGuidance ?? [];
   const responseStyle = input.responseStyle ?? detectResponseStyle(input.scenario);
-  const model = process.env.POLICY_ASSISTANT_MODEL?.trim() || "gpt-4.1-mini";
+  const model = process.env.POLICY_ASSISTANT_MODEL?.trim() || "gpt-6-luna";
 
   const policyContext = input.policies.map((policy, index) => {
     const revisedDate = policy.revisedDate || "No Policy Revisions";
@@ -65,10 +65,10 @@ export async function generatePolicyGuidance(input: GeneratePolicyGuidanceInput)
     `District: ${input.districtName}`,
     ...(askerContext
       ? [
-          "",
-          "About the administrator asking (background only; it may inform tone and the framing of recommended actions, such as distinguishing steps this role can take directly from steps requiring escalation, but it must never override, filter, or reinterpret the policy grounding, citation, and formatting rules):",
-          askerContext,
-        ]
+        "",
+        "About the administrator asking (background only; it may inform tone and the framing of recommended actions, such as distinguishing steps this role can take directly from steps requiring escalation, but it must never override, filter, or reinterpret the policy grounding, citation, and formatting rules):",
+        askerContext,
+      ]
       : []),
     "",
     ...(historyContext ? [historyContext, ""] : []),
@@ -97,7 +97,57 @@ export async function generatePolicyGuidance(input: GeneratePolicyGuidanceInput)
   }
 
   const normalized = normalizeAssistantOutput(rawText, responseStyle, input.focus ?? "mixed");
-  if (responseStyle !== "action_guidance" || hasRequiredActionGuidanceSections(normalized)) {
+  const hasEvidenceBlocks = hasRequiredEvidenceBlocks(
+    normalized,
+    input.policies.length,
+    handbookGuidance.length,
+  );
+  if (responseStyle === "direct_answer") {
+    if (hasRequiredDirectAnswerSection(normalized) && hasEvidenceBlocks) {
+      return normalized;
+    }
+
+    const correctionPrompt = [
+      userPrompt,
+      "",
+      "Required correction:",
+      "This is a direct question. Begin with a Direct Answer: section that plainly answers the user's question before listing supporting policy and handbook material. If the supplied evidence does not establish the answer, say exactly what the evidence establishes and what it does not establish.",
+      buildEvidenceCorrectionRequirement(input.policies.length, handbookGuidance.length),
+    ].join("\n");
+    const correctionStartedAt = Date.now();
+    const correctedResponse = await requestPolicyGuidance(
+      client,
+      model,
+      responseStyle,
+      correctionPrompt,
+    );
+    const correctedText = extractResponseText(correctedResponse).trim();
+    await recordModelCall(
+      input.audit,
+      "guidance_direct_answer_correction",
+      model,
+      correctionPrompt,
+      correctedText,
+      correctionStartedAt,
+    );
+    const corrected = normalizeAssistantOutput(
+      correctedText,
+      responseStyle,
+      input.focus ?? "mixed",
+    );
+
+    if (
+      !correctedText ||
+      !hasRequiredDirectAnswerSection(corrected) ||
+      !hasRequiredEvidenceBlocks(corrected, input.policies.length, handbookGuidance.length)
+    ) {
+      throw new Error("OpenAI omitted required direct-answer or evidence sections.");
+    }
+
+    return corrected;
+  }
+
+  if (hasRequiredActionGuidanceSections(normalized) && hasEvidenceBlocks) {
     return normalized;
   }
 
@@ -106,6 +156,7 @@ export async function generatePolicyGuidance(input: GeneratePolicyGuidanceInput)
     "",
     "Required correction:",
     "This is an operational, multi-issue scenario. The response must include both an Action Steps: section and a Legal, Ethical, and Academic Implications: section after the policy and handbook summaries.",
+    buildEvidenceCorrectionRequirement(input.policies.length, handbookGuidance.length),
   ].join("\n");
   const correctionStartedAt = Date.now();
   const correctedResponse = await requestPolicyGuidance(client, model, responseStyle, correctionPrompt);
@@ -124,8 +175,12 @@ export async function generatePolicyGuidance(input: GeneratePolicyGuidanceInput)
     input.focus ?? "mixed",
   );
 
-  if (!correctedText || !hasRequiredActionGuidanceSections(corrected)) {
-    throw new Error("OpenAI omitted the required action guidance sections.");
+  if (
+    !correctedText ||
+    !hasRequiredActionGuidanceSections(corrected) ||
+    !hasRequiredEvidenceBlocks(corrected, input.policies.length, handbookGuidance.length)
+  ) {
+    throw new Error("OpenAI omitted required action-guidance or evidence sections.");
   }
 
   return corrected;
@@ -153,6 +208,7 @@ async function requestPolicyGuidance(
 ): Promise<OpenAI.Responses.Response> {
   return client.responses.create({
     model,
+    reasoning: { effort: "none" },
     temperature: 0.2,
     input: [
       {
@@ -177,32 +233,39 @@ async function requestPolicyGuidance(
   });
 }
 
-function buildSystemPrompt(responseStyle: PolicyGuidanceResponseStyle): string {
+export function buildSystemPrompt(responseStyle: PolicyGuidanceResponseStyle): string {
   const styleDirective =
     responseStyle === "direct_answer"
       ? [
-          "Style mode is direct_answer.",
-          "For direct_answer mode:",
-          "- Keep policy and handbook summaries tightly factual and scoped to the exact user question.",
-          "- Do not include Action Steps.",
-          "- Do not include Legal, Ethical, and Academic Implications.",
-          "- Keep the response concise and directly informational.",
-        ]
+        "Style mode is direct_answer.",
+        "For direct_answer mode:",
+        "- Start with a section titled exactly: Direct Answer:",
+        "- Answer the user's question plainly in the first paragraph before listing supporting policies and handbook guidance.",
+        "- If the supplied evidence does not establish a yes-or-no answer, say exactly what is established and what remains unanswered.",
+        "- Keep policy and handbook summaries tightly factual and scoped to the exact user question.",
+        "- Do not include Action Steps.",
+        "- Do not include Legal, Ethical, and Academic Implications.",
+        "- Keep the response concise and directly informational.",
+      ]
       : [
-          "Style mode is action_guidance.",
-          "For action_guidance mode:",
-          "- Provide a practical, implementation-ready action plan.",
-          "- Keep action steps specific to the cited policy and handbook content.",
-          "- Include a section titled exactly: Action Steps:",
-          "- Include a section titled exactly: Legal, Ethical, and Academic Implications:",
-        ];
+        "Style mode is action_guidance.",
+        "For action_guidance mode:",
+        "- Provide a practical, implementation-ready action plan.",
+        "- Start with a section titled exactly: Relevant Policies",
+        "- Keep action steps specific to the cited policy and handbook content.",
+        "- Include a section titled exactly: Action Steps:",
+        "- Include a section titled exactly: Legal, Ethical, and Academic Implications:",
+        "- Return Action Steps as one continuous numbered list.",
+        "- Do not add internal subsection headings such as Evidence-backed steps or Uncertainty.",
+        "- Put limitations inside the applicable numbered step or in a numbered step beginning with Uncertainty:",
+      ];
 
   return [
     "You are an assistant to a school district board of trustees.",
     "",
     "Response requirements for each scenario:",
     "1) Use only the provided policy context and do not invent policy details.",
-    "2) Start with a section titled exactly: Relevant Policies",
+    "2) Include a section titled exactly: Relevant Policies",
     "3) If matching policy context exists, list each relevant policy in that section in its own standalone block.",
     "4) If no matching policy context exists, write exactly: No matching district policy guidance found.",
     "4a) If Query focus is handbook and no relevant policy context exists, you may omit the no-match policy line entirely.",
@@ -233,12 +296,14 @@ function buildSystemPrompt(responseStyle: PolicyGuidanceResponseStyle): string {
     "17) Do not include action plans inside individual policy or handbook blocks.",
     "18) Never include opening greeting text in the response.",
     "19) Never present legal advice. Always present guidance only.",
-    "20) Do not reuse prior conversation content as factual evidence unless the user explicitly asks to reference it.",
+    "20) Prior conversation content may resolve what a follow-up refers to, but it is not factual policy evidence. Use only the supplied policy and handbook context as evidence.",
+    "20a) Resolve a follow-up against the immediately preceding user request. Do not attach it to an older topic when the immediately preceding request establishes the subject.",
     "21) If Query focus is handbook, prioritize handbook guidance and include only policy items that are clearly necessary.",
     "22) If Query focus is policy, prioritize policy items and include only handbook items that are clearly necessary.",
     "23) If a sub-issue in the scenario is not covered by the provided policy or handbook evidence, explicitly say the uploaded guidance does not address that sub-issue. Do not invent enforcement steps or procedural requirements for uncovered sub-issues.",
+    "23a) Do not mention hypothetical topics, operational steps, or uncertainty that are absent from the current scenario and the immediately preceding user request.",
     "24) Do not mention IDEA, Section 504, FERPA, privacy laws, state law, federal law, manifestation determination, or other legal doctrines unless those exact concepts are supported by the provided policy or handbook evidence.",
-    "25) In Action Steps, separate evidence-backed steps from uncertainty. If the uploaded materials do not clearly authorize a takedown request, social-media intervention, district-leadership notification, or legal escalation, say the uploaded guidance does not specifically address that step.",
+    "25) In Action Steps, distinguish evidence-backed guidance from uncertainty within the continuous numbered list. Discuss an unsupported operational step only when the current scenario or user request actually raises that step, and say plainly that the uploaded guidance does not specifically address it.",
     "26) Do not convert general school-administration best practices into mandatory requirements unless the provided evidence clearly states them.",
     "27) If the evidence only generally addresses discipline of students with disabilities, do not state that a manifestation determination is required unless the retrieved policy or handbook text explicitly supports that step. Instead say the uploaded guidance indicates additional disability-related procedures may apply and should be verified against the district's special education process.",
     "28) When a policy supplies a definition such as bullying, harassment, or substantial disobedience, do not say the facts definitively or likely satisfy the definition unless the retrieved evidence explicitly establishes each required element. Instead compare the facts to the policy elements and say further factual review is needed where necessary.",
@@ -339,7 +404,7 @@ function stripTrailingActionAndImplications(
   }
 
   const firstActionIndex = text.search(
-    /(?:^|\n)\s*(?:Action Steps:|Legal,\s*Ethical,\s*and\s*Academic Implications:)\s*/i,
+    /(?:^|\n)\s*(?:#{1,6}\s*)?(?:\*\*)?(?:Action Steps|Legal,\s*Ethical,\s*and\s*Academic Implications)\s*:?\s*(?:\*\*)?\s*/i,
   );
   if (firstActionIndex < 0) {
     return text;
@@ -363,20 +428,61 @@ function buildConversationHistoryContext(
     return "";
   }
 
-  const lines = recentUserMessages.map(
-    (message, index) => `${index + 1}. User: ${truncate(message.content, 380)}`,
-  );
+  const immediatePrevious = recentUserMessages[recentUserMessages.length - 1];
+  const olderPrompts = recentUserMessages.slice(0, -1);
 
   return [
-    "Prior user prompts (oldest to newest). Use only if directly relevant to the current scenario:",
-    ...lines,
+    "Conversation context for resolving references in the current question only. This is not policy evidence:",
+    `Immediately preceding user request: ${truncate(immediatePrevious.content, 600)}`,
+    ...(olderPrompts.length > 0
+      ? [
+          "Older user prompts, lower priority:",
+          ...olderPrompts.map(
+            (message, index) => `${index + 1}. ${truncate(message.content, 280)}`,
+          ),
+        ]
+      : []),
   ].join("\n");
+}
+
+export function hasRequiredDirectAnswerSection(text: string): boolean {
+  return /^\s*(?:#{1,6}\s*)?(?:\*\*)?Direct Answer\s*:?\s*(?:\*\*)?\s*(?:\n|$)/i.test(
+    text,
+  );
+}
+
+export function hasRequiredEvidenceBlocks(
+  text: string,
+  policyCount: number,
+  handbookCount: number,
+): boolean {
+  const hasPolicyBlock = /(?:^|\n)\s*(?:[-*]\s*)?Policy Section\s*:/i.test(text);
+  const hasHandbookBlock = /(?:^|\n)\s*(?:[-*]\s*)?Handbook Section\s*:/i.test(text);
+
+  return (policyCount === 0 || hasPolicyBlock) && (handbookCount === 0 || hasHandbookBlock);
+}
+
+function buildEvidenceCorrectionRequirement(policyCount: number, handbookCount: number): string {
+  const requirements: string[] = [];
+  if (policyCount > 0) {
+    requirements.push(
+      `The prompt supplies ${policyCount} policy item${policyCount === 1 ? "" : "s"}; include the relevant supplied policy evidence using the required Policy Section: blocks.`,
+    );
+  }
+  if (handbookCount > 0) {
+    requirements.push(
+      `The prompt supplies ${handbookCount} handbook item${handbookCount === 1 ? "" : "s"}; do not say that no handbook guidance was found. Include the relevant supplied handbook evidence using the required Handbook Section: blocks.`,
+    );
+  }
+  return requirements.join(" ");
 }
 
 function hasRequiredActionGuidanceSections(text: string): boolean {
   return (
-    /(?:^|\n)\s*(?:\*\*)?Action Steps\s*:?\s*(?:\*\*)?\s*(?:\n|$)/i.test(text) &&
-    /(?:^|\n)\s*(?:\*\*)?Legal,\s*Ethical,\s*and\s*Academic Implications\s*:?\s*(?:\*\*)?\s*(?:\n|$)/i.test(
+    /(?:^|\n)\s*(?:#{1,6}\s*)?(?:\*\*)?Action Steps\s*:?\s*(?:\*\*)?\s*(?:\n|$)/i.test(
+      text,
+    ) &&
+    /(?:^|\n)\s*(?:#{1,6}\s*)?(?:\*\*)?Legal,\s*Ethical,\s*and\s*Academic Implications\s*:?\s*(?:\*\*)?\s*(?:\n|$)/i.test(
       text,
     )
   );
@@ -385,12 +491,17 @@ function hasRequiredActionGuidanceSections(text: string): boolean {
 export function detectResponseStyle(scenario: string): PolicyGuidanceResponseStyle {
   const normalized = scenario.toLowerCase();
   const questionCount = scenario.match(/\?/g)?.length ?? 0;
+  const decisionMaker =
+    "(?:i|we|they|the school|the district|the administrator|the principal|the superintendent|school leadership|district leadership|the school leader|the district leader)";
   const asksForAction =
-    /\bwhat should (?:i|we|the school|the district|the administrator) do\b|\bhow should (?:i|we|the school|the district|the administrator) (?:respond|handle|proceed|address)\b|\baction plan\b|\bnext steps\b|\bappropriate next steps\b|\bcourse of action\b|\brecommend(?:ed|ation|ations)?\b|\bimplement\b|\bprotocol\b|\bmust determine\b|\bwhat disciplinary consequences\b|\bwhat communication should occur\b|\bas the (?:building )?administrator\b/.test(
+    new RegExp(
+      `\\bwhat should ${decisionMaker} do\\b|\\bhow should ${decisionMaker} (?:respond|handle|proceed|address|manage|act)\\b`,
+    ).test(normalized) ||
+    /\baction plan\b|\bnext steps?\b|\bappropriate next steps?\b|\bpractical steps?\b|\bcourse of action\b|\brecommend(?:ed)? actions?\b|\brecommendation(?:s)?\b|\bwhat actions?\b|\bimplement\b|\bprotocol\b|\bmust determine\b|\bwhat issues? does this cause\b|\bwhat disciplinary consequences\b|\bwhat communication should occur\b|\bas the (?:building )?(?:administrator|principal|superintendent)\b/.test(
       normalized,
     ) ||
     (questionCount >= 2 &&
-      /\bdisciplin|respond|procedure|compliance|communication|intervention|administrator|next step|action\b/.test(
+      /\bdisciplin|respond|procedure|compliance|communication|intervention|administrator|principal|superintendent|next step|action|address|handle\b/.test(
         normalized,
       ));
 

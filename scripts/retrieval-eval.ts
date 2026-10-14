@@ -45,6 +45,18 @@ const SCENARIOS: Array<{ id: string; title: string; scenario: string }> = [
       "A student with an IEP for emotional disability threw a chair at a teacher and we are considering suspension. He has already been suspended 8 days this year. What do our policies require before we can suspend him again?",
   },
   {
+    id: "iep-parent-pickup",
+    title: "Teacher-directed pickup of a student with an IEP",
+    scenario:
+      "A second grade teacher called a parent and asked the parent to pick up a student who was struggling. The student has an IEP, and the teacher did not inform the principal. What issues does this cause and how should the principal address it?",
+  },
+  {
+    id: "background-check-payment",
+    title: "Payment for a repeat employee background check",
+    scenario:
+      "Do I have to pay for this employee's background check? The employee has worked for the district for five years.",
+  },
+  {
     id: "records-request",
     title: "Non-custodial parent records request",
     scenario:

@@ -11,6 +11,8 @@
     "grant-admin": "tsx scripts/grant-admin.ts",
     "backfill-embeddings": "tsx scripts/backfill-embeddings.ts",
     "retrieval-eval": "tsx scripts/retrieval-eval.ts",
+    "policy-regression-check": "tsx scripts/policy-assistant-regression-check.ts",
+    "pilot-smoke-check": "tsx scripts/pilot-scenario-smoke-check.ts",
     "verify-parentsquare": "tsx scripts/verify-parentsquare-scraper.ts",
     "check": "npm run lint && npm run typecheck"
   },

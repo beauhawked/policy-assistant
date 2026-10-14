@@ -40,7 +40,7 @@ Set at least:
 
 Optional:
 
-- `POLICY_ASSISTANT_MODEL=gpt-4.1-mini`
+- `POLICY_ASSISTANT_MODEL=gpt-6-luna`
 - `POLICY_ASSISTANT_DB_SCHEMA=policyiq_live` (useful if you want the assistant tables isolated in a dedicated Postgres schema)
 - `RESEND_API_KEY=<resend-api-key>` (required in production for verification/reset emails)
 - `POLICY_ASSISTANT_FROM_EMAIL="Policy Assistant <noreply@yourdomain.com>"`

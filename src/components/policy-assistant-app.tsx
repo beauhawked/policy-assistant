@@ -15,6 +15,8 @@ import {
   useState,
 } from "react";
 
+import { parseNumberedSteps } from "@/lib/policy-assistant/presentation";
+
 interface PolicyDataset {
   id: string;
   title: string;
@@ -5367,24 +5369,6 @@ function renderRichText(text: string): ReactNode {
   });
 }
 
-function parseNumberedSteps(content: string): string[] {
-  const steps: string[] = [];
-  for (const raw of stripLeadingSectionLabel(content).split("\n")) {
-    const line = raw.trim();
-    if (!line) {
-      continue;
-    }
-    const isNewStep = /^(?:[-*•]\s+|\*\*?\d+[.)]\s*|\d+[.)]\s+)/.test(line);
-    const text = line.replace(/^(?:[-*•]\s*|\d+[.)]\s*)/, "").replace(/^\*\*(\d+[.)])\s*/, "");
-    if (isNewStep || steps.length === 0) {
-      steps.push(text);
-    } else {
-      steps[steps.length - 1] = `${steps[steps.length - 1]} ${line}`;
-    }
-  }
-  return steps;
-}
-
 function findPrecedingQuestion(
   groups: Array<{ message: ChatMessage }>,
   index: number,
@@ -5870,16 +5854,6 @@ function cleanSectionLine(line: string): string {
 
 function normalizeHeading(line: string): string {
   return line.replace(/^#{1,6}\s*/, "").replace(/\*\*/g, "").trim().toLowerCase();
-}
-
-function stripLeadingSectionLabel(content: string): string {
-  return content
-    .replace(/^\s*(?:\*\*)?\s*Action Steps\s*:?\s*(?:\*\*)?\s*\n?/i, "")
-    .replace(
-      /^\s*(?:\*\*)?\s*Legal,\s*Ethical,\s*and\s*Academic Implications\s*:?\s*(?:\*\*)?\s*\n?/i,
-      "",
-    )
-    .trim();
 }
 
 function isSubstantivePolicyBlock(blockText: string): boolean {

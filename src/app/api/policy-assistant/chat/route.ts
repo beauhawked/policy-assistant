@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthenticatedUserFromRequest, isUserEmailVerified } from "@/lib/policy-assistant/auth";
+import { buildRetrievalScenario } from "@/lib/policy-assistant/conversation-context";
 import {
   appendPolicyConversationMessage,
   createPolicyConversation,
@@ -10,8 +11,13 @@ import {
   listPolicyConversationMessages,
 } from "@/lib/policy-assistant/db";
 import { rateLimitExceededResponse, serverErrorResponse } from "@/lib/policy-assistant/http";
-import { generatePolicyGuidance } from "@/lib/policy-assistant/openai";
+import { detectResponseStyle, generatePolicyGuidance } from "@/lib/policy-assistant/openai";
 import { buildRateLimitIdentifier, checkRateLimit } from "@/lib/policy-assistant/rate-limit";
+import {
+  detectDetailedIntent,
+  filterPortableHandbookMismatches,
+  filterPortablePolicyMismatches,
+} from "@/lib/policy-assistant/scenario-intent";
 import {
   prepareRetrievalContext,
   retrieveHandbookGuidanceWithMode,
@@ -117,16 +123,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }));
     }
 
-    const scenarioFocus = detectScenarioFocus(scenario);
-    const detailedIntent = detectDetailedIntent(scenario);
+    const retrievalScenario = buildRetrievalScenario(scenario, historyForModel);
+    const scenarioFocus = detectScenarioFocus(retrievalScenario);
+    const detailedIntent = detectDetailedIntent(retrievalScenario);
+    const requestedResponseStyle = detectResponseStyle(scenario);
     const policyLimit = scenarioFocus === "handbook" ? 0 : detailedIntent.multiIssueScenario ? 8 : 4;
     const handbookLimit = scenarioFocus === "policy" ? (detailedIntent.multiIssueScenario ? 4 : 2) : detailedIntent.multiIssueScenario ? 8 : 4;
 
-    const retrievalContext = await prepareRetrievalContext(scenario);
+    const retrievalContext = await prepareRetrievalContext(retrievalScenario);
 
     const [retrieval, handbookRetrieval, postgresComparison] = await Promise.all([
       policyLimit > 0
-        ? retrievePoliciesWithMode(user.id, dataset.id, scenario, retrievalContext, {
+        ? retrievePoliciesWithMode(user.id, dataset.id, retrievalScenario, retrievalContext, {
             limit: policyLimit,
           })
         : Promise.resolve({
@@ -135,10 +143,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             mode: retrievalContext.mode,
             semanticCandidates: [],
           }),
-      retrieveHandbookGuidanceWithMode(user.id, scenario, retrievalContext, {
+      retrieveHandbookGuidanceWithMode(user.id, retrievalScenario, retrievalContext, {
         limit: handbookLimit,
       }),
-      retrievePostgresCandidateComparison(user.id, dataset.id, scenario, {
+      retrievePostgresCandidateComparison(user.id, dataset.id, retrievalScenario, {
         policyLimit: 8,
         handbookLimit: 8,
       }),
@@ -149,20 +157,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Semantic/hybrid retrieval already enforces precision portably (score
     // floors, rank fusion, per-sub-issue guarantees), so the tuned filters
     // only apply when retrieval actually ran in lexical mode.
+    const contextAlignedPolicyMatches = filterPortablePolicyMismatches(
+      retrieval.policies,
+      retrievalScenario,
+      detailedIntent,
+    );
+    const contextAlignedHandbookMatches = filterPortableHandbookMismatches(
+      handbookRetrieval.guidance,
+      retrievalScenario,
+      detailedIntent,
+    );
     const refinedPolicyMatches =
       retrievalContext.mode === "lexical"
-        ? refinePolicyMatchesForScenario(retrieval.policies, scenario, scenarioFocus, detailedIntent)
-        : retrieval.policies;
-    const refinedHandbookMatches =
-      retrievalContext.mode === "lexical"
-        ? refineHandbookMatchesForScenario(
-            handbookRetrieval.guidance,
-            scenario,
+        ? refinePolicyMatchesForScenario(
+            contextAlignedPolicyMatches,
+            retrievalScenario,
             scenarioFocus,
             detailedIntent,
           )
-        : handbookRetrieval.guidance;
-    const requestedHandbookTypes = detectExplicitRequestedHandbookTypes(scenario);
+        : contextAlignedPolicyMatches;
+    const refinedHandbookMatches =
+      retrievalContext.mode === "lexical"
+        ? refineHandbookMatchesForScenario(
+            contextAlignedHandbookMatches,
+            retrievalScenario,
+            scenarioFocus,
+            detailedIntent,
+          )
+        : contextAlignedHandbookMatches;
+    const requestedHandbookTypes = detectExplicitRequestedHandbookTypes(retrievalScenario);
     const selectedPolicyIds = new Set(refinedPolicyMatches.map((policy) => policy.id));
     const selectedHandbookIds = new Set(refinedHandbookMatches.map((chunk) => chunk.id));
 
@@ -192,7 +215,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       districtName: dataset.districtName,
       scenario,
       focus: scenarioFocus,
-      responseStyle: detailedIntent.multiIssueScenario ? "action_guidance" : undefined,
+      responseStyle:
+        detailedIntent.multiIssueScenario || requestedResponseStyle === "action_guidance"
+          ? "action_guidance"
+          : "direct_answer",
       policies: refinedPolicyMatches,
       handbookGuidance: refinedHandbookMatches,
       conversationHistory: historyForModel,
@@ -736,71 +762,6 @@ function refineHandbookMatchesForScenario(
   return prioritized;
 }
 
-function detectDetailedIntent(scenario: string): {
-  dress: boolean;
-  attendance: boolean;
-  leave: boolean;
-  records: boolean;
-  bullying: boolean;
-  specialEducation: boolean;
-  devicePrivacy: boolean;
-  safety: boolean;
-  studentRequested: boolean;
-  disciplineRequested: boolean;
-  multiIssueScenario: boolean;
-  staffRequested: boolean;
-} {
-  const normalized = scenario.toLowerCase();
-  const bullying = /\bbully|bullying|harass|harassment|taunt|ridicule|mocking|intimidat\w*\b/i.test(normalized);
-  const specialEducation =
-    /\biep|bip|manifestation|disability|special education|504|behavior intervention plan\b/i.test(
-      normalized,
-    );
-  const devicePrivacy =
-    /\belectronic device|phone|phones|video|videos|recorded|recording|social media|privacy|confidential\b/i.test(
-      normalized,
-    );
-  const safety = /\bsafe school|safe environment|school safety|student supervision|welfare\b/i.test(normalized);
-  const studentRequested = /\bstudent|students|pupil|pupils\b/i.test(normalized);
-  const disciplineRequested =
-    /\bdiscipline|suspend|suspension|expel|expulsion|consequence|consequences|fight|fighting|altercation\b/i.test(
-      normalized,
-    );
-  const focusedIntentCount = [
-    bullying,
-    specialEducation,
-    devicePrivacy,
-    safety,
-    disciplineRequested,
-  ].filter(Boolean).length;
-
-  return {
-    dress: /\bdress\b|\bdress code\b|\buniform\b|\battire\b|\bgroom(?:ing)?\b|\bappearance\b/i.test(
-      normalized,
-    ),
-    attendance: /\battendance\b|\babsence\b|\babsent\b|\btruancy\b|\btardy\b|\bexcused\b/i.test(
-      normalized,
-    ),
-    leave:
-      /\bleave\b|\bvacation\b|\bsick\b|\bpersonal leave\b|\bmedical\b|\bbereavement\b|\bsubpoena\b|\bjury duty\b/i.test(
-        normalized,
-      ),
-    records: /\brecord\b|\brecords\b|\bretention\b|\bferpa\b|\bprivacy\b|\bconfidential\b/i.test(
-      normalized,
-    ),
-    bullying,
-    specialEducation,
-    devicePrivacy,
-    safety,
-    studentRequested,
-    disciplineRequested,
-    multiIssueScenario: focusedIntentCount >= 2,
-    staffRequested: /\bstaff\b|\badministration\b|\badministrator\b|\bprofessional staff\b|\bsupport staff\b/i.test(
-      normalized,
-    ),
-  };
-}
-
 function hasDressSignal(content: string): boolean {
   if (
     /\bdress(?:\s+code)?\b/.test(content) ||
@@ -997,7 +958,7 @@ function prioritizeComplexPolicyMatches(
     (policy: RetrievalResult) =>
       /\b(suspension and expulsion of students|student discipline)\b/i.test(policy.policyTitle),
     (policy: RetrievalResult) =>
-      /\b(students with disabilities|child find and special education|recording of iep team meetings|section 504)\b/i.test(
+      /\b(programs? for students with disabilities|discipline of students with disabilities|student discipline[^\n]*disabilit|suspension[^\n]*disabilit|child find and special education|section 504)\b/i.test(
         policy.policyTitle,
       ),
     (policy: RetrievalResult) =>

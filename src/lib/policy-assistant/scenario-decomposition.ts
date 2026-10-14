@@ -57,6 +57,11 @@ export async function getScenarioSubQueries(scenario: string): Promise<string[]>
     return explicit;
   }
 
+  const deterministic = getDeterministicScenarioSubQueries(scenario);
+  if (deterministic.length >= 2) {
+    return deterministic;
+  }
+
   if (scenario.length < MODEL_TIER_MIN_SCENARIO_LENGTH) {
     return [];
   }
@@ -69,12 +74,53 @@ export async function getScenarioSubQueries(scenario: string): Promise<string[]>
   }
 }
 
+/**
+ * Expand high-risk, short scenarios that would otherwise be too short for the
+ * model decomposition tier. These queries describe possible policy domains,
+ * not legal conclusions.
+ */
+export function getDeterministicScenarioSubQueries(scenario: string): string[] {
+  const normalized = scenario.toLowerCase().replace(/\s+/g, " ").trim();
+  const staffDirectedPickup =
+    /\b(?:teacher|staff member|employee)\b[^.]{0,220}\b(?:parent|guardian)\b[^.]{0,180}\b(?:pick(?:ed)? up|come get|take home|send(?:ing|s|t)? home)\b/.test(
+      normalized,
+    ) ||
+    /\b(?:pick(?:ed)? up|come get|take home|send(?:ing|s|t)? home)\b[^.]{0,180}\b(?:student|child)\b/.test(
+      normalized,
+    );
+  const schoolAuthorityConcern =
+    /\b(?:without|did not|didn't|no)\b[^.]{0,100}\b(?:principal|administrator|administrative|approval|authorization|inform|notification)\b/.test(
+      normalized,
+    ) || /\b(?:teacher|staff)\b[^.]{0,120}\bauthority\b/.test(normalized);
+  const disabilityConcern =
+    /\b(?:iep|504|special education|student with (?:a )?disability|behavior intervention plan|bip)\b/.test(
+      normalized,
+    );
+
+  if (!staffDirectedPickup || (!schoolAuthorityConcern && !disabilityConcern)) {
+    return [];
+  }
+
+  const queries = [
+    "staff authority and administrative approval to dismiss a student",
+    "student removal from instruction suspension discipline and due process",
+    "parent notification and documentation for early student dismissal",
+  ];
+
+  if (disabilityConcern) {
+    queries.push("discipline and removal procedures for a student with an IEP or disability");
+  }
+
+  return dedupeQueries(queries).slice(0, MAX_SUB_QUERIES);
+}
+
 async function decomposeWithModel(scenario: string): Promise<string[]> {
   const client = getDecompositionClient();
-  const model = process.env.POLICY_ASSISTANT_MODEL?.trim() || "gpt-4.1-mini";
+  const model = process.env.POLICY_ASSISTANT_MODEL?.trim() || "gpt-6-luna";
 
   const response = await client.responses.create({
     model,
+    reasoning: { effort: "none" },
     temperature: 0,
     input: [
       {
@@ -90,6 +136,7 @@ async function decomposeWithModel(scenario: string): Promise<string[]> {
               "- 2 to 6 sub-issues.",
               "- Each 5 to 20 words, phrased as a focused policy question or topic.",
               "- Cover every distinct issue in the scenario (discipline, special education procedure, bullying, technology or privacy, communication, safety, records, and so on) but do not invent issues that are not present.",
+              "- When school staff ask a parent to pick up a student for behavioral or performance concerns, consider separate searches for removal from instruction, suspension or discipline, disability procedures, staff authority or administrative approval, parent notification, and documentation when those issues appear in the scenario.",
               '- If the scenario contains only one issue, return a JSON array with that single issue.',
             ].join("\n"),
           },
