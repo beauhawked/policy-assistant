@@ -1,5 +1,9 @@
 import OpenAI from "openai";
 
+import {
+  isAdditionalActionFollowUp,
+  shouldGroundInPreviousUserPrompt,
+} from "@/lib/policy-assistant/conversation-context";
 import { insertModelCallLog } from "@/lib/policy-assistant/db";
 import type { HandbookRetrievalResult, RetrievalResult } from "@/lib/policy-assistant/types";
 
@@ -27,7 +31,10 @@ let openaiClient: OpenAI | null = null;
 
 export async function generatePolicyGuidance(input: GeneratePolicyGuidanceInput): Promise<string> {
   const client = getOpenAiClient();
-  const historyContext = buildConversationHistoryContext(input.conversationHistory ?? []);
+  const historyContext = buildConversationHistoryContext(
+    input.conversationHistory ?? [],
+    input.scenario,
+  );
   const handbookGuidance = input.handbookGuidance ?? [];
   const responseStyle = input.responseStyle ?? detectResponseStyle(input.scenario);
   const model = process.env.POLICY_ASSISTANT_MODEL?.trim() || "gpt-6-luna";
@@ -307,9 +314,10 @@ export function buildSystemPrompt(responseStyle: PolicyGuidanceResponseStyle): s
     "26) Do not convert general school-administration best practices into mandatory requirements unless the provided evidence clearly states them.",
     "27) If the evidence only generally addresses discipline of students with disabilities, do not state that a manifestation determination is required unless the retrieved policy or handbook text explicitly supports that step. Instead say the uploaded guidance indicates additional disability-related procedures may apply and should be verified against the district's special education process.",
     "28) When a policy supplies a definition such as bullying, harassment, or substantial disobedience, do not say the facts definitively or likely satisfy the definition unless the retrieved evidence explicitly establishes each required element. Instead compare the facts to the policy elements and say further factual review is needed where necessary.",
-    "29) Do not tell the user to notify district leadership, legal counsel, law enforcement, or outside agencies unless the retrieved policy or handbook evidence explicitly supports that escalation. If the uploaded guidance is silent, say so plainly.",
-    "30) Do not name specific special education procedural steps, actors, meetings, or reviews unless the retrieved policy or handbook evidence explicitly supports them. If the evidence is general, say only that additional disability-related procedures may apply and should be verified through the district's special education process.",
-    "31) Do not include any action step that starts with or implies 'notify district leadership', 'consult legal counsel', 'report to law enforcement', 'contact outside agencies', or similar escalation language unless the retrieved evidence explicitly supports that action.",
+    "29) When the current question asks for additional, further, more, or other recommended steps, do not repeat the prior action plan. Provide only genuinely additional policy-grounded steps. If the supplied evidence supports no additional steps, say that plainly before explaining any remaining uncertainty.",
+    "30) Do not tell the user to notify district leadership, legal counsel, law enforcement, or outside agencies unless the retrieved policy or handbook evidence explicitly supports that escalation. If the uploaded guidance is silent, say so plainly.",
+    "31) Do not name specific special education procedural steps, actors, meetings, or reviews unless the retrieved policy or handbook evidence explicitly supports them. If the evidence is general, say only that additional disability-related procedures may apply and should be verified through the district's special education process.",
+    "32) Do not include any action step that starts with or implies 'notify district leadership', 'consult legal counsel', 'report to law enforcement', 'contact outside agencies', or similar escalation language unless the retrieved evidence explicitly supports that action.",
     ...styleDirective,
   ].join("\n");
 }
@@ -420,8 +428,9 @@ function truncate(value: string, maxLength: number): string {
   return `${value.slice(0, maxLength - 3)}...`;
 }
 
-function buildConversationHistoryContext(
+export function buildConversationHistoryContext(
   messages: Array<{ role: "user" | "assistant"; content: string }>,
+  currentScenario = "",
 ): string {
   const recentUserMessages = messages.filter((message) => message.role === "user").slice(-4);
   if (recentUserMessages.length === 0) {
@@ -430,10 +439,22 @@ function buildConversationHistoryContext(
 
   const immediatePrevious = recentUserMessages[recentUserMessages.length - 1];
   const olderPrompts = recentUserMessages.slice(0, -1);
+  const priorAssistantAnswer = shouldGroundInPreviousUserPrompt(currentScenario)
+    ? [...messages]
+        .reverse()
+        .find((message) => message.role === "assistant" && message.content.trim())
+        ?.content.trim()
+    : "";
 
   return [
     "Conversation context for resolving references in the current question only. This is not policy evidence:",
     `Immediately preceding user request: ${truncate(immediatePrevious.content, 600)}`,
+    ...(priorAssistantAnswer
+      ? [
+          "Immediately preceding assistant response for continuity only. Do not treat it as policy evidence, and use it only to avoid unnecessary repetition:",
+          truncate(priorAssistantAnswer, 1800),
+        ]
+      : []),
     ...(olderPrompts.length > 0
       ? [
           "Older user prompts, lower priority:",
@@ -494,6 +515,7 @@ export function detectResponseStyle(scenario: string): PolicyGuidanceResponseSty
   const decisionMaker =
     "(?:i|we|they|the school|the district|the administrator|the principal|the superintendent|school leadership|district leadership|the school leader|the district leader)";
   const asksForAction =
+    isAdditionalActionFollowUp(normalized) ||
     new RegExp(
       `\\bwhat should ${decisionMaker} do\\b|\\bhow should ${decisionMaker} (?:respond|handle|proceed|address|manage|act)\\b`,
     ).test(normalized) ||

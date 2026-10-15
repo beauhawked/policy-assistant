@@ -15,7 +15,11 @@ import {
   useState,
 } from "react";
 
-import { parseNumberedSteps } from "@/lib/policy-assistant/presentation";
+import { isAdditionalActionFollowUp } from "@/lib/policy-assistant/conversation-context";
+import {
+  parseNumberedSteps,
+  stripMarkdownHeadingPrefix,
+} from "@/lib/policy-assistant/presentation";
 
 interface PolicyDataset {
   id: string;
@@ -247,6 +251,7 @@ interface RetrievalDebugData {
 
 type AssistantSectionKind =
   | "general"
+  | "direct_answer"
   | "policy"
   | "handbook"
   | "action"
@@ -3667,6 +3672,9 @@ export function PolicyAssistantApp() {
                   .filter((item) => item.kind === "general")
                   .map((item) => item.content)
                   .join("\n\n");
+                const directAnswerItems = items.filter(
+                  (item) => item.kind === "direct_answer",
+                );
                 // The guidance model returns most of its answer inside structured
                 // policy/handbook blocks. Their summaries ARE the guidance, so they
                 // must render as readable prose — not be consumed into chips alone.
@@ -3695,11 +3703,23 @@ export function PolicyAssistantApp() {
                     pinnedAnswers.some((pin) => pin.messageId === message.storedId),
                 );
                 const pinSummary =
-                  prose || sourceSummaries.map((entry) => entry.summary).join(" ");
+                  directAnswerItems.map((item) => item.content).join(" ") ||
+                  prose ||
+                  sourceSummaries.map((entry) => entry.summary).join(" ");
                 const capturedAt = message.answerEvidence?.capturedAt;
+                const isAdditionalActionRequest = isAdditionalActionFollowUp(question);
 
                 return (
                   <article className="piq-answer" key={message.id}>
+                    {directAnswerItems.map((item) => (
+                      <div className="piq-prose" key={item.id}>
+                        <span className="piq-microlabel">Direct answer</span>
+                        {item.content.split(/\n{2,}/).map((paragraph, index) => (
+                          <p key={`${item.id}-p-${index}`}>{renderRichText(paragraph)}</p>
+                        ))}
+                      </div>
+                    ))}
+
                     {prose ? (
                       <div className="piq-prose">
                         {prose.split(/\n{2,}/).map((paragraph, index) => (
@@ -3738,7 +3758,11 @@ export function PolicyAssistantApp() {
                       const steps = parseNumberedSteps(item.content);
                       return (
                         <div className="piq-recommended" key={item.id}>
-                          <span className="piq-microlabel">Recommended actions</span>
+                          <span className="piq-microlabel">
+                            {isAdditionalActionRequest
+                              ? "Additional recommended steps"
+                              : "Recommended actions"}
+                          </span>
                           {steps.map((step, index) => (
                             <p key={`${item.id}-step-${index}`}>
                               <b>{index + 1}.</b> {renderRichText(step)}
@@ -5360,7 +5384,7 @@ interface LibrarySource {
 }
 
 function renderRichText(text: string): ReactNode {
-  const segments = text.split(/(\*\*[^*]+\*\*)/g);
+  const segments = stripMarkdownHeadingPrefix(text).split(/(\*\*[^*]+\*\*)/g);
   return segments.map((segment, index) => {
     if (segment.startsWith("**") && segment.endsWith("**") && segment.length > 4) {
       return <strong key={index}>{segment.slice(2, -2)}</strong>;
@@ -5610,6 +5634,8 @@ function expandChatMessage(message: ChatMessage, selectedDatasetId: string): Ren
       label = referenceCard?.label ?? "Policy";
     } else if (section.kind === "handbook") {
       label = referenceCard?.label ?? formatHandbookBubbleLabel(section.content);
+    } else if (section.kind === "direct_answer") {
+      label = "Direct Answer";
     } else if (section.kind === "action") {
       label = "Action Plan";
     } else if (section.kind === "implications") {
@@ -5646,11 +5672,18 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
   const policyBlocks: string[][] = [];
   const handbookBlocks: string[][] = [];
   const preface: string[] = [];
+  const directAnswerLines: string[] = [];
   const actionLines: string[] = [];
   const implicationsLines: string[] = [];
   let currentPolicy: string[] = [];
   let currentHandbook: string[] = [];
-  let mode: "preface" | "policy" | "handbook" | "action" | "implications" = "preface";
+  let mode:
+    | "preface"
+    | "direct_answer"
+    | "policy"
+    | "handbook"
+    | "action"
+    | "implications" = "preface";
 
   for (const rawLine of bodyText.split("\n")) {
     const line = rawLine.replace(/\s+$/g, "");
@@ -5667,11 +5700,21 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
         implicationsLines.push("");
       } else if (mode === "preface" && preface.length > 0) {
         preface.push("");
+      } else if (mode === "direct_answer" && directAnswerLines.length > 0) {
+        directAnswerLines.push("");
       }
       continue;
     }
 
+    if (isDirectAnswerHeading(trimmed)) {
+      mode = "direct_answer";
+      continue;
+    }
+
     if (isRelevantPoliciesHeading(trimmed)) {
+      if (mode === "direct_answer") {
+        mode = "preface";
+      }
       continue;
     }
 
@@ -5758,6 +5801,11 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
       continue;
     }
 
+    if (mode === "direct_answer") {
+      directAnswerLines.push(line);
+      continue;
+    }
+
     preface.push(line);
   }
 
@@ -5770,6 +5818,10 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
   }
 
   const sections: AssistantMessageSection[] = [];
+  const directAnswerText = directAnswerLines.join("\n").trim();
+  if (directAnswerText) {
+    sections.push({ kind: "direct_answer", content: directAnswerText });
+  }
   const prefaceText = preface.join("\n").trim();
   if (prefaceText) {
     sections.push({ kind: "general", content: prefaceText });
@@ -5813,6 +5865,11 @@ function splitAssistantMessageIntoSections(content: string): AssistantMessageSec
 function isRelevantPoliciesHeading(line: string): boolean {
   const normalized = normalizeHeading(line);
   return normalized === "relevant policies" || normalized === "relevant policies:";
+}
+
+function isDirectAnswerHeading(line: string): boolean {
+  const normalized = normalizeHeading(line);
+  return normalized === "direct answer" || normalized === "direct answer:";
 }
 
 function isRelevantHandbookHeading(line: string): boolean {

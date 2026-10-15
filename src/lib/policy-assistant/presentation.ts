@@ -37,6 +37,10 @@ export function parseNumberedSteps(content: string): string[] {
   return steps;
 }
 
+export function stripMarkdownHeadingPrefix(text: string): string {
+  return text.replace(/^\s*#{1,6}\s+/, "");
+}
+
 function normalizeSubsectionHeading(line: string): "evidence" | "uncertainty" | null {
   const normalized = line
     .replace(/^#{1,6}\s*/, "")

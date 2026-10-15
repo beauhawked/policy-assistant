@@ -2,15 +2,20 @@ import assert from "node:assert/strict";
 
 import {
   buildRetrievalScenario,
+  isAdditionalActionFollowUp,
   shouldGroundInPreviousUserPrompt,
 } from "../src/lib/policy-assistant/conversation-context";
 import {
+  buildConversationHistoryContext,
   buildSystemPrompt,
   detectResponseStyle,
   hasRequiredDirectAnswerSection,
   hasRequiredEvidenceBlocks,
 } from "../src/lib/policy-assistant/openai";
-import { parseNumberedSteps } from "../src/lib/policy-assistant/presentation";
+import {
+  parseNumberedSteps,
+  stripMarkdownHeadingPrefix,
+} from "../src/lib/policy-assistant/presentation";
 import { getDeterministicScenarioSubQueries } from "../src/lib/policy-assistant/scenario-decomposition";
 
 const scotScenario =
@@ -19,15 +24,19 @@ const scotFollowUp = "You didn't give practical steps or discuss the removal of 
 const backgroundCheck =
   "Do I have to pay for this employee's background check? They've been employed here for 5 years?";
 const genericFollowUp = "What are your recommend actions?";
+const additionalStepsFollowUp = "Are there any additional steps you would recommend?";
 
 assert.equal(detectResponseStyle(scotScenario), "action_guidance");
 assert.equal(detectResponseStyle(scotFollowUp), "action_guidance");
 assert.equal(detectResponseStyle(genericFollowUp), "action_guidance");
+assert.equal(detectResponseStyle(additionalStepsFollowUp), "action_guidance");
 assert.equal(detectResponseStyle(backgroundCheck), "direct_answer");
 
 assert.equal(shouldGroundInPreviousUserPrompt(genericFollowUp), true);
 assert.equal(shouldGroundInPreviousUserPrompt(scotFollowUp), true);
+assert.equal(shouldGroundInPreviousUserPrompt(additionalStepsFollowUp), true);
 assert.equal(shouldGroundInPreviousUserPrompt(backgroundCheck), false);
+assert.equal(isAdditionalActionFollowUp(additionalStepsFollowUp), true);
 
 const groundedBackgroundFollowUp = buildRetrievalScenario(genericFollowUp, [
   { role: "user", content: backgroundCheck },
@@ -35,6 +44,23 @@ const groundedBackgroundFollowUp = buildRetrievalScenario(genericFollowUp, [
 ]);
 assert.match(groundedBackgroundFollowUp, /background check/i);
 assert.match(groundedBackgroundFollowUp, /current follow-up/i);
+
+const groundedAdditionalSteps = buildRetrievalScenario(additionalStepsFollowUp, [
+  { role: "user", content: scotScenario },
+  { role: "assistant", content: "1. Review the incident. 2. Apply due process." },
+]);
+assert.match(groundedAdditionalSteps, /second grade teacher/i);
+assert.match(groundedAdditionalSteps, /additional steps/i);
+
+const additionalStepsHistory = buildConversationHistoryContext(
+  [
+    { role: "user", content: scotScenario },
+    { role: "assistant", content: "1. Review the incident. 2. Apply due process." },
+  ],
+  additionalStepsFollowUp,
+);
+assert.match(additionalStepsHistory, /assistant response for continuity only/i);
+assert.match(additionalStepsHistory, /avoid unnecessary repetition/i);
 
 const directPrompt = buildSystemPrompt("direct_answer");
 assert.match(directPrompt, /Start with a section titled exactly: Direct Answer:/);
@@ -60,7 +86,10 @@ assert.equal(
 const actionPrompt = buildSystemPrompt("action_guidance");
 assert.match(actionPrompt, /one continuous numbered list/i);
 assert.match(actionPrompt, /Do not add internal subsection headings/i);
+assert.match(actionPrompt, /only genuinely additional policy-grounded steps/i);
 assert.doesNotMatch(actionPrompt, /takedown request|social-media intervention/i);
+
+assert.equal(stripMarkdownHeadingPrefix("## Direct Answer:"), "Direct Answer:");
 
 const removalQueries = getDeterministicScenarioSubQueries(scotScenario);
 assert.ok(removalQueries.length >= 3);

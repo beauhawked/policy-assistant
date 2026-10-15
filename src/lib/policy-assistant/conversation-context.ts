@@ -49,6 +49,8 @@ export function shouldGroundInPreviousUserPrompt(scenario: string): boolean {
       normalized,
     );
 
+  const additionalActionFollowUp = isAdditionalActionFollowUp(normalized);
+
   const shortAnaphoricFollowUp =
     wordCount <= 14 &&
     /\b(?:this|that|it|they|them|those|these|same|former|latter)\b/i.test(normalized) &&
@@ -56,7 +58,25 @@ export function shouldGroundInPreviousUserPrompt(scenario: string): boolean {
       normalized,
     );
 
-  return genericActionFollowUp || correctionOrExpansion || shortAnaphoricFollowUp;
+  return (
+    genericActionFollowUp ||
+    additionalActionFollowUp ||
+    correctionOrExpansion ||
+    shortAnaphoricFollowUp
+  );
+}
+
+export function isAdditionalActionFollowUp(scenario: string): boolean {
+  const normalized = scenario.toLowerCase().replace(/\s+/g, " ").trim();
+
+  return (
+    /\b(?:additional|other|more|further)\s+(?:(?:recommended|suggested)\s+)?(?:actions?|steps?|next steps?)\b/i.test(
+      normalized,
+    ) ||
+    /\b(?:actions?|steps?)\b[^?.!]{0,80}\b(?:recommend|suggest)(?:ed|s|ing|ation|ations)?\b/i.test(
+      normalized,
+    )
+  );
 }
 
 function truncateContext(value: string, maxLength: number): string {
